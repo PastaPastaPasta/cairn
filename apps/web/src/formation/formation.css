@@ -398,7 +398,7 @@
   text-align: right;
 }
 .table-wrap tr.mine td {
-  background: var(--ochre-wash);
+  background: var(--mine-wash);
 }
 .table-wrap tr.mine td:first-child {
   box-shadow: inset 3px 0 0 var(--ochre);
@@ -1112,4 +1112,13 @@
 }
 .check-aside h2:not(:first-child) {
   margin-top: var(--s-5);
+}
+
+/* ---- live page reading column: below the status, everything reads in one 45rem column with body-size text -------------------- */
+.live-page .form-section {
+  max-width: 45rem;
+}
+.live-page .form-section .small,
+.live-page .form-section p {
+  font-size: 0.9375rem;
 }

@@ -201,7 +201,7 @@ function NewGroupForm({ identityId }: { identityId: string }) {
           Opening a group for a match: your {dash(prefill.myAmount)} plus {prefill.invites.length} {prefill.invites.length === 1 ? 'person' : 'people'} you will invite. {prefill.note}
         </p>
       )}
-      <form className="form new-group" onSubmit={submit} aria-busy={busy} data-testid="new-group-form">
+      <form className="form form-card new-group" onSubmit={submit} aria-busy={busy} data-testid="new-group-form">
         <fieldset disabled={busy}>
           <legend className="visually-hidden">The group</legend>
           <fieldset className="kind-pick">

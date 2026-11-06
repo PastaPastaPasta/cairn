@@ -177,9 +177,22 @@ button {
   border: 0;
   margin: 0;
   padding: 0;
+  background: none;
   display: grid;
   gap: var(--s-4);
   min-width: 0;
+}
+/* a page-level form sits on one card, the same surface and padding as .side-card */
+.form-card > fieldset {
+  padding: var(--s-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+}
+.form input:not([type='checkbox']):not([type='radio']),
+.form select,
+.form textarea {
+  background: var(--field);
 }
 .form legend {
   font-family: var(--font-display);
@@ -198,7 +211,7 @@ select {
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-s);
-  background: var(--surface);
+  background: var(--field);
   font-weight: 400;
 }
 textarea {
@@ -970,7 +983,11 @@ a.row-title {
   border-radius: var(--radius-l);
   background: var(--surface);
   border: 1px dashed var(--line-strong);
-  max-width: 44rem;
+}
+/* full width, so it lines up with the filters or list above it; the words keep a readable measure */
+.empty-state p,
+.soon p {
+  max-width: 62ch;
 }
 .empty-state p:last-child,
 .soon p:last-child {
@@ -1252,4 +1269,29 @@ details[open] summary {
 }
 .net-choice-name {
   font-weight: 600;
+}
+
+/* ---- 404 ------------------------------------------------------------------------------------- */
+.fallen-cairn {
+  display: block;
+  margin: var(--s-4) 0 var(--s-5);
+}
+.fallen-cairn .ground {
+  stroke: var(--line-strong);
+  stroke-width: 0.8;
+  stroke-linecap: round;
+}
+.fallen-cairn .mark-base {
+  fill: var(--ink);
+}
+.fallen-cairn .mark-mid {
+  fill: var(--lichen);
+}
+.fallen-cairn .mark-top {
+  fill: var(--ochre);
+}
+.not-found-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
 }
