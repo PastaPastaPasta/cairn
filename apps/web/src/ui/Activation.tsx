@@ -22,7 +22,8 @@ export function activationWords(a: Activation): { title: string; detail: string;
 
 const STEPS = ['Signalling opens', 'Miners signal', 'Locked in', 'Active'];
 
-export function ActivationCard({ initial }: { initial?: Activation }) {
+/** Radar's answer: undefined while reading, null when it did not answer. */
+function useActivation(initial?: Activation): Activation | null | undefined {
   const [a, setA] = useState<Activation | null | undefined>(initial);
   useEffect(() => {
     if (initial) return;
@@ -34,6 +35,23 @@ export function ActivationCard({ initial }: { initial?: Activation }) {
       ac.abort();
     };
   }, [initial]);
+  return a;
+}
+
+/** Testnet's Home: mainnet in one line, since everything already works on testnet. The full card is for the Mainnet profile. */
+export function ActivationLine({ initial }: { initial?: Activation }) {
+  const a = useActivation(initial);
+  const when = a?.earliest && !a.active ? ` (around ${day(a.earliest.time)})` : '';
+  return (
+    <p className="activation-line small muted" data-testid="activation-line">
+      {a?.active ? 'Shared masternodes are live on mainnet too.' : `Mainnet opens after Dash Core v24 activates there${when}.`} Everything already works here on Testnet.{' '}
+      <a href={ACTIVATION_PAGE}>Status on Radar</a>
+    </p>
+  );
+}
+
+export function ActivationCard({ initial }: { initial?: Activation }) {
+  const a = useActivation(initial);
   const w = a ? activationWords(a) : null;
   return (
     <section className="activation" aria-labelledby="activation-title" data-testid="activation-card" aria-busy={a === undefined}>

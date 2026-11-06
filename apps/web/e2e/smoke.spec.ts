@@ -54,17 +54,25 @@ test('fonts come from this origin only', async ({ page }) => {
   expect(await page.evaluate(() => document.fonts.check('700 40px "Bricolage Grotesque Variable"'))).toBe(true);
 });
 
-test('home shows the sample cairn in words and the activation card', async ({ page }) => {
+const onMainnet = (page: import('@playwright/test').Page) => page.addInitScript(() => localStorage.setItem('cairn.profile.v1', 'mainnet'));
+
+test('home shows the sample cairn in words and mainnet in one line on testnet', async ({ page }) => {
   await stubActivation(page);
   await page.goto('/');
   await expect(page.locator('.hero figcaption')).toHaveText('650 of 1000 DASH from 3 co-owners. 350 DASH still open. One person has asked for a seat.');
   await expect(page.locator('.hero .cairn-legend li')).toHaveCount(4);
-  await expect(page.getByTestId('activation-card')).toContainText('Waiting for mainnet signalling');
+  await expect(page.getByTestId('activation-line')).toContainText('Mainnet opens after Dash Core v24 activates there (around');
+  await expect(page.getByTestId('activation-card')).toHaveCount(0);
 });
 
-test('the activation card degrades when Radar does not answer', async ({ page }) => {
-  await stubActivation(page, null);
+test('the mainnet home shows the activation card, and it degrades when Radar does not answer', async ({ page }) => {
+  await onMainnet(page);
+  await stubActivation(page);
   await page.goto('/');
+  await expect(page.getByTestId('activation-card')).toContainText('Waiting for mainnet signalling');
+  await page.unroute('https://nodes.dashhq.org/api/v1/mainnet/activation');
+  await stubActivation(page, null);
+  await page.reload();
   await expect(page.getByTestId('activation-card')).toContainText('Mainnet status unavailable right now');
 });
 

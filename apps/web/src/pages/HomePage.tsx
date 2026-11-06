@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
+import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
-import { ActivationCard } from '../ui/Activation.tsx';
+import { ActivationCard, ActivationLine } from '../ui/Activation.tsx';
 import { CairnStack, type Stone } from '../ui/CairnStack.tsx';
 import { OpenGroupsPreview } from './ListPages.tsx';
+import { NextStepBand } from './me/MyGroups.tsx';
 
 /** The hero's sample group (shown as a sample, never as a real listing). */
 export const SAMPLE_STONES: Stone[] = [
@@ -33,8 +35,10 @@ const STEPS = [
 
 export function HomePage() {
   const { registry } = useApp();
+  const { session } = useAccount();
   return (
     <div className="page home">
+      {session && registry.contractId && <NextStepBand me={session.identityId} />}
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero-text">
           <h1 id="hero-title">Build a masternode together.</h1>
@@ -106,6 +110,11 @@ export function HomePage() {
         </div>
       </section>
 
+      <p className="good-to-know" data-testid="good-to-know">
+        <b>Good to know:</b> if any co-owner leaves, the masternode stops for everyone and every share goes back to its owner. Early-exit terms are how a group
+        protects itself against that. <Link to="/learn#leaving">How leaving works</Link>
+      </p>
+
       <section className="home-groups" aria-labelledby="open-groups-title">
         <div className="section-head">
           <h2 id="open-groups-title">Open groups on {registry.label}</h2>
@@ -114,7 +123,7 @@ export function HomePage() {
         <OpenGroupsPreview />
       </section>
 
-      <ActivationCard />
+      {registry.network === 'mainnet' ? <ActivationCard /> : <ActivationLine />}
     </div>
   );
 }

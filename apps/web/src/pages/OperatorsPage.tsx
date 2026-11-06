@@ -38,7 +38,7 @@ export function OperatorsPage() {
     <div className="page">
       <PageHead
         title="Operators"
-        lede="People who run masternodes for a group. An operator supplies the server and its key, takes a share of rewards that the group agrees up front, and never touches anyone’s principal."
+        lede="People who run masternodes for a group. An operator supplies the server and its key, takes a share of rewards that the group agrees up front, and never touches anyone’s coins."
       >
         <p className="head-actions">
           <Link className="btn" to="/me#operator">
@@ -139,7 +139,7 @@ function OperatorRows({ items }: { items: Operator[] }) {
           </div>
           <div className="row-side">
             <span className={`state state-${o.status === OPERATOR_STATUS.open ? 'ok' : 'muted'}`}>{OPERATOR_STATUS_WORDS[o.status] ?? 'Listed'}</span>
-            {o.claimedProTx.length > 0 && <span className="small muted">{o.claimedProTx.length} masternodes claimed</span>}
+            {o.claimedProTx.length > 0 && <span className="small muted">{o.claimedProTx.length} {o.claimedProTx.length === 1 ? 'masternode' : 'masternodes'} claimed</span>}
           </div>
         </li>
       ))}
@@ -189,7 +189,12 @@ export function OperatorPage() {
             <>
               <PageHead title={operatorName(op)} lede={op.hosting}>
                 <p className="small muted">
-                  <PersonName id={id} person={person} you={session?.identityId === id} /> · <span className={`state state-${op.status === OPERATOR_STATUS.open ? 'ok' : 'muted'}`}>{OPERATOR_STATUS_WORDS[op.status] ?? 'Listed'}</span>
+                  {person?.name !== op.name && (
+                    <>
+                      <PersonName id={id} person={person} you={session?.identityId === id} /> ·{' '}
+                    </>
+                  )}
+                  <span className={`state state-${op.status === OPERATOR_STATUS.open ? 'ok' : 'muted'}`}>{OPERATOR_STATUS_WORDS[op.status] ?? 'Listed'}</span>
                 </p>
               </PageHead>
               <div className="two-col">

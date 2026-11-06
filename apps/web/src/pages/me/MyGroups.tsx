@@ -105,6 +105,51 @@ export function MyGroups({ me, isOperator }: { me: string; isOperator: boolean }
   );
 }
 
+/** Signed-in Home: the most pressing step in each of my groups, before anything else on the page (DESIGN §5: for a member the CTA is their next step). */
+export function NextStepBand({ me }: { me: string }) {
+  // the operator flag only decides a visitor's offer step, which /me never shows
+  const load = useLoad(`my-groups:${me}:false`, (r) => loadMyGroups(r, me, false));
+  if (load.status !== 'ready') return null;
+  return <NextStepList groups={load.data} />;
+}
+
+export function NextStepList({ groups }: { groups: MyGroup[] }) {
+  const open = groups.filter((g) => !g.view.closed);
+  if (!open.length) return null;
+  return (
+    <section className="next-band" aria-labelledby="next-band-title" data-testid="next-band">
+      <h2 id="next-band-title" className="h3">
+        Your next step
+      </h2>
+      <ul className="my-groups">
+        {open.slice(0, 3).map(({ view, steps, formByPassed }) => {
+          const s = steps.find((x) => x.tone === 'todo' || x.tone === 'warn') ?? steps[0]!;
+          return (
+            <li key={view.group.id} className="my-group">
+              <div className="my-group-head">
+                <Link to={`/g/${view.group.id}`} className="fit-title">
+                  {view.group.title}
+                </Link>
+              </div>
+              <p className={`my-step next-${s.tone}`}>
+                <span className="small muted">{ROLE_WORDS[s.role]}:</span> <b>{s.title}</b>
+                <span className="small block">{s.text}</span>
+                {formByPassed && <span className="small block">{FORM_BY_PASSED}</span>}
+              </p>
+              <StepLink groupId={view.group.id} steps={steps} />
+            </li>
+          );
+        })}
+      </ul>
+      {open.length > 3 && (
+        <p className="small">
+          <Link to="/me">All {open.length} of your groups</Link>
+        </p>
+      )}
+    </section>
+  );
+}
+
 /** The button to where the most pressing step is done: the group, form or live page. */
 function StepLink({ groupId, steps }: { groupId: string; steps: Step[] }) {
   const urgent = steps.find((s) => s.tone === 'todo' || s.tone === 'warn');

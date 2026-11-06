@@ -2,6 +2,7 @@
 // What the guide and the home page promise about coins, leaving and stolen keys must match Dash Core v24.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
+import { AccountProvider } from '../app/account.tsx';
 import { AppProvider } from '../app/context.tsx';
 import { render } from '../test/render.tsx';
 import { HomePage } from './HomePage.tsx';
@@ -30,10 +31,14 @@ describe('custody and leaving copy', () => {
   it('the home page says where a share goes and that leaving early costs the penalty', async () => {
     const t = await text(
       <AppProvider>
-        <HomePage />
+        <AccountProvider>
+          <HomePage />
+        </AccountProvider>
       </AppProvider>,
     );
     for (const w of WRONG) expect(t).not.toMatch(w);
+    expect(t).toContain('if any co-owner leaves, the masternode stops for everyone and every share goes back to its owner.');
+    expect(t).toContain('Reading mainnet status…'); // the full activation card on the Mainnet profile
     expect(t).toContain('every share stays in its owner’s control');
     expect(t).toContain('goes into a collateral only a dissolution can spend');
     expect(t).toContain('minus any agreed early penalty if you leave early');
@@ -56,5 +61,29 @@ describe('custody and leaving copy', () => {
     expect(t).toContain('Its Cairn account phrase is a Dash Platform identity phrase: it also opens this account in other Platform apps. Don’t put real money on it.');
     expect(t).toContain('Your Dash Core wallet’s recovery phrase or private keys');
     expect(t).not.toMatch(/Cairn recovery phrase|keep it for Cairn only/);
+  });
+});
+
+describe('the testnet home page', () => {
+  beforeEach(() => vi.stubGlobal('fetch', () => new Promise(() => {})));
+  afterEach(() => {
+    localStorage.clear();
+    vi.unstubAllGlobals();
+  });
+
+  it('puts mainnet’s activation in one line instead of the full card', async () => {
+    localStorage.setItem('cairn.profile.v1', 'testnet');
+    const r = await render(
+      <MemoryRouter>
+        <AppProvider>
+          <AccountProvider>
+            <HomePage />
+          </AccountProvider>
+        </AppProvider>
+      </MemoryRouter>,
+    );
+    expect(r.el.querySelector('[data-testid="activation-card"]')).toBeNull();
+    expect(r.el.querySelector('[data-testid="activation-line"]')!.textContent).toContain('Everything already works here on Testnet.');
+    await r.unmount();
   });
 });

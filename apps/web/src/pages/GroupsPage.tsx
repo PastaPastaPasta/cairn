@@ -5,12 +5,14 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
-import { GROUPS, OPEN_GROUP_STATUSES, useStatusList } from '../data/lists.ts';
+import { loadGroupBundle, useLoad } from '../data/cairn.ts';
+import { CLOSED_GROUP_STATUSES, GROUPS, LISTED_GROUP_STATUSES, useStatusList } from '../data/lists.ts';
 import { usePeople } from '../data/people.ts';
 import { EXIT_PRESETS, exitShort } from '../matching/exit.ts';
-import { fitsRoster } from '../matching/group.ts';
+import { fitsRoster, groupView } from '../matching/group.ts';
 import { filterGroups } from '../matching/match.ts';
 import { DUFFS, dashNum, parseDashInput, parsePercentInput, pct } from '../matching/money.ts';
+import { stageOf } from '../matching/stage.ts';
 import { GROUP_STATUS_WORDS } from '../matching/words.ts';
 import { CairnStack } from '../ui/CairnStack.tsx';
 import { DashField, PercentField } from '../ui/fields.tsx';
@@ -41,7 +43,7 @@ export function GroupRows({ groups, note }: { groups: Group[]; note?(g: Group): 
               , {pct(g.rewardBps)} of rewards. {exitShort(g.earlyPeriodBlocks, g.earlyPenalty)}.
             </p>
             <p className="row-tags">
-              <span className={`state state-${g.status === GROUP_STATUS.forming ? 'ok' : 'muted'}`}>{GROUP_STATUS_WORDS[g.status] ?? 'Group'}</span>
+              <RowStatus g={g} />
               {g.status === GROUP_STATUS.forming && !((g.flags ?? 0) & GROUP_FLAG.openAmounts) && <span className="state state-muted">By invitation</span>}
               {g.refillOf && <span className="state state-muted">Refill</span>}
             </p>
@@ -54,45 +56,83 @@ export function GroupRows({ groups, note }: { groups: Group[]; note?(g: Group): 
   );
 }
 
-/** Home: the newest groups still taking seats. */
+/**
+ * A locked group's list tag from its approvals: the stored status says only "locked", while its own page says "Ready to form" once
+ * everyone has approved. Other statuses need no extra read.
+ */
+function RowStatus({ g }: { g: Group }) {
+  const locked = g.status === GROUP_STATUS.locked;
+  const bundle = useLoad(locked ? `row-stage:${g.id}:${g.updatedAt ?? 0}` : null, (r) => loadGroupBundle(r, g.id));
+  const { registry } = useApp();
+  const stage = locked && bundle.status === 'ready' && bundle.data ? stageOf(groupView(bundle.data, registry.network), null) : null;
+  const words = stage === 'ready' ? 'Ready to form' : stage === 'session-started' ? 'Forming in Dash Core' : (GROUP_STATUS_WORDS[g.status] ?? 'Group');
+  return <span className={`state state-${g.status === GROUP_STATUS.forming || stage === 'ready' || stage === 'session-started' ? 'ok' : 'muted'}`}>{words}</span>;
+}
+
+/** The empty list: nothing taking co-owners on this network, and the two ways to start. */
+function NothingOpen({ label }: { label: string }) {
+  return (
+    <>
+      <p>
+        <b>No group is taking co-owners on {label} right now.</b>
+      </p>
+      <p className="form-actions">
+        <Link className="btn btn-s" to="/looking">
+          Post that I’m looking
+        </Link>
+        <Link className="btn btn-s" to="/groups/new">
+          Open a group
+        </Link>
+      </p>
+    </>
+  );
+}
+
+/** Home: the newest groups still taking seats, or, when none is, the ones formed or forming lately. */
 export function OpenGroupsPreview() {
   const { registry } = useApp();
-  const list = useStatusList(GROUPS, [GROUP_STATUS.forming], !!registry.contractId);
+  const list = useStatusList(GROUPS, LISTED_GROUP_STATUSES, !!registry.contractId);
   if (!registry.contractId) return <NotOpenHere compact />;
   return (
-    <Loaded
-      load={list}
-      retry={list.reload}
-      isEmpty={(d) => d.items.length === 0}
-      empty={
-        <>
-          <p>
-            <b>No open groups yet.</b> Groups appear here as soon as an operator or a member opens one.
-          </p>
-          <p>
-            <Link to="/groups/new">Open a group</Link> or <Link to="/looking">post that you are looking</Link>.
-          </p>
-        </>
-      }
-    >
-      {(d) => <GroupRows groups={d.items.slice(0, 5)} />}
+    <Loaded load={list} retry={list.reload} isEmpty={(d) => d.items.length === 0} empty={<NothingOpen label={registry.label} />}>
+      {(d) => {
+        const taking = d.items.filter((g) => g.status === GROUP_STATUS.forming);
+        if (taking.length) return <GroupRows groups={taking.slice(0, 5)} />;
+        return (
+          <>
+            <div className="empty-state">
+              <NothingOpen label={registry.label} />
+            </div>
+            <h3 className="h4">Recently formed or forming</h3>
+            <GroupRows groups={d.items.slice(0, 3)} />
+          </>
+        );
+      }}
     </Loaded>
   );
 }
 
-type StatusFilter = 'forming' | 'agreeing' | 'all';
-const STATUS_FILTER: Record<StatusFilter, readonly number[]> = { forming: [GROUP_STATUS.forming], agreeing: [GROUP_STATUS.full, GROUP_STATUS.locked], all: OPEN_GROUP_STATUSES };
+type StatusFilter = 'all' | 'forming' | 'agreeing' | 'formed';
+const STATUS_FILTER: Record<StatusFilter, readonly number[]> = {
+  all: [...LISTED_GROUP_STATUSES, ...CLOSED_GROUP_STATUSES],
+  forming: [GROUP_STATUS.forming],
+  agreeing: [GROUP_STATUS.full, GROUP_STATUS.locked, GROUP_STATUS.formingOnchain],
+  formed: [GROUP_STATUS.live, ...CLOSED_GROUP_STATUSES],
+};
+const DEFAULT_FILTERS = { amount: '', operator: 'any', maxReward: '', exit: 'any', status: 'all' as StatusFilter };
 
 export function GroupsPage() {
   const { registry } = useApp();
   const { session } = useAccount();
-  const list = useStatusList(GROUPS, OPEN_GROUP_STATUSES, !!registry.contractId);
+  const [showClosed, setShowClosed] = useState(false);
+  const list = useStatusList(GROUPS, showClosed ? [...LISTED_GROUP_STATUSES, ...CLOSED_GROUP_STATUSES] : LISTED_GROUP_STATUSES, !!registry.contractId);
   const mine = useMyLooking(session && registry.contractId ? session.identityId : null);
-  const [amount, setAmount] = useState('');
-  const [operator, setOperator] = useState('any');
-  const [maxReward, setMaxReward] = useState('');
-  const [exit, setExit] = useState('any');
-  const [status, setStatus] = useState<StatusFilter>('forming');
+  const [amount, setAmount] = useState(DEFAULT_FILTERS.amount);
+  const [operator, setOperator] = useState(DEFAULT_FILTERS.operator);
+  const [maxReward, setMaxReward] = useState(DEFAULT_FILTERS.maxReward);
+  const [exit, setExit] = useState(DEFAULT_FILTERS.exit);
+  const [status, setStatus] = useState<StatusFilter>(DEFAULT_FILTERS.status);
+  const filtered = amount !== DEFAULT_FILTERS.amount || operator !== DEFAULT_FILTERS.operator || maxReward !== DEFAULT_FILTERS.maxReward || exit !== DEFAULT_FILTERS.exit || status !== DEFAULT_FILTERS.status;
   const myAmount = mine.status === 'ready' && mine.data?.status === LOOKING_STATUS.open ? mine.data.amount : null;
   useEffect(() => {
     if (myAmount) setAmount((a) => a || dashNum(myAmount));
@@ -119,7 +159,7 @@ export function GroupsPage() {
   const amountProblem = amount.trim() && amountDuffs === null ? 'Enter an amount in DASH, like 250.' : amountDuffs !== null && (amountDuffs < 100 * DUFFS || amountDuffs > 900 * DUFFS) ? 'A share is 100 to 900 DASH.' : null;
   return (
     <div className="page">
-      <PageHead title="Groups" lede="Groups still taking co-owners or agreeing their terms. Each shows how far it is from 1000 DASH, who runs the node, and the terms for leaving early.">
+      <PageHead title="Groups" lede="Groups taking co-owners, agreeing their terms, forming or formed. Each shows how far it is from 1000 DASH, who runs the node, and the terms for leaving early.">
         <p className="head-actions">
           <Link className="btn btn-primary" to="/groups/new">
             Open a group
@@ -149,7 +189,7 @@ export function GroupsPage() {
             </div>
             <PercentField label="Operator reward at most" value={maxReward} onChange={setMaxReward} problem={maxReward.trim() && rewardBps === null ? 'A percentage from 0 to 100.' : null} />
             <div className="field">
-              <label htmlFor="g-exit">Early period</label>
+              <label htmlFor="g-exit">Leaving-early terms</label>
               <select id="g-exit" value={exit} onChange={(e) => setExit(e.target.value)}>
                 <option value="any">Any</option>
                 <option value="none">None (free to leave)</option>
@@ -162,27 +202,23 @@ export function GroupsPage() {
             </div>
             <div className="field">
               <label htmlFor="g-status">Show</label>
-              <select id="g-status" value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)}>
+              <select id="g-status" value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)} data-testid="filter-status">
+                <option value="all">Every group</option>
                 <option value="forming">Taking co-owners</option>
-                <option value="agreeing">Full, agreeing terms</option>
-                <option value="all">All open groups</option>
+                <option value="agreeing">Agreeing terms or forming</option>
+                <option value="formed">Formed</option>
               </select>
             </div>
+            <label className="check">
+              <input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} data-testid="filter-closed" />
+              Include closed and dissolved groups
+            </label>
           </form>
           <Loaded
             load={list}
             retry={list.reload}
             isEmpty={(d) => d.items.length === 0}
-            empty={
-              <>
-                <p>
-                  <b>No open groups on {registry.label} yet.</b>
-                </p>
-                <p>
-                  <Link to="/groups/new">Open the first one</Link>, as an operator or as a member, or <Link to="/looking">post that you are looking</Link> so others can find you.
-                </p>
-              </>
-            }
+            empty={<NothingOpen label={registry.label} />}
           >
             {(d) =>
               shown.length ? (
@@ -209,28 +245,34 @@ export function GroupsPage() {
                   )}
                 </>
               ) : (
-                <div className="empty-state">
-                  <p>
-                    <b>No group matches these filters.</b> {amountDuffs ? 'Post that you are looking, and an organizer can invite you, or open a group yourself.' : ''}
-                  </p>
-                  <p className="form-actions">
-                    <button
-                      type="button"
-                      className="btn btn-s"
-                      onClick={() => {
-                        setAmount('');
-                        setOperator('any');
-                        setMaxReward('');
-                        setExit('any');
-                        setStatus('all');
-                      }}
-                    >
-                      Clear filters
-                    </button>
-                    <Link className="btn btn-s" to="/groups/new">
-                      Open a group
-                    </Link>
-                  </p>
+                <div className="empty-state" data-testid="groups-empty">
+                  {filtered ? (
+                    <>
+                      <p>
+                        <b>No group matches these filters.</b> {amountDuffs ? 'Post that you are looking, and an organizer can invite you, or open a group yourself.' : ''}
+                      </p>
+                      <p className="form-actions">
+                        <button
+                          type="button"
+                          className="btn btn-s"
+                          onClick={() => {
+                            setAmount(DEFAULT_FILTERS.amount);
+                            setOperator(DEFAULT_FILTERS.operator);
+                            setMaxReward(DEFAULT_FILTERS.maxReward);
+                            setExit(DEFAULT_FILTERS.exit);
+                            setStatus(DEFAULT_FILTERS.status);
+                          }}
+                        >
+                          Clear filters
+                        </button>
+                        <Link className="btn btn-s" to="/groups/new">
+                          Open a group
+                        </Link>
+                      </p>
+                    </>
+                  ) : (
+                    <NothingOpen label={registry.label} />
+                  )}
                 </div>
               )
             }

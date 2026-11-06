@@ -19,6 +19,10 @@ export const OPERATORS: ListSpec<Operator> = { type: 'operator', query: (s, b) =
 
 /** Statuses a public list shows. */
 export const OPEN_GROUP_STATUSES = [GROUP_STATUS.forming, GROUP_STATUS.full, GROUP_STATUS.locked];
+/** /groups by default: taking co-owners, agreeing, ready, forming and live. */
+export const LISTED_GROUP_STATUSES = [...OPEN_GROUP_STATUSES, GROUP_STATUS.formingOnchain, GROUP_STATUS.live];
+/** Behind /groups' "include closed" toggle. */
+export const CLOSED_GROUP_STATUSES = [GROUP_STATUS.dissolved, GROUP_STATUS.cancelled];
 export const OPEN_LOOKING = [LOOKING_STATUS.open];
 export const LISTED_OPERATORS = [OPERATOR_STATUS.open, OPERATOR_STATUS.full];
 

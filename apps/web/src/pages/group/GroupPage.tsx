@@ -154,8 +154,8 @@ function GroupBody({ bundle, reload, refreshing }: { bundle: GroupBundle; reload
       {(view.locked || view.linked.length > 0) && <GroupTabs id={g.id} />}
       {view.voided.length > 0 && !view.ready && (
         <p className="voided" role="note" data-testid="voided">
-          {view.voided.length === 1 ? 'One approval' : `${view.voided.length} approvals`} of revision {g.termsRevision - 1} no longer count: the terms changed after
-          {view.voided.length === 1 ? ' it' : ' them'}. {view.locked ? 'Members approve revision ' + g.termsRevision + ' again.' : 'Members approve again once the organizer locks the new terms.'}
+          {view.voided.length === 1 ? 'One approval' : `${view.voided.length} approvals`} of terms version {g.termsRevision - 1} no longer {view.voided.length === 1 ? 'counts' : 'count'}: the terms changed after
+          {view.voided.length === 1 ? ' it' : ' them'}. {view.locked ? `Members approve version ${g.termsRevision} again.` : 'Members approve again once the organizer locks the new terms.'}
         </p>
       )}
       {formByNoteFor(view, me, stage) && (
