@@ -38,7 +38,7 @@ export function InviteSection({ view, people, ops, done }: Props) {
   const exclude = useMemo(() => new Set([...view.requests.map((r) => r.seat.ownerId), ...view.openInvites.map((i) => i.toId), ...view.declined.map((s) => s.ownerId), ...hidden.ids]), [view, hidden.ids]);
   const fits = posts.status === 'ready' ? lookingThatFits(g, posts.data.items, exclude) : [];
   const combos = completions(g, fits);
-  const again = invitableAgain(view);
+  const again = invitableAgain(view).filter((a) => !hidden.has(a.seat.ownerId));
   const morePeople = usePeople([...fits.map((f) => f.looking.ownerId), ...again.map((a) => a.seat.ownerId)]);
   const name = (id: string) => morePeople.get(id) ?? people.get(id);
   const invite = (xs: Array<{ ownerId: string; amount: number }>) =>

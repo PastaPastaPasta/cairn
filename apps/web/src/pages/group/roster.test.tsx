@@ -42,8 +42,8 @@ describe('the roster', () => {
     const rows = [...r.el.querySelectorAll('[data-testid="roster"] > li')].map((li) => li.querySelector('.roster-who')!.textContent);
     expect(rows[0]).toContain('Ana Demo');
     expect(rows[0]).toContain('label in Dash-Qt: Alice');
-    expect(rows[1]).toContain('Bo');
-    expect(rows[1]).not.toContain('label in Dash-Qt');
+    expect(rows[1]).toContain('Bo (label in Dash-Qt; no profile)');
+    expect(rows[1]).not.toContain('label in Dash-Qt:');
     await r.unmount();
     vi.unstubAllGlobals();
   });

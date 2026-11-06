@@ -24,6 +24,13 @@ export const EXIT_PRESETS: readonly ExitPreset[] = [
 
 export const presetFor = (blocks: number): ExitPreset | undefined => EXIT_PRESETS.find((p) => p.blocks === blocks);
 
+// Looking posts saved before the presets matched Dash-Qt stored 91 and 182 days; as a member's upper bound they meant "3 months"
+// and "6 months". Group terms are never mapped: they are what members approved.
+const LEGACY_LIMITS: Record<number, number> = { [91 * BLOCKS_PER_DAY]: 52_560, [182 * BLOCKS_PER_DAY]: 105_120 };
+
+/** A looking post's longest accepted early period, read with the presets it was chosen from. */
+export const acceptedPeriod = (blocks: number | null): number | null => (blocks === null ? null : (LEGACY_LIMITS[blocks] ?? blocks));
+
 /** "3 months", or "about 40 days" for a period that is not a preset. */
 export function periodWords(blocks: number): string {
   const p = presetFor(blocks);

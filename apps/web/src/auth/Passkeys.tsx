@@ -62,7 +62,7 @@ export function PasskeyOffer() {
   return (
     <div className="passkey-offer" data-testid="passkey-offer">
       <p>
-        <b>Stay signed in on this device with a passkey.</b> Your Cairn account phrase is not kept in this browser, so a refresh or a new tab signs you out. A passkey
+        <b>Stay signed in on this device with a passkey.</b> Your Cairn account phrase is not kept in this browser, so closing Cairn, or refreshing it when no other Cairn tab is open, signs you out. A passkey
         unlocks it again with your fingerprint, face or device PIN. It costs about 0.0005 DASH from your account credit.
       </p>
       {step === 'confirm' && (

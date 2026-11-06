@@ -1,7 +1,7 @@
 import { GROUP_STATUS, INVITE_STATUS, OP_ACCEPT_STATUS, SEAT_FLAG, SEAT_STATUS, groupData, termSheetFromGroup, toGroup, type Invite } from '@cairn/contract';
 import { termsHash } from '@cairn/shares';
 import { describe, expect, it } from 'vitest';
-import { EXIT_PRESETS, exitProblem, exitShort, exitWords, termWarnings } from './exit.ts';
+import { EXIT_PRESETS, acceptedPeriod, exitProblem, exitShort, exitWords, termWarnings } from './exit.ts';
 import { A, B, BLS, C, D, GID, OPR, ORG, SERVICE, VOTING, approval, group, id, looking, opAccept, seat } from './fixtures.ts';
 import { acceptSeat, change, groupView, invitableAgain, lockPlan, refillFields, removeShare, saveChoices, type GroupBundle } from './group.ts';
 import { asciiLabel, deriveLabels, labelProblem } from './labels.ts';
@@ -23,6 +23,14 @@ describe('exit terms', () => {
       ['1 year', 210_240],
       ['2 years', 420_480],
     ]);
+  });
+  it('read a looking post saved with the old 91- and 182-day presets as Dash-Qt’s 3 and 6 months', () => {
+    expect(acceptedPeriod(52_416)).toBe(52_560);
+    expect(acceptedPeriod(104_832)).toBe(105_120);
+    expect(acceptedPeriod(1000)).toBe(1000);
+    expect(acceptedPeriod(null)).toBeNull();
+    const old = looking(A, D(300), { earlyPref: { maxPeriodBlocks: 52_416, maxPenalty: null } });
+    expect(rankGroups([group({ earlyPeriodBlocks: 52_560, earlyPenalty: D(5) })], old)[0]!.prefs.every((p) => p.ok)).toBe(true);
   });
   it('enforce the penalty rules as you type', () => {
     expect(exitProblem(0, 0)).toBeNull();

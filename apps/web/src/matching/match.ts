@@ -5,7 +5,7 @@ import { LOOKING_STATUS, type Group, type Looking, type RosterEntry } from '@cai
 import { MAX_SHARES, REGULAR_COLLATERAL, suggestCombos } from '@cairn/shares';
 import { fitsRoster } from './group.ts';
 import { dash, pct } from './money.ts';
-import { periodWords } from './exit.ts';
+import { acceptedPeriod, periodWords } from './exit.ts';
 
 export interface Preference {
   ok: boolean;
@@ -18,7 +18,8 @@ export function preferences(g: Pick<Group, 'operatorId' | 'rewardBps' | 'earlyPe
   const they = whose === 'your' ? 'you' : 'they';
   if (l.operatorId) out.push(g.operatorId === l.operatorId ? { ok: true, text: `${whose === 'your' ? 'Your' : 'Their'} chosen operator` } : { ok: false, text: g.operatorId ? `A different operator than ${they} asked for` : 'Operator not chosen yet' });
   out.push(g.rewardBps <= l.maxRewardBps ? { ok: true, text: `Operator reward ${pct(g.rewardBps)}, within ${whose} ${pct(l.maxRewardBps)}` } : { ok: false, text: `Operator reward ${pct(g.rewardBps)}, above ${whose} ${pct(l.maxRewardBps)}` });
-  const { maxPeriodBlocks: maxP, maxPenalty: maxPen } = l.earlyPref;
+  const { maxPenalty: maxPen } = l.earlyPref;
+  const maxP = acceptedPeriod(l.earlyPref.maxPeriodBlocks);
   const periodOk = maxP === null || g.earlyPeriodBlocks <= maxP;
   const penaltyOk = maxPen === null || g.earlyPenalty <= maxPen;
   if (maxP !== null || maxPen !== null)
@@ -82,7 +83,7 @@ function combine(me: Looking, people: Looking[]): Combo | null {
     people,
     operatorId: all.find((l) => l.operatorId)?.operatorId ?? null,
     maxRewardBps: Math.min(...all.map((l) => l.maxRewardBps)),
-    maxPeriodBlocks: minOrNull(all.map((l) => l.earlyPref.maxPeriodBlocks)),
+    maxPeriodBlocks: minOrNull(all.map((l) => acceptedPeriod(l.earlyPref.maxPeriodBlocks))),
     maxPenalty: minOrNull(all.map((l) => l.earlyPref.maxPenalty)),
   };
 }

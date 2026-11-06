@@ -29,8 +29,8 @@ export function OperatorsPage() {
   const [region, setRegion] = useState('any');
   const [onlyOpen, setOnlyOpen] = useState(true);
   const maxBps = maxReward.trim() ? parsePercentInput(maxReward) : null;
-  const all = list.status === 'ready' ? list.data.items : [];
-  const items = all.filter((o) => o.ownerId === session?.identityId || !hidden.has(o.ownerId));
+  const all = list.status === 'ready' ? list.data.items : null;
+  const items = useMemo(() => (all ?? []).filter((o) => o.ownerId === session?.identityId || !hidden.has(o.ownerId)), [all, hidden, session]);
   const regions = useMemo(() => [...new Set(items.flatMap((o) => o.regions))].sort((a, b) => a.localeCompare(b)), [items]);
   const shown = items.filter(
     (o) =>
@@ -106,6 +106,7 @@ export function OperatorsPage() {
                   <p>
                     <b>No operator matches these filters.</b>
                   </p>
+                  <HiddenNote count={d.items.length - items.length} />
                   <button
                     type="button"
                     className="btn btn-s"

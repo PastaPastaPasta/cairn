@@ -5,14 +5,14 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
-import { loadGroupBundle, useLoad } from '../data/cairn.ts';
-import { CLOSED_GROUP_STATUSES, GROUPS, LISTED_GROUP_STATUSES, useStatusList } from '../data/lists.ts';
+import { loadGroupBundle } from '../data/cairn.ts';
+import { CLOSED_GROUP_STATUSES, GROUPS, LISTED_GROUP_STATUSES, RECENT_GROUP_STATUSES, useStatusList } from '../data/lists.ts';
 import { usePeople } from '../data/people.ts';
 import { EXIT_PRESETS, exitShort } from '../matching/exit.ts';
 import { fitsRoster, groupView } from '../matching/group.ts';
 import { filterGroups } from '../matching/match.ts';
 import { DUFFS, dashNum, parseDashInput, parsePercentInput, pct } from '../matching/money.ts';
-import { stageOf } from '../matching/stage.ts';
+import { stageOf, type Stage } from '../matching/stage.ts';
 import { GROUP_STATUS_WORDS } from '../matching/words.ts';
 import { CairnStack } from '../ui/CairnStack.tsx';
 import { DashField, PercentField } from '../ui/fields.tsx';
@@ -62,12 +62,41 @@ export function GroupRows({ groups, note }: { groups: Group[]; note?(g: Group): 
  * everyone has approved. Other statuses need no extra read.
  */
 function RowStatus({ g }: { g: Group }) {
-  const locked = g.status === GROUP_STATUS.locked;
-  const bundle = useLoad(locked ? `row-stage:${g.id}:${g.updatedAt ?? 0}` : null, (r) => loadGroupBundle(r, g.id));
-  const { registry } = useApp();
-  const stage = locked && bundle.status === 'ready' && bundle.data ? stageOf(groupView(bundle.data, registry.network), null) : null;
+  const stage = useLockedStage(g);
   const words = stage === 'ready' ? 'Ready to form' : stage === 'session-started' ? 'Forming in Dash Core' : (GROUP_STATUS_WORDS[g.status] ?? 'Group');
   return <span className={`state state-${g.status === GROUP_STATUS.forming || stage === 'ready' || stage === 'session-started' ? 'ok' : 'muted'}`}>{words}</span>;
+}
+
+// a locked group's stage, shared by every list that shows it; approvals change without the group document changing, hence the expiry
+const STAGE_TTL_MS = 60_000;
+const lockedStages = new Map<string, { at: number; stage: Promise<Stage | null> }>();
+
+function useLockedStage(g: Group): Stage | null {
+  const { registry } = useApp();
+  const [stage, setStage] = useState<Stage | null>(null);
+  const locked = g.status === GROUP_STATUS.locked;
+  useEffect(() => {
+    if (!locked || !registry.contractId) return;
+    const key = `${registry.network}:${g.id}:${g.updatedAt ?? 0}`;
+    let hit = lockedStages.get(key);
+    if (!hit || Date.now() - hit.at > STAGE_TTL_MS) {
+      const read = loadGroupBundle(registry, g.id).then(
+        (b) => (b ? stageOf(groupView(b, registry.network), null) : null),
+        () => {
+          lockedStages.delete(key);
+          return null;
+        },
+      );
+      hit = { at: Date.now(), stage: read };
+      lockedStages.set(key, hit);
+    }
+    let live = true;
+    void hit.stage.then((s) => live && setStage(s));
+    return () => {
+      live = false;
+    };
+  }, [registry, locked, g.id, g.updatedAt]);
+  return stage;
 }
 
 /** The empty list: nothing taking co-owners on this network, and the two ways to start. */
@@ -92,24 +121,30 @@ function NothingOpen({ label }: { label: string }) {
 /** Home: the newest groups still taking seats, or, when none is, the ones formed or forming lately. */
 export function OpenGroupsPreview() {
   const { registry } = useApp();
-  const list = useStatusList(GROUPS, LISTED_GROUP_STATUSES, !!registry.contractId);
+  const taking = useStatusList(GROUPS, [GROUP_STATUS.forming], !!registry.contractId);
+  const none = taking.status === 'ready' && taking.data.items.length === 0;
+  const recent = useStatusList(GROUPS, RECENT_GROUP_STATUSES, none);
   if (!registry.contractId) return <NotOpenHere compact />;
   return (
-    <Loaded load={list} retry={list.reload} isEmpty={(d) => d.items.length === 0} empty={<NothingOpen label={registry.label} />}>
-      {(d) => {
-        const taking = d.items.filter((g) => g.status === GROUP_STATUS.forming);
-        if (taking.length) return <GroupRows groups={taking.slice(0, 5)} />;
-        return (
-          <>
-            <div className="empty-state">
-              <NothingOpen label={registry.label} />
-            </div>
-            <h3 className="h4">Recently formed or forming</h3>
-            <GroupRows groups={d.items.slice(0, 3)} />
-          </>
-        );
-      }}
+    <Loaded load={taking} retry={taking.reload} isEmpty={(d) => d.items.length === 0} empty={<RecentlyFormed recent={recent} label={registry.label} />}>
+      {(d) => <GroupRows groups={d.items.slice(0, 5)} />}
     </Loaded>
+  );
+}
+
+/** Home when no group is taking co-owners: say so, then show what has formed lately, so a newcomer sees what a group looks like. */
+function RecentlyFormed({ recent, label }: { recent: ReturnType<typeof useStatusList<Group>>; label: string }) {
+  const items = recent.status === 'ready' ? recent.data.items.slice(0, 3) : [];
+  return (
+    <>
+      <NothingOpen label={label} />
+      {items.length > 0 && (
+        <>
+          <h3 className="h4">Recently formed or forming</h3>
+          <GroupRows groups={items} />
+        </>
+      )}
+    </>
   );
 }
 
@@ -142,8 +177,8 @@ export function GroupsPage() {
   const amountDuffs = amount.trim() ? parseDashInput(amount) : null;
   const rewardBps = maxReward.trim() ? parsePercentInput(maxReward) : null;
   const hidden = useHidden();
-  const all = list.status === 'ready' ? list.data.items : [];
-  const items = useMemo(() => all.filter((g) => g.ownerId === session?.identityId || !hidden.has(g.ownerId)), [all, hidden, session]);
+  const all = list.status === 'ready' ? list.data.items : null;
+  const items = useMemo(() => (all ?? []).filter((g) => g.ownerId === session?.identityId || !hidden.has(g.ownerId)), [all, hidden, session]);
   const operatorIds = useMemo(() => [...new Set(items.flatMap((g) => (g.operatorId ? [g.operatorId] : [])))], [items]);
   const people = usePeople(operatorIds);
   const exitBlocks = exit === 'any' ? null : (EXIT_PRESETS.find((p) => p.id === exit)?.blocks ?? null);
@@ -277,6 +312,7 @@ export function GroupsPage() {
                   ) : (
                     <NothingOpen label={registry.label} />
                   )}
+                  <HiddenNote count={d.items.length - items.length} />
                 </div>
               )
             }

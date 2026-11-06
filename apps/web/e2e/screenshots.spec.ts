@@ -25,7 +25,7 @@ for (const scheme of ['light', 'dark'] as const) {
           await page.goto(p.path);
           await page.locator('h1').first().waitFor();
           if (p.list) await listSettled(page);
-          if (p.name === 'home') await page.getByTestId('activation-card').getByRole('heading').filter({ hasNotText: 'Reading' }).waitFor();
+          if (p.name === 'home') await page.getByTestId('activation-line').filter({ hasText: 'around' }).waitFor();
           await page.evaluate(() => document.fonts.ready);
           await page.screenshot({ path: `screenshots/${p.name}-${size.name}-${scheme}.png`, fullPage: true });
         });

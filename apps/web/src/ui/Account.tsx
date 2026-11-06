@@ -97,7 +97,7 @@ export function AccountControl() {
               {balance !== null && <span className="muted"> — enough for about {String(balance / CHANGE_COST_CREDITS)} changes</span>}
             </p>
             <p className="small muted">Signed in with {session.label}.</p>
-            <p className="small muted">Signed in on this device. Use Sign out on shared computers.</p>
+            <p className="small muted">Signed in while Cairn is open in this browser. Use Sign out on shared computers.</p>
             <details className="small muted">
               <summary>Technical details</summary>
               {technical && <p>{technical}</p>}
