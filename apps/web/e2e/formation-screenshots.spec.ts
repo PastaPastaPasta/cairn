@@ -35,7 +35,7 @@ const PAGES: Array<{ name: string; path: string; ready(p: Page): Promise<void> }
       await p.getByTestId('form-status').waitFor({ timeout: 90_000 });
       await p.getByText('The coordinator', { exact: true }).click();
       await p.locator('.trail-step[data-step="setup"] .trail-btn').click();
-      await p.getByTestId('setup-sheet').waitFor();
+      await p.locator('.trail-step[data-step="setup"]').getByTestId('setup-sheet').waitFor();
       await p.getByTestId('form-status').getByRole('link').waitFor({ timeout: 120_000 });
     },
   },

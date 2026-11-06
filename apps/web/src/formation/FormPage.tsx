@@ -68,7 +68,7 @@ function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void })
   useEffect(() => setOpen(openStep(states, rememberedStep(g.id))), [statesKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const choose = (id: StepId) => {
     setOpen(id);
-    rememberStep(g.id, id);
+    if (states[id] === 'in-qt') rememberStep(g.id, id);
   };
 
   const sheet = ready && agreement.terms ? setupSheet(agreement.terms, { operatorName }) : [];
@@ -110,9 +110,20 @@ function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void })
           </div>
         );
       case 'setup':
-        return role === 'coordinator' ? (
+        return (
           <>
-            <SetupSheet pages={pages('setup')} all={sheet} />
+            {role === 'coordinator' ? (
+              <SetupSheet pages={pages('setup')} all={sheet} />
+            ) : (
+              <ul className="trail-list">
+                <li>Dash-Qt version 24 or later, with the wallet that holds the coins for {mine ? `your ${dash(BigInt(mine.amount))} as “${mine.label}”` : 'your share'}.</li>
+                <li>Those coins confirmed: in round 1 Dash-Qt sets them aside for this masternode, and they never leave your wallet before you sign.</li>
+                <li>
+                  {coordinator ? `${coordinator.label} sends` : 'The coordinator sends'} one invitation to everyone, usually in your group chat. This page shows when the session
+                  has started.
+                </li>
+              </ul>
+            )}
             {started ? (
               <p className="trail-done-line">
                 <Icon name="check" /> The Dash-Qt session is marked as started.
@@ -121,15 +132,6 @@ function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void })
               <SessionMark ops={ops} onDone={refresh} />
             )}
           </>
-        ) : (
-          <ul className="trail-list">
-            <li>Dash-Qt version 24 or later, with the wallet that holds the coins for {mine ? `your ${dash(BigInt(mine.amount))} as “${mine.label}”` : 'your share'}.</li>
-            <li>Those coins confirmed: in round 1 Dash-Qt sets them aside for this masternode, and they never leave your wallet before you sign.</li>
-            <li>
-              {coordinator ? `${coordinator.label} sends` : 'The coordinator sends'} one invitation to everyone, usually in your group chat. This page shows when the session has
-              started.
-            </li>
-          </ul>
         );
       case 'round1':
       case 'round2':
@@ -165,7 +167,6 @@ function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void })
 
   const sub = (id: StepId): ReactNode => {
     if (id === 'agree' && ready) return `Revision ${g.termsRevision}, approved by ${approved} of ${agreement.members.length}. Ready to form.`;
-    if (id === 'link' && view.linked.length > 0) return <RegistrationLine state={regs.state} id={g.id} />;
     return stepCopy(id, role).sub;
   };
 
@@ -224,6 +225,7 @@ function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void })
                   title={copy.title}
                   sub={sub(id)}
                   tag={id !== 'agree' && id !== 'link' ? later : null}
+                  status={id === 'link' && view.linked.length > 0 ? <RegistrationLine state={regs.state} id={g.id} /> : null}
                   open={open === id && !locked}
                   locked={locked}
                   onOpen={() => choose(id)}
@@ -261,8 +263,8 @@ function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void })
               network={coreNetwork(registry.network)}
               terms={agreement.terms}
               myLabel={mine?.label}
-              title="Check a message"
-              intro={`Against the terms all ${g.roster.length} members approved (revision ${g.termsRevision}). Pick your row and paste your owner address so a moved row stops you.`}
+              title="Check a message against your approval"
+              intro={`Compared with the terms all ${g.roster.length} members approved (revision ${g.termsRevision}). Pick your row and paste your owner address so a moved row stops you.`}
             />
           </aside>
         )}
@@ -299,14 +301,19 @@ function TrailStep(props: {
   title: string;
   sub: ReactNode;
   tag: ReactNode;
+  /** A live line under the heading (it may hold a link, so it sits outside the button). */
+  status?: ReactNode;
   open: boolean;
   locked: boolean;
   onOpen(): void;
   children: ReactNode;
 }) {
-  const { id, state, title, sub, tag, open, locked, onOpen, children } = props;
+  const { id, state, title, sub, tag, status, open, locked, onOpen, children } = props;
   const n = STEP_IDS.indexOf(id) + 1;
   const icon = STATE_ICON[state];
+  // mounted on first open and kept, so switching steps keeps what was typed (a ProTx hash, say)
+  const [mounted, setMounted] = useState(open);
+  if (open && !mounted) setMounted(true);
   return (
     <li className={`trail-step is-${state}${open ? ' is-open' : ''}`} data-step={id} aria-current={state === 'current' ? 'step' : undefined}>
       <h2 className="trail-h">
@@ -324,8 +331,9 @@ function TrailStep(props: {
           <Icon name="chevron" size={18} className="trail-chev" />
         </button>
       </h2>
+      {status && <p className="trail-status small">{status}</p>}
       <div className="trail-body" id={`step-${id}`} hidden={!open}>
-        {open && children}
+        {mounted && children}
       </div>
     </li>
   );
@@ -436,7 +444,14 @@ function SetupSheet({ pages, all }: { pages: SetupPage[]; all: SetupPage[] }) {
                           {r.amount} <CopyButton value={r.amount} what={`amount ${r.n}`} />
                         </span>
                       </td>
-                      <td>{r.me ? <Icon name="check" /> : ''}</td>
+                      <td>
+                        {r.me && (
+                          <>
+                            <Icon name="check" />
+                            <span className="visually-hidden">you</span>
+                          </>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

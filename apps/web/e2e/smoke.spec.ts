@@ -141,5 +141,5 @@ test('the form page is a trail of steps with the checker beside it', async ({ pa
   // the coordinator's view folds in the setup sheet
   await page.getByText('The coordinator', { exact: true }).click();
   await trail.locator('.trail-step[data-step="setup"] .trail-btn').click();
-  await expect(page.getByTestId('setup-sheet')).toContainText('Participants');
+  await expect(trail.locator('.trail-step[data-step="setup"]').getByTestId('setup-sheet')).toContainText('Participants');
 });
