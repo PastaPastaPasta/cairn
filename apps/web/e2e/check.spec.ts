@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { envelopeFingerprint, readUniValue } from '@cairn/shares';
-import { collectErrors, stubActivation } from './helpers.ts';
+import { CHECKER_GROUP, DEMO_GROUP, collectErrors, stubActivation } from './helpers.ts';
 
 const vectors = new URL('../../../packages/shares/test/vectors/', import.meta.url);
 const ENVS: Array<{ name: string; text: string }> = JSON.parse(readFileSync(new URL('regtest/envelopes.json', vectors), 'utf8'));
@@ -12,9 +12,6 @@ const D400 = readFileSync(new URL('testnet-d400c120.hex', vectors), 'utf8').trim
 const env = (name: string) => ENVS.find((e) => e.name === name)!.text;
 const owner = (i: number): string => A.prepareArgs.shares[i].ownerAddress;
 
-/** testnet groups (scripts/testnet-demo.ts): the d400c120 demo, and the regtest terms moved to testnet */
-export const DEMO_GROUP = '7aAR4uBLdPXSGBezTrqKajaM1CWJEoa8m3afdsrUzUBL';
-export const CHECKER_GROUP = '82vSEt6Jbmw392FbXRR91tGpeGcujgGiN6BTA3FjHnQn';
 
 /** The regtest draft as a testnet session: same address prefixes, the checker group's public service, a fresh message code. */
 function testnetDraft(text: string): string {

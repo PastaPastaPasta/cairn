@@ -27,3 +27,7 @@ export function collectErrors(page: Page): string[] {
   });
   return errors;
 }
+
+/** Testnet groups made by scripts/testnet-demo.ts: the d400c120 demo (linked, live) and the regtest terms moved to testnet (locked). */
+export const DEMO_GROUP = '7aAR4uBLdPXSGBezTrqKajaM1CWJEoa8m3afdsrUzUBL';
+export const CHECKER_GROUP = '82vSEt6Jbmw392FbXRR91tGpeGcujgGiN6BTA3FjHnQn';
