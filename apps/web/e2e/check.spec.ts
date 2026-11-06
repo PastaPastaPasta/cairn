@@ -41,7 +41,9 @@ test.describe('standalone /check', () => {
     await expect(result.locator('.check-kind')).toHaveText('Locked Terms');
     await expect(result).toContainText('Round 2 of 3: Locked Terms → Approval');
     await expect(result).toContainText('B2B8-01BC');
-    await expect(verdict(page)).toHaveAttribute('data-verdict', 'neutral');
+    // the fixtures are regtest messages and this site is on Testnet
+    await expect(verdict(page)).toHaveAttribute('data-verdict', 'stop');
+    await expect(page.getByTestId('findings').locator('[data-code="wrong-network"]')).toContainText('Wrong network: this message is for Regtest, and this site is on Testnet');
     await expect(result.getByTestId('check-rows').locator('tbody tr')).toHaveCount(3);
     for (const [name, title] of [['combined', 'Signing Request'], ['fundingSigned', 'Signed Contribution'], ['broadcast', 'Final Record']]) {
       await paste(page, env(name!));
@@ -51,6 +53,19 @@ test.describe('standalone /check', () => {
     const sessionId = /"sessionId": "([0-9a-f]{64})"/.exec(frozen)![1]!;
     expect(sent.filter((s) => s.includes(sessionId) || s.includes(owner(0)) || s.includes(A.prepared.consentHash))).toEqual([]);
     expect(errors).toEqual([]);
+  });
+
+  test('a valid testnet message is not called safe on its own, and an edited one asks to check it', async ({ page }) => {
+    await stubActivation(page);
+    await page.goto('/check');
+    const draft = testnetDraft(env('draft-complete'));
+    await paste(page, draft);
+    await expect(verdict(page)).toHaveAttribute('data-verdict', 'neutral');
+    await expect(verdict(page)).toContainText('Valid in Dash Core, not compared with agreed terms');
+    await paste(page, draft.replace(/"fingerprint": "[0-9A-F]{4}-[0-9A-F]{4}"/, '"fingerprint": "AAAA-BBBB"'));
+    await expect(verdict(page)).toHaveAttribute('data-verdict', 'warn');
+    await expect(verdict(page)).toContainText('Check this');
+    await expect(page.getByTestId('check-result')).not.toContainText('Approve and Copy Reply');
   });
 
   test('stops on a tampered message', async ({ page }) => {

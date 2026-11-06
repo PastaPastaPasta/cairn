@@ -59,7 +59,7 @@ export function VerdictBanner({ verdict, title, text, children, testId = 'verdic
   );
 }
 
-const LEVEL_WORD: Record<Level, string> = { ok: 'Matches', info: 'Note', warn: 'Check', stop: 'Stop' };
+const LEVEL_WORD: Record<Level, string> = { ok: 'OK', info: 'Note', warn: 'Check', stop: 'Stop' };
 const LEVEL_ORDER: Record<Level, number> = { stop: 0, warn: 1, ok: 2, info: 3 };
 
 export function FindingList({ findings }: { findings: readonly Finding[] }) {

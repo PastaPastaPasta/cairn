@@ -87,7 +87,7 @@ describe('message checker, standalone', () => {
     expect(fact('draft-complete', 'Rows filled')).toBe('3 of 3');
     expect(fact('frozen', 'Approvals')).toBe('0 of 3 valid');
     expect(fact('signing', 'Approvals')).toBe('1 of 3 valid');
-    expect(fact('frozen', 'Message')).toBe('Locked Terms, or an Approval reply');
+    expect(fact('frozen', 'Message')).toBe('Locked Terms (members reply with an Approval)');
     expect(fact('combined', 'Approvals')).toBe('3 of 3 valid');
     expect(fact('combined', 'Coins signed')).toBe('0 of 3 funding inputs');
     expect(fact('fundingSigned', 'Coins signed')).toBe('3 of 3 funding inputs');
@@ -100,6 +100,44 @@ describe('message checker, standalone', () => {
     expect(v.verdictTitle).toBe('Stop — don’t sign');
     const edited = env('draft-invitation').replace('"revision": 4', '"revision": 5');
     expect(checkMessage(edited).findings.map((f) => f.code)).toContain('fingerprint-mismatch');
+  });
+
+  it('asks to check an edited message, even with nothing agreed to compare with', () => {
+    const edited = env('frozen').replace(/"fingerprint": "[0-9A-F]{4}-[0-9A-F]{4}"/, '"fingerprint": "AAAA-BBBB"');
+    const v = checkMessage(edited);
+    expect(v.verdict).toBe('warn');
+    expect(v.verdictTitle).toBe('Check this');
+    expect(v.next.join(' ')).not.toMatch(/Approve and Copy Reply/);
+  });
+
+  it('only says “Approve and Copy Reply” for a message checked safe against the approved terms', () => {
+    for (const name of ['frozen', 'signing', 'combined']) {
+      const v = checkMessage(env(name));
+      expect(v.verdict, name).toBe('neutral');
+      expect(v.verdictTitle).toBe('Valid in Dash Core, not compared with agreed terms');
+      expect(v.next.join(' '), name).not.toMatch(/Approve and Copy Reply|Sign and Copy Reply/);
+    }
+    expect(checkMessage(env('sigs-dissolve-request')).next.join(' ')).not.toMatch(/Approve and Copy Reply/);
+  });
+
+  it('stops on a message for another network than the site’s', () => {
+    const v = checkMessage(env('frozen'), { network: 'test' });
+    expect(v.verdict).toBe('stop');
+    expect(v.findings.find((x) => x.code === 'wrong-network')!.title).toBe('Wrong network: this message is for Regtest, and this site is on Testnet');
+    expect(v.facts.find((x) => x.label === 'Network')!.tone).toBe('stop');
+    expect(checkMessage(env('frozen'), { network: 'regtest' }).verdict).toBe('neutral');
+    expect(checkMessage(env('sigs-dissolve-request'), { network: 'test' }).findings.map((x) => x.code)).toContain('wrong-network');
+  });
+
+  it('calls a cut-off or damaged message damaged, not out of date', () => {
+    const typeOnly = checkMessage('{"type":"dash-shared-mn-session"}', { network: 'test' });
+    expect(typeOnly.verdict).toBe('stop');
+    expect(typeOnly.summary).toMatch(/incomplete or damaged/);
+    expect(typeOnly.summary).not.toMatch(/Update Dash Core/);
+    const noNetwork = checkMessage(env('frozen').replace(/\s*"network": "regtest",/, ''), { network: 'test' });
+    expect(noNetwork.summary).toMatch(/incomplete or damaged/);
+    expect(noNetwork.summary).not.toMatch(/unknown/);
+    expect(checkMessage(env('frozen').replace('"version": 1', '"version": 2')).summary).toMatch(/newer version of Dash Core/);
   });
 
   it('refuses what is not a message', () => {
