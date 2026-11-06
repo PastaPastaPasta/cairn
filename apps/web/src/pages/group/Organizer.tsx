@@ -9,7 +9,7 @@ import { LISTED_OPERATORS, LOOKING, OPEN_LOOKING, OPERATORS, useStatusList } fro
 import { usePeople, type Person } from '../../data/people.ts';
 import { useWrite } from '../../data/write.ts';
 import { exitProblem } from '../../matching/exit.ts';
-import { change, holderVotingAddress, lockPlan, refillFields, saveChoices, type GroupView } from '../../matching/group.ts';
+import { change, holderVotingAddress, invitableAgain, lockPlan, refillFields, saveChoices, type GroupView } from '../../matching/group.ts';
 import { serviceProblem, votingAddressProblem } from '../../matching/keys.ts';
 import { deriveLabels, labelProblem } from '../../matching/labels.ts';
 import { completions, lookingThatFits } from '../../matching/match.ts';
@@ -17,6 +17,7 @@ import { bpsInput, dash, dashNum, parseDashInput, parsePercentInput, pct } from 
 import { operatorName } from '../../matching/words.ts';
 import { ExitTermsField, Field, PercentField } from '../../ui/fields.tsx';
 import { WriteStatus } from '../../ui/Loaded.tsx';
+import { HideButton, useHidden } from '../../ui/hidden.tsx';
 import { PersonName } from '../../ui/Person.tsx';
 import { useAction } from '../../ui/useAction.ts';
 import { BlsField, ServiceField, useBlsProblem } from './NextStep.tsx';
@@ -33,10 +34,12 @@ export function InviteSection({ view, people, ops, done }: Props) {
   const g = view.group;
   const posts = useStatusList(LOOKING, OPEN_LOOKING);
   const { busy, error, run } = useAction();
-  const exclude = useMemo(() => new Set([...view.requests.map((r) => r.seat.ownerId), ...view.openInvites.map((i) => i.toId), ...view.declined.map((s) => s.ownerId)]), [view]);
+  const hidden = useHidden();
+  const exclude = useMemo(() => new Set([...view.requests.map((r) => r.seat.ownerId), ...view.openInvites.map((i) => i.toId), ...view.declined.map((s) => s.ownerId), ...hidden.ids]), [view, hidden.ids]);
   const fits = posts.status === 'ready' ? lookingThatFits(g, posts.data.items, exclude) : [];
   const combos = completions(g, fits);
-  const morePeople = usePeople(fits.map((f) => f.looking.ownerId));
+  const again = invitableAgain(view).filter((a) => !hidden.has(a.seat.ownerId));
+  const morePeople = usePeople([...fits.map((f) => f.looking.ownerId), ...again.map((a) => a.seat.ownerId)]);
   const name = (id: string) => morePeople.get(id) ?? people.get(id);
   const invite = (xs: Array<{ ownerId: string; amount: number }>) =>
     run(async () => {
@@ -95,12 +98,33 @@ export function InviteSection({ view, people, ops, done }: Props) {
                   {f.looking.canCoordinate && <li className="pref-ok">Can coordinate</li>}
                 </ul>
               </div>
-              <button type="button" className="btn btn-s" disabled={busy} onClick={() => invite([f.looking])} data-testid="invite-person">
-                Invite
-              </button>
+              <div className="form-actions">
+                <button type="button" className="btn btn-s" disabled={busy} onClick={() => invite([f.looking])} data-testid="invite-person">
+                  Invite
+                </button>
+                <HideButton id={f.looking.ownerId} name={name(f.looking.ownerId)?.name} hidden={hidden} />
+              </div>
             </li>
           ))}
         </ul>
+      )}
+      {again.length > 0 && (
+        <>
+          <h3 className="h4">Declined or withdrew</h3>
+          <ul className="fit-people">
+            {again.map(({ seat, fit }) => (
+              <li key={seat.ownerId} className="fit-person" data-testid="declined-person">
+                <span>
+                  <PersonName id={seat.ownerId} person={name(seat.ownerId)} /> <span className="num">{dash(seat.amount)}</span>
+                  {!fit.ok && <span className="small muted block">{fit.message}</span>}
+                </span>
+                <button type="button" className="btn btn-s" disabled={busy || !fit.ok} onClick={() => invite([{ ownerId: seat.ownerId, amount: seat.amount }])} data-testid="invite-again">
+                  Invite again
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       {view.openInvites.length > 0 && (
         <>

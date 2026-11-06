@@ -13,6 +13,7 @@ import type { Agreement } from '../matching/agreement.ts';
 import { groupView, type GroupBundle, type GroupView } from '../matching/group.ts';
 import { isFormed, stageOf } from '../matching/stage.ts';
 import { useGroupOps, type GroupOps } from '../pages/group/ops.ts';
+import { openSignIn } from '../ui/Account.tsx';
 import { ActivationCard } from '../ui/Activation.tsx';
 import { Icon, type IconName } from '../ui/Icon.tsx';
 import { PageHead } from '../ui/states.tsx';
@@ -207,6 +208,13 @@ function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void })
                 </b>{' '}
                 {coordinator ? `${coordinator.label} coordinates` : 'The coordinator runs the wizard'}; you check each message here and approve it in your own Dash-Qt.
               </p>
+            ) : !session ? (
+              <p data-testid="form-signed-out">
+                <b>Are you in this group?</b> Sign in to see your row and what to do next.{' '}
+                <button type="button" className="btn btn-s btn-primary" onClick={openSignIn}>
+                  Sign in
+                </button>
+              </p>
             ) : (
               <p className="muted">You are not a co-owner of this group. You can follow along and check messages, but there is nothing for you to sign.</p>
             )}
@@ -247,7 +255,7 @@ function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void })
               <section className="never" aria-labelledby="never-title">
                 <h2 id="never-title">Never share</h2>
                 <ul className="crosses">
-                  <li>Your recovery phrase, wallet file or any private key. Nobody in a group, and nothing on Cairn, ever needs them.</li>
+                  <li>Your Dash Core wallet’s recovery phrase, wallet file or any private key. Nobody in a group, and nothing on Cairn, ever needs them.</li>
                   <li>The operator’s BLS secret key, unless you are the operator. Only the public key goes into the terms.</li>
                   <li>Coins. You never send DASH to anyone: your coins move only in the registration your own wallet signs.</li>
                   <li>A signature for a message the checker stops. Ask for a fresh copy instead.</li>

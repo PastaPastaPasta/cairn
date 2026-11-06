@@ -6,7 +6,7 @@ import { useApp } from '../app/context.tsx';
 import { readOwn, useLoad } from '../data/cairn.ts';
 import { LISTED_OPERATORS, OPERATORS, useStatusList } from '../data/lists.ts';
 import { useWrite } from '../data/write.ts';
-import { EXIT_PRESETS, periodWords } from '../matching/exit.ts';
+import { EXIT_PRESETS, acceptedPeriod, periodWords } from '../matching/exit.ts';
 import { DUFFS, bpsInput, dash, dashNum, parseDashInput, parsePercentInput, pct } from '../matching/money.ts';
 import { operatorName } from '../matching/words.ts';
 import { DashField, Field, PercentField } from './fields.tsx';
@@ -29,7 +29,8 @@ export function amountProblem(text: string, required = true): string | null {
 
 export function LookingSummary({ l, operators }: { l: Looking; operators: ReadonlyMap<string, Operator> }) {
   const op = l.operatorId ? operators.get(l.operatorId) : null;
-  const { maxPeriodBlocks: p, maxPenalty: pen } = l.earlyPref;
+  const { maxPenalty: pen } = l.earlyPref;
+  const p = acceptedPeriod(l.earlyPref.maxPeriodBlocks);
   return (
     <ul className="facts-inline small">
       <li>
@@ -69,7 +70,7 @@ export function LookingEditor({ identityId, onChange, onSaved }: { identityId: s
     setAmount(dashNum(current.amount));
     setOperatorId(current.operatorId ?? '');
     setMaxReward(bpsInput(current.maxRewardBps));
-    setPeriod(current.earlyPref.maxPeriodBlocks === null ? 'any' : String(current.earlyPref.maxPeriodBlocks));
+    setPeriod(current.earlyPref.maxPeriodBlocks === null ? 'any' : String(acceptedPeriod(current.earlyPref.maxPeriodBlocks)));
     setPenalty(current.earlyPref.maxPenalty === null ? '' : dashNum(current.earlyPref.maxPenalty));
     setCoordinate(current.canCoordinate);
     setNote(current.note ?? '');

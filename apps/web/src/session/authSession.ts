@@ -4,19 +4,22 @@
 import { assertLive, KeyType, type PlatformPort, type Session as AuthSession } from '@cairn/auth';
 import type { Session } from './session.ts';
 
-const HOW = { seed: 'recovery phrase', key: 'pasted key', passkey: 'passkey' } as const;
+const HOW = { seed: 'your Cairn account phrase', key: 'a pasted key', passkey: 'your passkey' } as const;
 const LEVEL = ['MASTER', 'CRITICAL', 'HIGH', 'MEDIUM'];
 
 export interface AppAuthSession extends Session {
   /** The underlying auth session (top-ups, passkeys). */
   readonly auth: AuthSession;
+  /** Key index and level, for the account menu's Technical details. */
+  readonly technical: string;
 }
 
 export function appSessionFromAuth(auth: AuthSession, platform: () => Promise<PlatformPort>): AppAuthSession {
   return {
     auth,
     identityId: auth.identityId,
-    label: `${HOW[auth.source]}, key ${auth.keyId} (${LEVEL[auth.securityLevel] ?? auth.securityLevel})`,
+    label: HOW[auth.source],
+    technical: `Key ${auth.keyId} (${LEVEL[auth.securityLevel] ?? auth.securityLevel})`,
     async balance() {
       return (await (await platform()).balance(auth.identityId)) ?? 0n;
     },

@@ -4,8 +4,9 @@ import type { Contacts } from '@cairn/contract';
 import type { Person } from '../data/people.ts';
 import { shortId } from '../matching/money.ts';
 
-export function PersonName({ id, person, you }: { id: string; person?: Person; you?: boolean }) {
-  const name = person?.name;
+/** `fallback`: a name to show when the person has no profile name (a share's label in Dash-Qt). */
+export function PersonName({ id, person, you, fallback }: { id: string; person?: Person; you?: boolean; fallback?: string }) {
+  const name = person?.name ?? fallback;
   const other = person?.dpns && person.profile?.displayName && person.profile.displayName !== person.dpns ? person.profile.displayName : null;
   return (
     <span className="person" title={id}>

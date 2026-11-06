@@ -391,3 +391,9 @@ export function refillFields(old: Group, leaverIds: readonly string[]): GroupFie
     votingAddress: keep(old.votingHolderId) ? old.votingAddress : undefined,
   };
 }
+
+/** People who declined an invitation or withdrew a request, with no open invitation since: the organizer can invite them again. */
+export function invitableAgain(v: GroupView): Array<{ seat: Seat; fit: CanAddResult }> {
+  const invited = new Set(v.openInvites.map((i) => i.toId));
+  return v.declined.filter((s) => !invited.has(s.ownerId)).map((seat) => ({ seat, fit: fitsRoster(v.group.roster, seat.amount, v.group.earlyPenalty) }));
+}

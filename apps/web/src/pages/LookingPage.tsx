@@ -10,6 +10,7 @@ import { openSignIn } from '../ui/Account.tsx';
 import { Loaded } from '../ui/Loaded.tsx';
 import { LookingEditor, LookingSummary } from '../ui/LookingEditor.tsx';
 import { Matches } from '../ui/Matches.tsx';
+import { HiddenNote, HideButton, useHidden } from '../ui/hidden.tsx';
 import { PersonName } from '../ui/Person.tsx';
 import { NotOpenHere, PageHead } from '../ui/states.tsx';
 import '../styles/matching.css';
@@ -21,8 +22,10 @@ export function LookingPage() {
   const ops = useStatusList(OPERATORS, LISTED_OPERATORS, !!registry.contractId);
   const [mine, setMine] = useState<Looking | null>(null);
   const onMine = useCallback((l: Looking | null) => setMine(l), []);
+  const hidden = useHidden();
   const items = list.status === 'ready' ? list.data.items : [];
   const people = usePeople(items.map((l) => l.ownerId));
+  const visible = (all: Looking[]) => all.filter((l) => l.ownerId === session?.identityId || !hidden.has(l.ownerId));
   const opMap = new Map((ops.status === 'ready' ? ops.data.items : []).map((o) => [o.ownerId, o]));
   return (
     <div className="page">
@@ -51,10 +54,10 @@ export function LookingPage() {
               {(d) => (
                 <>
                   <p className="small muted list-count">
-                    {d.items.length} {d.items.length === 1 ? 'person' : 'people'} looking
+                    {visible(d.items).length} {visible(d.items).length === 1 ? 'person' : 'people'} looking
                   </p>
                   <ul className="rows" data-testid="looking-rows">
-                    {d.items.map((l) => (
+                    {visible(d.items).map((l) => (
                       <li key={l.id} className="row row-looking">
                         <div className="row-main">
                           <p className="row-title">
@@ -63,9 +66,15 @@ export function LookingPage() {
                           <LookingSummary l={l} operators={opMap} />
                           {l.note && <p className="row-note small">{l.note}</p>}
                         </div>
+                        {l.ownerId !== session?.identityId && (
+                          <div className="row-side">
+                            <HideButton id={l.ownerId} name={people.get(l.ownerId)?.name} hidden={hidden} />
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>
+                  <HiddenNote count={d.items.length - visible(d.items).length} />
                   {d.more && (
                     <button type="button" className="btn btn-s" onClick={list.showOlder}>
                       Show older posts

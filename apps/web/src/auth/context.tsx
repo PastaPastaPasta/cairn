@@ -12,7 +12,7 @@ import { appSessionFromAuth, type AppAuthSession } from '../session/authSession.
 import { createTabShare, type TabShare } from '../session/tabShare.ts';
 import { getAuthDapi, getPlatformPort } from './runtime.ts';
 
-export type SheetView = 'choose' | 'create' | 'phrase' | 'key' | 'passkey' | 'topup' | 'passkeys';
+export type SheetView = 'choose' | 'create' | 'phrase' | 'key' | 'passkey' | 'topup' | 'passkeys' | 'stay';
 
 interface AuthCtx {
   /** The real auth session behind the app session, when the app is signed in through @cairn/auth. */

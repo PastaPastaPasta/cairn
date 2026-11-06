@@ -9,7 +9,7 @@ import {
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useAuth, type SheetView } from './context.tsx';
 import { FundingPanel } from './FundingPanel.tsx';
-import { PasskeySignIn, Passkeys } from './Passkeys.tsx';
+import { PasskeyOffer, PasskeySignIn, Passkeys } from './Passkeys.tsx';
 import { RecoverLink } from './RecoverLink.tsx';
 import { SecretField } from './SecretField.tsx';
 import { formatDuffs, plainErrorText } from './runtime.ts';
@@ -19,7 +19,8 @@ export { SecretField }; // moved to its own file (the Recover tool uses it too);
 const TITLES: Record<SheetView, string> = {
   choose: 'Sign in or create an account',
   create: 'Create an account',
-  phrase: 'Sign in with a recovery phrase',
+  phrase: 'Sign in with your Cairn account phrase',
+  stay: 'Stay signed in',
   key: 'Sign in with a key',
   passkey: 'Sign in with a passkey',
   topup: 'Top up',
@@ -78,6 +79,8 @@ function SheetContent({ view }: { view: SheetView }) {
       return <KeySignIn />;
     case 'passkey':
       return <PasskeySignIn />;
+    case 'stay':
+      return <PasskeyOffer />;
     case 'topup':
       return <TopUp />;
     case 'passkeys':
@@ -116,19 +119,19 @@ function RecoverableNotice({ records }: { records: FundingRecord[] }) {
 function SeedWarning({ what = 'phrase' }: { what?: 'phrase' | 'key' }) {
   return (
     <p className="seed-warning" role="note" data-testid="seed-warning">
-      <b>Use a {what === 'key' ? 'key from an account' : 'recovery phrase'} just for Cairn.</b> You type it into a web page, so never use one that holds
+      <b>Use {what === 'key' ? 'a key from an account' : 'a phrase'} made just for Cairn.</b> You type it into a web page, so never use one that holds
       real money, or one you couldn’t afford to see leaked.
     </p>
   );
 }
 
-function Choose() {
+export function Choose() {
   const { openSheet, store, network } = useAuth();
   const [, rerender] = useState(0);
   const pending = pendingFundings(store, network).filter((r) => r.kind === 'create');
   const main: Array<{ v: SheetView; title: string; text: string }> = [
     { v: 'create', title: 'Create an account', text: `Pay a little DASH (${formatDuffs(SUGGESTED_CREATE_DEPOSIT_DUFFS)} is suggested) from any Dash wallet; it covers the account and your first posts on Cairn.` },
-    { v: 'phrase', title: 'I have a recovery phrase', text: 'The 12 or 24 words of an account you made for Cairn.' },
+    { v: 'phrase', title: 'I have a Cairn account phrase', text: 'The 12 or 24 words you made for your Cairn account. It is a standard Dash recovery phrase for your Cairn account on Dash Platform, not your Dash Core wallet’s phrase, and it never holds your masternode DASH.' },
   ];
   const other: Array<{ v: SheetView; title: string; text: string }> = [
     { v: 'passkey', title: 'Use a passkey', text: 'If you saved one on this device or another.' },
@@ -148,7 +151,7 @@ function Choose() {
       {pending.length > 0 && (
         <div className="notice-box" role="status">
           <p>
-            <b>{pending.length === 1 ? 'An account setup is' : `${pending.length} account setups are`} in progress.</b> Enter its recovery phrase to continue.
+            <b>{pending.length === 1 ? 'An account setup is' : `${pending.length} account setups are`} in progress.</b> Enter its Cairn account phrase to continue.
           </p>
           <ul className="pending-list">
             {pending.map((r) => (
@@ -181,27 +184,16 @@ function Choose() {
       )}
       <RecoverableNotice records={store.list().filter((r) => r.network === network && !r.discarded)} />
       <ul className="choices">
-        <li>
-          <button type="button" className="choice choice-l" disabled aria-describedby="wallet-soon" data-testid="wallet-signin">
-            <span className="choice-soon">
-              <b>Sign in with a Dash wallet</b>
-              <span className="tag tag-info" id="wallet-soon">
-                Coming soon
-              </span>
-            </span>
-            <span className="muted small">Approve from DashPay or another Dash wallet, with no phrase typed here. This will become the main way to sign in.</span>
-          </button>
-        </li>
         {main.map((o) => choice(o, true))}
       </ul>
-      <SeedWarning />
       <p className="small muted choices-more">Other ways to sign in</p>
       <ul className="choices choices-s">{other.map((o) => choice(o, false))}</ul>
+      <p className="small muted" data-testid="wallet-soon">Coming soon: approve sign-in from DashPay.</p>
       <details className="learn">
         <summary>What is an account here?</summary>
         <p className="small">
           Your account is a Dash Platform identity. Your profile, listings and approvals are stored on Dash Platform and paid for with a little credit from your account’s
-          balance (about 0.0005 DASH a change). Your recovery phrase is the account: other Dash wallets (DashPay, Dash Evo Tool) can restore it. It stays in
+          balance (about 0.0005 DASH a change). Your Cairn account phrase is the account: other Dash wallets (DashPay, Dash Evo Tool) can restore it. It stays in
           this browser; Cairn has no account server and can’t reset it for you.
         </p>
       </details>
@@ -236,10 +228,10 @@ export function CreateFlow() {
         <ol className="steps-bar" aria-label="Creating an account">
           <li aria-current="step">Save your phrase</li>
           <li>Check it</li>
-          <li>Add credit</li>
+          <li>Pay ~0.005 DASH</li>
         </ol>
         <p>
-          These words are your <b>recovery phrase</b>. They <i>are</i> your account: write them down in order and keep them somewhere safe, offline. Anyone who
+          These words are your <b>Cairn account phrase</b>: a standard Dash recovery phrase for your Cairn account on Dash Platform. It is not your Dash Core wallet’s phrase, and Cairn never asks for that or for your wallet’s keys. These words <i>are</i> your account: write them down in order and keep them somewhere safe, offline. Anyone who
           has them can use your account, and nobody, Cairn included, can recover it if you lose them.
         </p>
         <p className="seed-warning" role="note">
@@ -289,7 +281,7 @@ function Quiz({ words, positions, onPass, onBack }: { words: string[]; positions
       <ol className="steps-bar" aria-label="Creating an account">
         <li>Save your phrase</li>
         <li aria-current="step">Check it</li>
-        <li>Add credit</li>
+        <li>Pay ~0.005 DASH</li>
       </ol>
       <p>Type these words from your written copy, to be sure you have it.</p>
       <div className="row3">
@@ -325,7 +317,7 @@ function Quiz({ words, positions, onPass, onBack }: { words: string[]; positions
  * `resume`: an earlier visit began this setup, so go straight to the payment.
  */
 function FundNewIdentity({ phrase, identityIndex, resume }: { phrase: string; identityIndex: number; resume?: boolean }) {
-  const { network, signIn, closeSheet, platform } = useAuth();
+  const { network, signIn, openSheet, platform } = useAuth();
   const [wallet, setWallet] = useState<SeedWallet | null>(null);
   const [how, setHow] = useState<'choose' | 'dash' | 'voucher'>(resume ? 'dash' : 'choose');
   const [error, setError] = useState<string | null>(null);
@@ -346,7 +338,7 @@ function FundNewIdentity({ phrase, identityIndex, resume }: { phrase: string; id
       const s = await signInWithSeed(wallet, { identityIndex: index, identityId }, await platform());
       owned.current = true;
       signIn(s);
-      closeSheet();
+      openSheet('stay');
     } catch (e) {
       setError(plainErrorText(e));
     }
@@ -358,12 +350,9 @@ function FundNewIdentity({ phrase, identityIndex, resume }: { phrase: string; id
         <ol className="steps-bar" aria-label="Creating an account">
           <li>Save your phrase</li>
           <li>Check it</li>
-          <li aria-current="step">Add credit</li>
+          <li aria-current="step">Pay ~0.005 DASH</li>
         </ol>
-        <p>
-          Accounts live on Dash Platform, which needs a little credit to store them: about 0.0011 DASH for the account, and the rest stays in its balance for your
-          profile and listings.
-        </p>
+        <p>A one-time payment that creates your account on Dash Platform and covers your first posts.</p>
         <ul className="choices">
           <li>
             <button type="button" className="choice choice-l" onClick={() => setHow('dash')}>
@@ -421,7 +410,7 @@ function VoucherRedeem({ wallet, identityIndex, onDone }: { wallet: SeedWallet; 
   return (
     <form className="form" onSubmit={submit}>
       <SecretField label="Voucher link" what="the voucher link" value={text} onChange={setText} placeholder="dashpay://invite?assetlocktx=…&pk=…" testId="voucher-input" disabled={busy} />
-      <p className="muted small">The voucher only pays for the identity. Its keys are the ones from your recovery phrase; the faucet never controls it.</p>
+      <p className="muted small">The voucher only pays for the identity. Its keys are the ones from your Cairn account phrase; the faucet never controls it.</p>
       {note && busy && (
         <p className="muted small" aria-live="polite">
           <span className="spinner" aria-hidden="true" /> {note}
@@ -439,8 +428,8 @@ function VoucherRedeem({ wallet, identityIndex, onDone }: { wallet: SeedWallet; 
 
 // ---- existing phrase -------------------------------------------------------------------------------------------------------
 
-function PhraseSignIn() {
-  const { network, platform, signIn, closeSheet, store } = useAuth();
+export function PhraseSignIn() {
+  const { network, platform, signIn, closeSheet, openSheet, store } = useAuth();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -479,7 +468,7 @@ function PhraseSignIn() {
       if (found.length === 1) {
         signIn(await signInWithSeed(wallet, found[0]!, port));
         handedOver = true;
-        closeSheet();
+        openSheet('stay');
         return;
       }
       // a new identity skips an index whose payment was used to top up another identity
@@ -497,7 +486,7 @@ function PhraseSignIn() {
     const wallet = SeedWallet.fromPhrase(state.phrase, network);
     try {
       signIn(await signInWithSeed(wallet, f, await platform()));
-      closeSheet();
+      openSheet('stay');
     } catch (err) {
       wallet.wipe();
       setError(plainErrorText(err));
@@ -535,7 +524,7 @@ function PhraseSignIn() {
   return (
     <form className="form" onSubmit={submit}>
       <SeedWarning />
-      <SecretField label="Recovery phrase (12 or 24 words)" what="the recovery phrase" value={text} onChange={setText} testId="phrase-input" disabled={busy} />
+      <SecretField label="Cairn account phrase (12 or 24 words)" what="the Cairn account phrase" value={text} onChange={setText} testId="phrase-input" disabled={busy} />
       <p className="muted small">The phrase never leaves this browser. Cairn finds your account by a public key fingerprint only.</p>
       {error && <p className="error" role="alert">{error}</p>}
       <div className="form-actions">

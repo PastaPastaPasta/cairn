@@ -1,21 +1,36 @@
 import { GROUP_STATUS, INVITE_STATUS, OP_ACCEPT_STATUS, SEAT_FLAG, SEAT_STATUS, groupData, termSheetFromGroup, toGroup, type Invite } from '@cairn/contract';
 import { termsHash } from '@cairn/shares';
 import { describe, expect, it } from 'vitest';
-import { EXIT_PRESETS, exitProblem, exitWords, termWarnings } from './exit.ts';
+import { EXIT_PRESETS, acceptedPeriod, exitProblem, exitShort, exitWords, termWarnings } from './exit.ts';
 import { A, B, BLS, C, D, GID, OPR, ORG, SERVICE, VOTING, approval, group, id, looking, opAccept, seat } from './fixtures.ts';
-import { acceptSeat, change, groupView, lockPlan, refillFields, removeShare, saveChoices, type GroupBundle } from './group.ts';
+import { acceptSeat, change, groupView, invitableAgain, lockPlan, refillFields, removeShare, saveChoices, type GroupBundle } from './group.ts';
 import { asciiLabel, deriveLabels, labelProblem } from './labels.ts';
 import { combosWith, completions, filterGroups, lookingThatFits, rankGroups } from './match.ts';
 import { parseDashInput, parsePercentInput } from './money.ts';
-import { nextSteps, rolesOf, seatFlags, stepHref } from './nextstep.ts';
+import { FORM_BY_PASSED, formByNoteFor } from './deadline.ts';
+import { ROLE_WORDS, nextSteps, rolesOf, seatFlags, stepHref } from './nextstep.ts';
 import { stageOf } from './stage.ts';
 
 const bundle = (over: Partial<GroupBundle> = {}): GroupBundle => ({ group: group(), seats: [], opAccepts: [], invites: [], approvals: [], voided: [], ...over });
 const invite = (toId: string, amount: number): Invite => ({ id: id(70), ownerId: ORG, docRevision: 1, groupId: GID, toId, amount, status: INVITE_STATUS.open }) as Invite;
 
 describe('exit terms', () => {
-  it('offer presets in blocks at 576 a day, up to Core’s cap', () => {
-    expect(EXIT_PRESETS.map((p) => p.blocks)).toEqual([0, 52_416, 104_832, 210_240, 420_480]);
+  it('offer exactly Dash-Qt’s preset buttons (src/qt/sharedmncreatedialog.cpp), up to Core’s cap', () => {
+    expect(EXIT_PRESETS.map((p) => [p.label, p.blocks])).toEqual([
+      ['No early period', 0],
+      ['3 months', 52_560],
+      ['6 months', 105_120],
+      ['1 year', 210_240],
+      ['2 years', 420_480],
+    ]);
+  });
+  it('read a looking post saved with the old 91- and 182-day presets as Dash-Qt’s 3 and 6 months', () => {
+    expect(acceptedPeriod(52_416)).toBe(52_560);
+    expect(acceptedPeriod(104_832)).toBe(105_120);
+    expect(acceptedPeriod(1000)).toBe(1000);
+    expect(acceptedPeriod(null)).toBeNull();
+    const old = looking(A, D(300), { earlyPref: { maxPeriodBlocks: 52_416, maxPenalty: null } });
+    expect(rankGroups([group({ earlyPeriodBlocks: 52_560, earlyPenalty: D(5) })], old)[0]!.prefs.every((p) => p.ok)).toBe(true);
   });
   it('enforce the penalty rules as you type', () => {
     expect(exitProblem(0, 0)).toBeNull();
@@ -27,7 +42,10 @@ describe('exit terms', () => {
   });
   it('say what leaving costs, and warn about free exits and the permanent reward', () => {
     expect(exitWords(0, 0)).toBe('Anyone can leave at any time, with no penalty.');
-    expect(exitWords(210_240, D(25))).toBe('Leaving in the first 1 year costs 25 DASH, paid to the others. After that, anyone can leave at no cost.');
+    expect(exitWords(210_240, D(25))).toBe('Leaving within 1 year of registration costs 25 DASH, paid to the others. After that, anyone can leave at no cost.');
+    expect(exitWords(52_416, D(5))).toBe('Leaving within about 91 days of registration costs 5 DASH, paid to the others. After that, anyone can leave at no cost.');
+    expect(exitWords(52_560, D(5))).toMatch(/^Leaving within 3 months of registration/);
+    expect(exitShort(52_416, D(5))).toBe('5 DASH to leave within about 91 days');
     expect(termWarnings({ earlyPeriodBlocks: 0, rewardBps: 1500 }).map((w) => w.id)).toEqual(['free-exit', 'reward-permanent']);
     expect(termWarnings({ earlyPeriodBlocks: 1, rewardBps: 1500 }).map((w) => w.id)).toEqual(['reward-permanent']);
   });
@@ -230,6 +248,18 @@ describe('next steps per role', () => {
     expect(rolesOf(again, C)).toEqual(['invitee']);
   });
 
+  it('let the organizer invite again someone who declined (F-012)', () => {
+    const declined = { ...seat(C, D(300), { status: SEAT_STATUS.withdrawn }), updatedAt: 10 };
+    const inv = { ...invite(C, D(300)), updatedAt: 5 };
+    const g = group({ roster: [{ id: A, amount: D(500) }] });
+    const v = groupView(bundle({ group: g, seats: [seat(A, D(500)), declined], invites: [inv] }), 'testnet');
+    expect(invitableAgain(v)).toEqual([{ seat: declined, fit: expect.objectContaining({ ok: true }) }]);
+    const reinvited = groupView(bundle({ group: g, seats: [seat(A, D(500)), declined], invites: [{ ...inv, updatedAt: 20 }] }), 'testnet');
+    expect(invitableAgain(reinvited)).toEqual([]);
+    const tooBig = groupView(bundle({ group: group({ roster: [{ id: A, amount: D(800) }] }), seats: [seat(A, D(800)), declined], invites: [inv] }), 'testnet');
+    expect(invitableAgain(tooBig)[0]!.fit.ok).toBe(false);
+  });
+
   it('send the operator of a member-led group to accept, and an invitation-only visitor to post', () => {
     const v = groupView(bundle({ group: group({ flags: 0 }) }), 'testnet');
     expect(nextSteps(v, { id: OPR })[0]!.action).toBe('operator-answer');
@@ -237,6 +267,32 @@ describe('next steps per role', () => {
     const noOp = groupView(bundle({ group: group({ operatorId: null }) }), 'testnet');
     expect(nextSteps(noOp, { id: id(77), isOperator: true })[0]!.action).toBe('offer');
     expect(nextSteps(noOp, { id: ORG })[0]!.action).toBe('choose-operator');
+  });
+
+  it('ask a signed-out visitor whether they are in the group, and send others elsewhere once it is full (D-003)', () => {
+    const b = readyToLock();
+    const full = groupView(b, 'testnet');
+    expect(nextSteps(full, { id: null })[0]).toMatchObject({ role: 'visitor', title: 'Are you in this group?', text: 'Sign in to see your row and what to do next.', action: 'sign-in' });
+    expect(nextSteps(full, { id: id(77) })[0]).toMatchObject({ title: 'This group is full', text: 'This group is full. Browse open groups or post that you’re looking.', action: 'find-another' });
+    const open = groupView(bundle({ group: group({ roster: [{ id: A, amount: D(500) }] }), seats: [seat(A, D(500))] }), 'testnet');
+    expect(nextSteps(open, { id: null })[0]!.text).toBe('Sign in to see your row and what to do next. Not in it yet? It still needs 500 DASH; signing in also lets you ask for a seat.');
+    expect(ROLE_WORDS.visitor).toBe('Next step');
+  });
+
+  it('remind the roster to release reserved coins once the form-by date has passed, until the group forms (S6)', () => {
+    const b = readyToLock();
+    const at = (formBy: number | undefined, over: Partial<GroupBundle> = {}) => groupView({ ...b, ...over, group: { ...b.group, formBy, ...over.group } }, 'testnet');
+    const now = 1_800_000_000_000;
+    const past = now / 1000 - 1;
+    expect(formByNoteFor(at(past), A, 'full', now)).toBe(true);
+    expect(formByNoteFor(at(past), B, 'locked', now)).toBe(true);
+    expect(formByNoteFor(at(now / 1000 + 60), A, 'full', now)).toBe(false);
+    expect(formByNoteFor(at(undefined), A, 'full', now)).toBe(false);
+    expect(formByNoteFor(at(past), id(77), 'full', now)).toBe(false);
+    expect(formByNoteFor(at(past), null, 'full', now)).toBe(false);
+    expect(formByNoteFor(at(past), A, 'live', now)).toBe(false);
+    expect(formByNoteFor(at(past), A, 'closed', now)).toBe(true);
+    expect(FORM_BY_PASSED).toBe('The form-by date has passed. If you reserved coins in Dash-Qt, release them.');
   });
 
   it('ask the chosen voting key holder for the address', () => {

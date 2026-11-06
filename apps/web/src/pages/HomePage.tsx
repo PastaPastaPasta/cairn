@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
+import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
-import { ActivationCard } from '../ui/Activation.tsx';
+import { ActivationCard, ActivationLine } from '../ui/Activation.tsx';
 import { CairnStack, type Stone } from '../ui/CairnStack.tsx';
 import { OpenGroupsPreview } from './ListPages.tsx';
+import { NextStepBand } from './me/MyGroups.tsx';
 
 /** The hero's sample group (shown as a sample, never as a real listing): three co-owners in, and the visitor asking for a seat. */
 export const SAMPLE_STONES: Stone[] = [
@@ -41,8 +43,10 @@ const STEPS = [
 
 export function HomePage() {
   const { registry } = useApp();
+  const { session } = useAccount();
   return (
     <div className="page home">
+      {session && registry.contractId && <NextStepBand me={session.identityId} />}
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero-text">
           <h1 id="hero-title">Build a masternode together.</h1>
@@ -102,7 +106,7 @@ export function HomePage() {
               Your coins. Your share goes into a collateral only a dissolution can spend, and a dissolution sends it back to your refund address, minus any
               agreed early penalty if you leave early.
             </li>
-            <li>Your wallet’s keys or recovery phrase. Nobody in a group, and nothing on Cairn, ever needs them.</li>
+            <li>Your Dash Core wallet’s keys or recovery phrase. Your Cairn account phrase is a separate one that only signs your profile and approvals.</li>
             <li>
               Control of leaving. Any member can leave alone at any time. Everyone gets their share back; whoever leaves before the agreed early period ends pays
               the agreed penalty to the others.
@@ -110,6 +114,11 @@ export function HomePage() {
           </ul>
         </div>
       </section>
+
+      <p className="good-to-know" data-testid="good-to-know">
+        <b>Good to know:</b> if any co-owner leaves, the masternode stops for everyone and every share goes back to its owner. Early-exit terms are how a group
+        protects itself against that. <Link to="/learn#leaving">How leaving works</Link>
+      </p>
 
       <section className="home-groups" aria-labelledby="open-groups-title">
         <div className="section-head">
@@ -119,7 +128,7 @@ export function HomePage() {
         <OpenGroupsPreview />
       </section>
 
-      <ActivationCard />
+      {registry.network === 'mainnet' ? <ActivationCard /> : <ActivationLine />}
     </div>
   );
 }

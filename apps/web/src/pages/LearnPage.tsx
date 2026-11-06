@@ -142,7 +142,7 @@ export function LearnPage() {
               </li>
               <li>
                 <b>A Cairn account</b> to make a profile and join a group. You create it by paying about 0.005 DASH from any Dash wallet; it is a Dash Platform
-                identity, and its recovery phrase also works in other Dash Platform wallets.
+                identity. Its Cairn account phrase is a Dash Platform identity phrase: it also opens this account in other Platform apps. Don’t put real money on it.
               </li>
               <li>
                 <b>Somewhere to talk.</b> Groups agree in their own chat (Discord, Yappr, Telegram or Matrix). Cairn stores the link, not the conversation.
@@ -157,9 +157,9 @@ export function LearnPage() {
                 Your DASH. Your share goes into a collateral only a dissolution can spend, and a dissolution sends it back to your refund address, minus any agreed
                 early penalty if you leave early. No person and no website holds it in between.
               </li>
-              <li>Your wallet’s recovery phrase or private keys. Nobody needs them: not the organizer, not the operator, not Cairn.</li>
+              <li>Your Dash Core wallet’s recovery phrase or private keys. Nobody needs them: not the organizer, not the operator, not Cairn.</li>
               <li>
-                Your Cairn recovery phrase. It controls your profile and approvals, so keep it for Cairn only, with no money in it beyond a little credit.
+                Your Cairn account phrase is a separate one. It only signs your profile and approvals, so don’t reuse it anywhere else, and keep no money in it beyond a little credit.
               </li>
               <li>
                 The operator’s private key, if you are not the operator. Only the person running the node should ever hold it; if someone offers to send it

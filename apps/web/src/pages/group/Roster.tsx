@@ -6,6 +6,7 @@ import { acceptSeat, fitsAsChange, removeShare, setShareAmount, type GroupView, 
 import { dash } from '../../matching/money.ts';
 import { seatOffers } from '../../matching/nextstep.ts';
 import { WriteStatus } from '../../ui/Loaded.tsx';
+import { HideButton, useHidden } from '../../ui/hidden.tsx';
 import { ContactList, PersonName } from '../../ui/Person.tsx';
 import { useAction } from '../../ui/useAction.ts';
 import { OPEN, WITHDRAWN, type GroupOps } from './ops.ts';
@@ -60,8 +61,8 @@ export function Roster({ view, people, me, ops, done, frozen = false }: { view: 
             return (
               <li key={s.id} className={`roster-row${s.id === me ? ' mine' : ''}`} data-state={s.state}>
                 <div className="roster-who">
-                  <PersonName id={s.id} person={people.get(s.id)} you={s.id === me} />
-                  {s.label && <span className="label-chip mono-ish" title="Row label in Dash-Qt">{s.label}</span>}
+                  <PersonName id={s.id} person={people.get(s.id)} you={s.id === me} fallback={s.label} />
+                  {s.label && (people.get(s.id)?.name ? s.label !== people.get(s.id)!.name && <span className="label-chip small muted">label in Dash-Qt: <span className="mono-ish">{s.label}</span></span> : <span className="small muted"> (label in Dash-Qt)</span>)}
                   {roleTags(s.id).map((t) => (
                     <span key={t} className="role-tag">
                       {t}
@@ -117,9 +118,13 @@ function Requests({ view, people, organizer, ops, done, me }: { view: GroupView;
   const g = view.group;
   const { busy, error, run } = useAction();
   const [showDeclined, setShowDeclined] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
+  const hiddenList = useHidden();
   if (!view.requests.length) return null;
-  const open = view.requests.filter((r) => !r.declined);
-  const declined = view.requests.filter((r) => r.declined);
+  const isHidden = (r: (typeof view.requests)[number]) => r.seat.ownerId !== me && hiddenList.has(r.seat.ownerId);
+  const open = view.requests.filter((r) => !r.declined && !isHidden(r));
+  const declined = view.requests.filter((r) => r.declined && !isHidden(r));
+  const hidden = view.requests.filter(isHidden);
   const act = (f: () => Promise<unknown>) => run(async () => {
     await f();
     done();
@@ -140,6 +145,7 @@ function Requests({ view, people, organizer, ops, done, me }: { view: GroupView;
               </p>
               {people.get(r.seat.ownerId)?.profile && <ContactList contacts={people.get(r.seat.ownerId)!.profile!.contacts} />}
             </div>
+            {r.seat.ownerId !== me && !hiddenList.has(r.seat.ownerId) && <HideButton id={r.seat.ownerId} name={people.get(r.seat.ownerId)?.name} hidden={hiddenList} />}
             {organizer && !view.closed && (
               <div className="form-actions">
                 <button type="button" className="btn btn-s btn-primary" disabled={busy || !r.fit.ok} onClick={() => act(() => ops.group(acceptSeat(g, r.seat)))} data-testid="request-accept">
@@ -172,6 +178,14 @@ function Requests({ view, people, organizer, ops, done, me }: { view: GroupView;
         </p>
       )}
       {showDeclined && list(declined)}
+      {hidden.length > 0 && (
+        <p>
+          <button type="button" className="btn btn-quiet btn-s" aria-expanded={showHidden} onClick={() => setShowHidden((x) => !x)} data-testid="show-hidden-requests">
+            {showHidden ? 'Fold away' : 'Show'} {hidden.length === 1 ? 'one request' : `${hidden.length} requests`} from {hidden.length === 1 ? 'a profile' : 'profiles'} you hid
+          </button>
+        </p>
+      )}
+      {showHidden && list(hidden)}
       <WriteStatus busy={busy} error={error} />
       {view.declined.length > 0 && <p className="small muted">{view.declined.length === 1 ? 'One person' : `${view.declined.length} people`} declined or withdrew.</p>}
     </div>

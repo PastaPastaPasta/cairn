@@ -16,6 +16,7 @@ import { CLOSED } from '../matching/group.ts';
 import { StoneKey } from '../ui/CairnStack.tsx';
 import { PercentField } from '../ui/fields.tsx';
 import { Loaded } from '../ui/Loaded.tsx';
+import { HiddenNote, HideButton, useHidden, type Hidden } from '../ui/hidden.tsx';
 import { ContactList, PersonName } from '../ui/Person.tsx';
 import { NotOpenHere, PageHead } from '../ui/states.tsx';
 import { OperatorTrackRecord } from '../formation/TrackRecord.tsx';
@@ -25,11 +26,14 @@ import '../styles/matching.css';
 export function OperatorsPage() {
   const { registry } = useApp();
   const list = useStatusList(OPERATORS, LISTED_OPERATORS, !!registry.contractId);
+  const { session } = useAccount();
+  const hidden = useHidden();
   const [maxReward, setMaxReward] = useState('');
   const [region, setRegion] = useState('any');
   const [onlyOpen, setOnlyOpen] = useState(true);
   const maxBps = maxReward.trim() ? parsePercentInput(maxReward) : null;
-  const items = list.status === 'ready' ? list.data.items : [];
+  const all = list.status === 'ready' ? list.data.items : null;
+  const items = useMemo(() => (all ?? []).filter((o) => o.ownerId === session?.identityId || !hidden.has(o.ownerId)), [all, hidden, session]);
   const regions = useMemo(() => [...new Set(items.flatMap((o) => o.regions))].sort((a, b) => a.localeCompare(b)), [items]);
   const shown = items.filter(
     (o) =>
@@ -41,7 +45,7 @@ export function OperatorsPage() {
     <div className="page">
       <PageHead
         title="Operators"
-        lede="People who run masternodes for a group. An operator supplies the server and its key, takes a share of rewards that the group agrees up front, and never touches anyone’s principal."
+        lede="People who run masternodes for a group. An operator supplies the server and its key, takes a share of rewards that the group agrees up front, and never touches anyone’s coins."
       >
         <p className="head-actions">
           <Link className="btn" to="/me#operator">
@@ -68,7 +72,7 @@ export function OperatorsPage() {
             </div>
             <label className="check filter-check">
               <input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} />
-              Only those taking new nodes
+              Only those taking new groups
             </label>
           </form>
           <Loaded
@@ -90,9 +94,10 @@ export function OperatorsPage() {
               shown.length ? (
                 <>
                   <p className="small muted list-count" role="status">
-                    {shown.length === d.items.length ? `${d.items.length} ${d.items.length === 1 ? 'operator' : 'operators'}` : `${shown.length} of ${d.items.length} operators match`}
+                    {shown.length === items.length ? `${items.length} ${items.length === 1 ? 'operator' : 'operators'}` : `${shown.length} of ${items.length} operators match`}
                   </p>
-                  <OperatorRows items={shown} />
+                  <OperatorRows items={shown} hidden={hidden} me={session?.identityId} />
+                  <HiddenNote count={d.items.length - items.length} />
                   {d.more && (
                     <button type="button" className="btn btn-s" onClick={list.showOlder}>
                       Show older listings
@@ -104,6 +109,7 @@ export function OperatorsPage() {
                   <p>
                     <b>No operator matches these filters.</b>
                   </p>
+                  <HiddenNote count={d.items.length - items.length} />
                   <button
                     type="button"
                     className="btn btn-s"
@@ -125,7 +131,7 @@ export function OperatorsPage() {
   );
 }
 
-function OperatorRows({ items }: { items: Operator[] }) {
+function OperatorRows({ items, hidden, me }: { items: Operator[]; hidden: Hidden; me?: string }) {
   return (
     <ul className="rows" data-testid="operator-rows">
       {items.map((o) => (
@@ -142,7 +148,8 @@ function OperatorRows({ items }: { items: Operator[] }) {
           </div>
           <div className="row-side">
             <span className={`state state-${o.status === OPERATOR_STATUS.open ? 'ok' : 'muted'}`}>{OPERATOR_STATUS_WORDS[o.status] ?? 'Listed'}</span>
-            {o.claimedProTx.length > 0 && <span className="small muted">{o.claimedProTx.length} masternodes claimed</span>}
+            {o.claimedProTx.length > 0 && <span className="small muted">{o.claimedProTx.length} {o.claimedProTx.length === 1 ? 'masternode' : 'masternodes'} claimed</span>}
+            {o.ownerId !== me && <HideButton id={o.ownerId} name={operatorName(o)} hidden={hidden} />}
           </div>
         </li>
       ))}
@@ -164,6 +171,8 @@ export function OperatorPage() {
   });
   const people = usePeople(id ? [id] : []);
   const person = people.get(id);
+  const hidden = useHidden();
+  const own = session?.identityId === id;
   if (!registry.contractId)
     return (
       <div className="page">
@@ -191,9 +200,28 @@ export function OperatorPage() {
             </>
           ) : (
             <>
+              {!own && hidden.has(id) && (
+                <p className="notice-box" role="note" data-testid="profile-hidden">
+                  You hid this profile: Cairn leaves it out of lists and suggestions in this browser.{' '}
+                  <button type="button" className="btn btn-s" onClick={() => hidden.show(id)}>
+                    Show it again
+                  </button>
+                </p>
+              )}
               <PageHead title={operatorName(op)} lede={op.hosting}>
                 <p className="small muted">
-                  <PersonName id={id} person={person} you={session?.identityId === id} /> · <span className={`state state-${op.status === OPERATOR_STATUS.open ? 'ok' : 'muted'}`}>{OPERATOR_STATUS_WORDS[op.status] ?? 'Listed'}</span>
+                  {person?.name !== op.name && (
+                    <>
+                      <PersonName id={id} person={person} you={session?.identityId === id} /> ·{' '}
+                    </>
+                  )}
+                  <span className={`state state-${op.status === OPERATOR_STATUS.open ? 'ok' : 'muted'}`}>{OPERATOR_STATUS_WORDS[op.status] ?? 'Listed'}</span>
+                  {!own && !hidden.has(id) && (
+                    <>
+                      {' '}
+                      <HideButton id={id} name={operatorName(op)} hidden={hidden} />
+                    </>
+                  )}
                 </p>
               </PageHead>
               <div className="two-col">

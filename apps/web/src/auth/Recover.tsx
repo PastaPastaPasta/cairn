@@ -63,7 +63,7 @@ export function RecoverFunds() {
 
   const secretFor = async (): Promise<Held> => {
     if (source === 'session') {
-      if (!session) throw new Error('Sign in first, or use a recovery phrase or key.');
+      if (!session) throw new Error('Sign in first, or use a Cairn account phrase or key.');
       return { secret: session.wallet ? { wallet: session.wallet } : { session }, owned: false };
     }
     if (source === 'phrase') {
@@ -138,17 +138,26 @@ export function RecoverFunds() {
 
   const other = network === 'mainnet' ? 'testnet' : 'mainnet';
   return (
-    <section className="form recover" aria-labelledby="recover-title" id="recover" ref={ref}>
-      <h2 id="recover-title">Recover funds</h2>
+    <section className="form recover" aria-label="Recover funds" ref={ref}>
       <p className="small">
-        Paid an account-setup address and it didn't finish? Paid too little, too much, twice, or after the account was set up? This finds every payment and asset lock
-        sitting at Cairn's one-time addresses for your recovery phrase (or key), from the {network} chain itself: it works on any device, even if this browser forgot
-        the setup. Then you can send it to any Dash address, or use it for your account.
+        Cairn can find a payment you made for account setup and either finish the account or send the DASH back to you. Only this browser sees your Cairn account
+        phrase.
       </p>
-      <p className="muted small">
-        Nothing leaves this browser but public key fingerprints (as a bloom filter) and the transactions you choose to send. Cairn has no server that holds keys or
-        funds, and support can't move them for you. This scans {network}; payments made on {other} show after switching the network profile.
-      </p>
+      <details className="recover-how">
+        <summary className="small">How the scan works</summary>
+        <p className="small">
+          It looks for every payment and asset lock sitting at Cairn's one-time addresses for your Cairn account phrase (or key), from the {network} chain itself, so it
+          works on any device, even if this browser forgot the setup. Then you can send it to any Dash address, or use it for your account.
+        </p>
+        <p className="muted small">
+          Nothing leaves this browser but public key fingerprints (as a bloom filter) and the transactions you choose to send. Cairn has no server that holds keys or
+          funds, and support can't move them for you. This scans {network}; payments made on {other} show after switching the network profile.
+        </p>
+        <p className="muted small">
+          Pick an older start if you first used Cairn (or this phrase in another Dash Platform wallet) earlier. The scan replays every block since then from a DAPI node,
+          roughly a minute per 5,000 to 10,000 blocks.
+        </p>
+      </details>
       {!result && (
         <form
           className="form"
@@ -162,11 +171,11 @@ export function RecoverFunds() {
             {session && (
               <label className="check">
                 <input type="radio" name="recover-source" checked={source === 'session'} onChange={() => setSource('session')} /> The account you are signed in to
-                {session.wallet ? ' (its recovery phrase)' : ' (its key)'}
+                {session.wallet ? ' (its Cairn account phrase)' : ' (its key)'}
               </label>
             )}
             <label className="check">
-              <input type="radio" name="recover-source" checked={source === 'phrase'} onChange={() => setSource('phrase')} /> A recovery phrase
+              <input type="radio" name="recover-source" checked={source === 'phrase'} onChange={() => setSource('phrase')} /> A Cairn account phrase
             </label>
             <label className="check">
               <input type="radio" name="recover-source" checked={source === 'key'} onChange={() => setSource('key')} /> A private key I signed in with (top-ups paid
@@ -174,7 +183,7 @@ export function RecoverFunds() {
             </label>
           </fieldset>
           {source === 'phrase' && (
-            <SecretField label="Recovery phrase (12 or 24 words)" what="the recovery phrase" value={phrase} onChange={setPhrase} testId="recover-phrase" disabled={!!progress} />
+            <SecretField label="Cairn account phrase (12 or 24 words)" what="the Cairn account phrase" value={phrase} onChange={setPhrase} testId="recover-phrase" disabled={!!progress} />
           )}
           {source === 'key' && (
             <label>
@@ -197,10 +206,6 @@ export function RecoverFunds() {
               <input inputMode="numeric" value={custom} onChange={(e) => setCustom(e.target.value.trim())} placeholder={String(RECOVERY_START_HEIGHT[network])} />
             </label>
           )}
-          <p className="muted small">
-            Pick an older start if you first used Cairn (or this phrase in another Dash Platform wallet) earlier. The scan replays every block since then from a
-            DAPI node, roughly a minute per 5,000 to 10,000 blocks.
-          </p>
           {error && (
             <p className="error" role="alert">
               {error}
@@ -372,7 +377,7 @@ function ItemCard({ item, scan, secret, onBusy }: { item: RecoveryItem; scan: Re
       const r = await fundWithItem({ item, scan, secret, target, dapi: dapi(), platform: await platform(), store, signal, onUpdate: setView });
       return 'create' in target ? (
         <>
-          Account created: <span className="break" data-testid="recovered-identity">{r.identityId}</span>. Sign in with your recovery phrase to use it.
+          Account created: <span className="break" data-testid="recovered-identity">{r.identityId}</span>. Sign in with your Cairn account phrase to use it.
         </>
       ) : (
         <>

@@ -999,3 +999,21 @@ input[inputmode='numeric'] {
 .side-card > .btn + p {
   margin-top: var(--s-4);
 }
+
+/* signed-in Home: the next step in my groups, above the hero */
+.next-band {
+  margin-bottom: var(--s-6);
+  padding: var(--s-4) var(--s-5);
+  border-radius: var(--radius-m);
+  background: var(--ochre-wash);
+  border: 1px solid color-mix(in srgb, var(--ochre) 35%, transparent);
+}
+.next-band .my-groups {
+  margin-top: var(--s-3);
+}
+.good-to-know {
+  max-width: 52rem;
+}
+.activation-line {
+  margin-top: var(--s-6);
+}

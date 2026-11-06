@@ -14,7 +14,7 @@ export const GROUP_STATUS_WORDS: Record<number, string> = {
 };
 
 export const OPERATOR_STATUS_WORDS: Record<number, string> = {
-  [OPERATOR_STATUS.open]: 'Taking new nodes',
+  [OPERATOR_STATUS.open]: 'Taking new groups',
   [OPERATOR_STATUS.full]: 'Full for now',
   [OPERATOR_STATUS.paused]: 'Paused',
 };

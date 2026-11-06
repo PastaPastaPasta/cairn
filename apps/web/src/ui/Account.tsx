@@ -5,7 +5,8 @@ import { Link } from 'react-router-dom';
 import { useAccount } from '../app/account.tsx';
 import { useApp, type Theme } from '../app/context.tsx';
 import { OPEN_SIGNIN_EVENT, useAuth } from '../auth/context.tsx';
-import { formatCredits } from '../auth/runtime.ts';
+import { CHANGE_COST_CREDITS, formatCreditsShort } from '../auth/runtime.ts';
+import type { AppAuthSession } from '../session/authSession.ts';
 import { personName, useProfile } from '../data/profile.ts';
 
 /** Opens the sign-in sheet from anywhere ("Sign in to make a profile"). */
@@ -46,6 +47,7 @@ export function AccountControl() {
     force((n) => n + 1);
   }, [session]);
   const name = personName(profile, dpns);
+  const technical = (session as Partial<AppAuthSession> | null)?.technical;
   const item = (label: string, onClick: () => void, testId?: string) => (
     <button
       type="button"
@@ -90,9 +92,16 @@ export function AccountControl() {
               {session.identityId}
             </p>
             <p className="small">
-              Credit <b data-testid="session-balance">{balance === null ? 'reading…' : formatCredits(balance)}</b> <span className="muted">(pays for your changes on Platform)</span>
+              Account credit:{' '}
+              <b data-testid="session-balance">{balance === null ? 'reading…' : formatCreditsShort(balance)}</b>
+              {balance !== null && <span className="muted"> — enough for about {String(balance / CHANGE_COST_CREDITS)} changes</span>}
             </p>
-            <p className="small muted">Signed in with {session.label}. The key stays in memory: closing the browser signs you out.</p>
+            <p className="small muted">Signed in with {session.label}.</p>
+            <p className="small muted">Signed in while Cairn is open in this browser. Use Sign out on shared computers.</p>
+            <details className="small muted">
+              <summary>Technical details</summary>
+              {technical && <p>{technical}</p>}
+            </details>
           </div>
         )}
         {session && (

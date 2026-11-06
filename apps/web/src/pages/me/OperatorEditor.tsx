@@ -27,6 +27,14 @@ export function proTxProblems(lines: string[]): string | null {
   return null;
 }
 
+/** The accepted range's rule, each under the field that breaks it: one message, never the same one twice. */
+export function rangeProblems(bps: number | null, minBps: number | null | undefined, maxBps: number | null | undefined): { min: string | null; max: string | null } {
+  return {
+    min: minBps === null ? 'A percentage from 0 to 100.' : bps !== null && minBps !== undefined && minBps > bps ? 'At most your usual reward.' : null,
+    max: maxBps === null ? 'A percentage from 0 to 100.' : bps !== null && maxBps !== undefined && maxBps < bps ? 'At least your usual reward.' : null,
+  };
+}
+
 export function OperatorEditor({ identityId }: { identityId: string }) {
   const { registry } = useApp();
   const mine = useMyOperator(identityId);
@@ -112,12 +120,7 @@ export function OperatorEditor({ identityId }: { identityId: string }) {
   const problems = {
     name: name ? nameProblem(name) : null,
     reward: bps === null ? 'A percentage from 0 to 100.' : null,
-    range:
-      minBps === null || maxBps === null
-        ? 'Percentages from 0 to 100.'
-        : bps !== null && ((minBps ?? bps) > bps || (maxBps ?? bps) < bps)
-          ? 'The range must include your default reward.'
-          : null,
+    ...rangeProblems(bps, minBps, maxBps),
     regions: regionList.length > 8 ? 'Up to 8 regions.' : regionList.some((r) => r.length > 24) ? 'Each region up to 24 characters.' : null,
     capacity: capN !== undefined && (!Number.isInteger(capN) || capN < 0 || capN > 1000) ? 'A whole number, 0 to 1000.' : null,
     claimed: proTx.length ? proTxProblems(proTx) : null,
@@ -145,8 +148,8 @@ export function OperatorEditor({ identityId }: { identityId: string }) {
         </Field>
         <div className="field-row">
           <PercentField label="Your usual reward" value={reward} onChange={setReward} problem={problems.reward} testId="operator-reward" />
-          <PercentField label="Lowest you accept" value={min} onChange={setMin} problem={problems.range} hint="Optional" />
-          <PercentField label="Highest you ask" value={max} onChange={setMax} problem={problems.range} hint="Optional" />
+          <PercentField label="Lowest you accept" value={min} onChange={setMin} problem={problems.min} hint="Optional" />
+          <PercentField label="Highest you ask" value={max} onChange={setMax} problem={problems.max} hint="Optional" />
         </div>
         <Field label="Regions" optional problem={problems.regions} hint="Where your servers are, separated by commas: “EU-West, US-East”.">
           {({ id, describedBy }) => <input id={id} value={regions} onChange={(e) => setRegions(e.target.value)} aria-describedby={describedBy} data-testid="operator-regions" />}

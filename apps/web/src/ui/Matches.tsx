@@ -9,6 +9,7 @@ import { combosWith, rankGroups, type Combo } from '../matching/match.ts';
 import { dash, dashNum, pct } from '../matching/money.ts';
 import type { NewGroupPrefill } from '../pages/NewGroupPage.tsx';
 import { Loaded } from './Loaded.tsx';
+import { useHidden } from './hidden.tsx';
 import { PersonName } from './Person.tsx';
 
 export function prefillFromCombo(me: Looking, c: Combo): NewGroupPrefill {
@@ -26,8 +27,9 @@ export function Matches({ me, organizes }: { me: Looking; organizes?: ReadonlySe
   const groups = useStatusList(GROUPS, [GROUP_STATUS.forming]);
   const posts = useStatusList(LOOKING, OPEN_LOOKING);
   const navigate = useNavigate();
-  const fits = groups.status === 'ready' ? rankGroups(groups.data.items, me, organizes).slice(0, 6) : [];
-  const combos = posts.status === 'ready' ? combosWith(me, posts.data.items, 4) : [];
+  const hidden = useHidden();
+  const fits = groups.status === 'ready' ? rankGroups(groups.data.items.filter((g) => !hidden.has(g.ownerId)), me, organizes).slice(0, 6) : [];
+  const combos = posts.status === 'ready' ? combosWith(me, posts.data.items.filter((l) => !hidden.has(l.ownerId)), 4) : [];
   const people = usePeople([...combos.flatMap((c) => c.people.map((p) => p.ownerId)), ...fits.flatMap((f) => (f.group.operatorId ? [f.group.operatorId] : []))]);
   return (
     <div className="matches" data-testid="matches">

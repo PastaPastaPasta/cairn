@@ -5,6 +5,7 @@ import { canonicalize } from '@cairn/shares';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Person } from '../../data/people.ts';
+import { formByDate, formByPassed } from '../../matching/deadline.ts';
 import { exitWords, termWarnings } from '../../matching/exit.ts';
 import type { GroupView } from '../../matching/group.ts';
 import { dash, pct } from '../../matching/money.ts';
@@ -53,8 +54,11 @@ export function Terms({ view, people, me }: { view: GroupView; people: Map<strin
         <dd>{view.openAmounts ? 'Anyone can ask for an amount that fits.' : 'By invitation.'}</dd>
         {g.formBy && (
           <>
-            <dt>Form by</dt>
-            <dd>{new Date(g.formBy * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</dd>
+            <dt>Aim to form by</dt>
+            <dd>
+              {formByDate(g.formBy)}
+              {formByPassed(view) && <span className="small muted"> (passed)</span>}
+            </dd>
           </>
         )}
         <dt>Group chat</dt>

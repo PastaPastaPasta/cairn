@@ -10,16 +10,26 @@ export interface ExitPreset {
   label: string;
   blocks: number;
 }
-/** The early periods offered by name; 2 years is exactly Dash Core's cap (420,480 blocks). */
+/**
+ * Dash-Qt's own preset buttons (src/qt/sharedmncreatedialog.cpp), so a group's "3 months" is the button the coordinator presses.
+ * A quarter year is 52,560 blocks, not 91 days; 2 years is exactly Dash Core's cap (420,480 blocks).
+ */
 export const EXIT_PRESETS: readonly ExitPreset[] = [
   { id: 'none', label: 'No early period', blocks: 0 },
-  { id: '3m', label: '3 months', blocks: 91 * BLOCKS_PER_DAY },
-  { id: '6m', label: '6 months', blocks: 182 * BLOCKS_PER_DAY },
-  { id: '1y', label: '1 year', blocks: 365 * BLOCKS_PER_DAY },
-  { id: '2y', label: '2 years', blocks: 730 * BLOCKS_PER_DAY },
+  { id: '3m', label: '3 months', blocks: 52_560 },
+  { id: '6m', label: '6 months', blocks: 105_120 },
+  { id: '1y', label: '1 year', blocks: 210_240 },
+  { id: '2y', label: '2 years', blocks: 420_480 },
 ];
 
 export const presetFor = (blocks: number): ExitPreset | undefined => EXIT_PRESETS.find((p) => p.blocks === blocks);
+
+// Looking posts saved before the presets matched Dash-Qt stored 91 and 182 days; as a member's upper bound they meant "3 months"
+// and "6 months". Group terms are never mapped: they are what members approved.
+const LEGACY_LIMITS: Record<number, number> = { [91 * BLOCKS_PER_DAY]: 52_560, [182 * BLOCKS_PER_DAY]: 105_120 };
+
+/** A looking post's longest accepted early period, read with the presets it was chosen from. */
+export const acceptedPeriod = (blocks: number | null): number | null => (blocks === null ? null : (LEGACY_LIMITS[blocks] ?? blocks));
 
 /** "3 months", or "about 40 days" for a period that is not a preset. */
 export function periodWords(blocks: number): string {
@@ -32,12 +42,12 @@ export function periodWords(blocks: number): string {
 /** One line a member can read: what leaving early costs. */
 export function exitWords(period: number, penalty: number): string {
   if (!period) return 'Anyone can leave at any time, with no penalty.';
-  return `Leaving in the first ${periodWords(period)} costs ${dash(penalty)}, paid to the others. After that, anyone can leave at no cost.`;
+  return `Leaving within ${periodWords(period)} of registration costs ${dash(penalty)}, paid to the others. After that, anyone can leave at no cost.`;
 }
 
 /** Short form for lists. */
 export function exitShort(period: number, penalty: number): string {
-  return period ? `${dash(penalty)} to leave in the first ${periodWords(period)}` : 'Free to leave any time';
+  return period ? `${dash(penalty)} to leave within ${periodWords(period)}` : 'Free to leave any time';
 }
 
 /**
@@ -45,6 +55,7 @@ export function exitShort(period: number, penalty: number): string {
  * Cairn's: a penalty exactly when there is an early period.
  */
 export function exitProblem(period: number, penalty: number, smallestShare: number = Number(MIN_SHARE_AMOUNT)): string | null {
+  if (Number.isNaN(period)) return 'Enter the early period.';
   if (!Number.isSafeInteger(period) || period < 0) return 'The early period must be a whole number of blocks.';
   if (period > MAX_EARLY_PERIOD_BLOCKS) return `The early period can be at most ${MAX_EARLY_PERIOD_BLOCKS.toLocaleString('en-US')} blocks (2 years).`;
   const p = isEarlyPeriodValid(period);

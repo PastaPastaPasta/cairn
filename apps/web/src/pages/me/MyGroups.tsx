@@ -4,10 +4,12 @@
 import {
   GROUP_STATUS, INVITE_STATUS, groupsByStatus, groupsOfOperator, groupsOrganizedBy, invitesTo, opAcceptsOf, seatsOf, toGroup, toInvite, toOpAccept, toSeat,
 } from '@cairn/contract';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import type { Registry } from '../../config/registry.ts';
 import { loadGroupBundle, rawId, readAll, readNewest, useLoad } from '../../data/cairn.ts';
 import { groupView, type GroupView } from '../../matching/group.ts';
+import { FORM_BY_PASSED, formByNoteFor } from '../../matching/deadline.ts';
 import { DUFFS } from '../../matching/money.ts';
 import { ROLE_WORDS, nextSteps, stepHref, type Step } from '../../matching/nextstep.ts';
 import { stageOf } from '../../matching/stage.ts';
@@ -21,6 +23,8 @@ const MAX_GROUPS = 24;
 export interface MyGroup {
   view: GroupView;
   steps: Step[];
+  /** The form-by date passed before the group formed, and I am on its roster. */
+  formByPassed: boolean;
 }
 
 export async function loadMyGroups(r: Registry, me: string, isOperator: boolean): Promise<MyGroup[]> {
@@ -46,14 +50,21 @@ export async function loadMyGroups(r: Registry, me: string, isOperator: boolean)
     .flatMap((b) => (b ? [b] : []))
     .map((b) => {
       const view = groupView(b, r.network);
-      return { view, steps: nextSteps(view, { id: me, isOperator }).filter((s) => s.role !== 'visitor') };
+      return { view, steps: nextSteps(view, { id: me, isOperator }).filter((s) => s.role !== 'visitor'), formByPassed: formByNoteFor(view, me, stageOf(view, null)) };
     })
     .filter((g) => g.steps.length > 0)
     .sort((a, b) => Number(a.view.closed) - Number(b.view.closed) || Math.min(...a.steps.map((s) => order[s.tone])) - Math.min(...b.steps.map((s) => order[s.tone])) || (b.view.group.updatedAt ?? 0) - (a.view.group.updatedAt ?? 0));
 }
 
-export function MyGroups({ me, isOperator }: { me: string; isOperator: boolean }) {
+/** Full groups whose roster I am on: a reason to stop advertising a looking post. */
+export const seatedIn = (groups: readonly MyGroup[], me: string) => groups.filter((g) => !g.view.closed && (g.view.full || g.view.locked) && g.view.group.roster.some((r) => r.id === me)).length;
+
+export function MyGroups({ me, isOperator, onGroups }: { me: string; isOperator: boolean; onGroups?(groups: MyGroup[]): void }) {
   const load = useLoad(`my-groups:${me}:${isOperator}`, (r) => loadMyGroups(r, me, isOperator));
+  const data = load.status === 'ready' ? load.data : null;
+  useEffect(() => {
+    if (data) onGroups?.(data);
+  }, [data, onGroups]);
   return (
     <Loaded
       load={load}
@@ -83,7 +94,7 @@ export function MyGroups({ me, isOperator }: { me: string; isOperator: boolean }
 }
 
 /** One group; a linked registration is checked on chain, so its steps say registered or earning as the group page does. */
-function MyGroupItem({ group: { view, steps: fromDocs }, me, isOperator }: { group: MyGroup; me: string; isOperator: boolean }) {
+function MyGroupItem({ group: { view, steps: fromDocs, formByPassed }, me, isOperator }: { group: MyGroup; me: string; isOperator: boolean }) {
   const reg = useGroupRegistrations(view);
   const steps = reg.primary ? nextSteps(view, { id: me, isOperator }, stageOf(view, reg.primary)).filter((s) => s.role !== 'visitor') : fromDocs;
   return (
@@ -102,8 +113,58 @@ function MyGroupItem({ group: { view, steps: fromDocs }, me, isOperator }: { gro
           </li>
         ))}
       </ul>
+      {formByPassed && (
+        <p className="small notice-box" role="note" data-testid="form-by-passed">
+          {FORM_BY_PASSED}
+        </p>
+      )}
       <StepLink groupId={view.group.id} steps={steps.length ? steps : fromDocs} />
     </li>
+  );
+}
+
+/** Signed-in Home: the most pressing step in each of my groups, before anything else on the page (DESIGN §5: for a member the CTA is their next step). */
+export function NextStepBand({ me }: { me: string }) {
+  // the operator flag only decides a visitor's offer step, which /me never shows
+  const load = useLoad(`my-groups:${me}:false`, (r) => loadMyGroups(r, me, false));
+  if (load.status !== 'ready') return null;
+  return <NextStepList groups={load.data} />;
+}
+
+export function NextStepList({ groups }: { groups: MyGroup[] }) {
+  const open = groups.filter((g) => !g.view.closed);
+  if (!open.length) return null;
+  return (
+    <section className="next-band" aria-labelledby="next-band-title" data-testid="next-band">
+      <h2 id="next-band-title" className="h3">
+        Your next step
+      </h2>
+      <ul className="my-groups">
+        {open.slice(0, 3).map(({ view, steps, formByPassed }) => {
+          const s = steps.find((x) => x.tone === 'todo' || x.tone === 'warn') ?? steps[0]!;
+          return (
+            <li key={view.group.id} className="my-group">
+              <div className="my-group-head">
+                <Link to={`/g/${view.group.id}`} className="fit-title">
+                  {view.group.title}
+                </Link>
+              </div>
+              <p className={`my-step next-${s.tone}`}>
+                <span className="small muted">{ROLE_WORDS[s.role]}:</span> <b>{s.title}</b>
+                <span className="small block">{s.text}</span>
+                {formByPassed && <span className="small block">{FORM_BY_PASSED}</span>}
+              </p>
+              <StepLink groupId={view.group.id} steps={steps} />
+            </li>
+          );
+        })}
+      </ul>
+      {open.length > 3 && (
+        <p className="small">
+          <Link to="/me">All {open.length} of your groups</Link>
+        </p>
+      )}
+    </section>
   );
 }
 
