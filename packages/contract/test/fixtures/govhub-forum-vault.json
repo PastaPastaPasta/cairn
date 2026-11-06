@@ -1,0 +1,75 @@
+{
+  "type": "object",
+  "documentsMutable": true,
+  "canBeDeleted": true,
+  "transferable": 0,
+  "creationRestrictionMode": 0,
+  "signatureSecurityLevelRequirement": 2,
+  "indices": [
+    {
+      "name": "byCredential",
+      "unique": true,
+      "properties": [
+        {
+          "$ownerId": "asc"
+        },
+        {
+          "credentialId": "asc"
+        }
+      ]
+    }
+  ],
+  "properties": {
+    "credentialId": {
+      "type": "array",
+      "byteArray": true,
+      "minItems": 16,
+      "maxItems": 255,
+      "position": 0
+    },
+    "recipientKey": {
+      "type": "array",
+      "byteArray": true,
+      "minItems": 32,
+      "maxItems": 32,
+      "position": 1
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 255,
+      "position": 2
+    },
+    "authKeyId": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295,
+      "position": 3
+    },
+    "enc": {
+      "type": "array",
+      "byteArray": true,
+      "minItems": 32,
+      "maxItems": 32,
+      "position": 4
+    },
+    "sealed": {
+      "type": "array",
+      "byteArray": true,
+      "minItems": 32,
+      "maxItems": 256,
+      "position": 5
+    }
+  },
+  "required": [
+    "$createdAt",
+    "$updatedAt",
+    "credentialId",
+    "recipientKey",
+    "version",
+    "authKeyId",
+    "enc",
+    "sealed"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,691 @@
+{
+  "profile": {
+    "type": "object",
+    "documentsMutable": true,
+    "canBeDeleted": true,
+    "transferable": 0,
+    "creationRestrictionMode": 0,
+    "signatureSecurityLevelRequirement": 2,
+    "indices": [
+      {
+        "name": "byOwner",
+        "unique": true,
+        "properties": [
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "properties": {
+      "displayName": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "position": 0
+      },
+      "about": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500,
+        "position": 1
+      },
+      "contacts": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 1024,
+        "position": 2
+      },
+      "roles": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 255,
+        "position": 3
+      }
+    },
+    "required": [
+      "$createdAt",
+      "$updatedAt",
+      "displayName"
+    ],
+    "additionalProperties": false
+  },
+  "operator": {
+    "type": "object",
+    "documentsMutable": true,
+    "canBeDeleted": true,
+    "transferable": 0,
+    "creationRestrictionMode": 0,
+    "signatureSecurityLevelRequirement": 2,
+    "indices": [
+      {
+        "name": "byOwner",
+        "unique": true,
+        "properties": [
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      },
+      {
+        "name": "byStatus",
+        "properties": [
+          {
+            "status": "asc"
+          },
+          {
+            "$updatedAt": "asc"
+          }
+        ]
+      }
+    ],
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "position": 0
+      },
+      "rewardBps": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 10000,
+        "position": 1
+      },
+      "rewardMinBps": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 10000,
+        "position": 2
+      },
+      "rewardMaxBps": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 10000,
+        "position": 3
+      },
+      "regions": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 256,
+        "position": 4
+      },
+      "hosting": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000,
+        "position": 5
+      },
+      "capacity": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000,
+        "position": 6
+      },
+      "claimedProTx": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 1500,
+        "position": 7
+      },
+      "status": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 15,
+        "position": 8
+      }
+    },
+    "required": [
+      "$createdAt",
+      "$updatedAt",
+      "name",
+      "rewardBps",
+      "status"
+    ],
+    "additionalProperties": false
+  },
+  "looking": {
+    "type": "object",
+    "documentsMutable": true,
+    "canBeDeleted": true,
+    "transferable": 0,
+    "creationRestrictionMode": 0,
+    "signatureSecurityLevelRequirement": 2,
+    "indices": [
+      {
+        "name": "byOwner",
+        "unique": true,
+        "properties": [
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      },
+      {
+        "name": "byStatus",
+        "properties": [
+          {
+            "status": "asc"
+          },
+          {
+            "$updatedAt": "asc"
+          }
+        ]
+      }
+    ],
+    "properties": {
+      "amount": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 400000000000,
+        "position": 0
+      },
+      "operatorId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 1
+      },
+      "maxRewardBps": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 10000,
+        "position": 2
+      },
+      "earlyPref": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 256,
+        "position": 3
+      },
+      "canCoordinate": {
+        "type": "boolean",
+        "position": 4
+      },
+      "note": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500,
+        "position": 5
+      },
+      "status": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 15,
+        "position": 6
+      }
+    },
+    "required": [
+      "$createdAt",
+      "$updatedAt",
+      "amount",
+      "maxRewardBps",
+      "canCoordinate",
+      "status"
+    ],
+    "additionalProperties": false
+  },
+  "group": {
+    "type": "object",
+    "documentsMutable": true,
+    "canBeDeleted": true,
+    "transferable": 0,
+    "creationRestrictionMode": 0,
+    "signatureSecurityLevelRequirement": 2,
+    "indices": [
+      {
+        "name": "byStatus",
+        "properties": [
+          {
+            "status": "asc"
+          },
+          {
+            "$updatedAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "byOperator",
+        "properties": [
+          {
+            "operatorId": "asc"
+          },
+          {
+            "status": "asc"
+          }
+        ]
+      },
+      {
+        "name": "byOwner",
+        "properties": [
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "properties": {
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80,
+        "position": 0
+      },
+      "about": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000,
+        "position": 1
+      },
+      "mnType": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 15,
+        "position": 2
+      },
+      "operatorId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 3
+      },
+      "rewardBps": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 10000,
+        "position": 4
+      },
+      "earlyPeriodBlocks": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 4204800,
+        "position": 5
+      },
+      "earlyPenalty": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 400000000000,
+        "position": 6
+      },
+      "coordinatorId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 7
+      },
+      "votingHolderId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 8
+      },
+      "votingPolicy": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 280,
+        "position": 9
+      },
+      "chatUrl": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256,
+        "position": 10
+      },
+      "formBy": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "position": 11
+      },
+      "roster": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 1024,
+        "position": 12
+      },
+      "revision": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 4294967295,
+        "position": 13
+      },
+      "lockedHash": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "position": 14
+      },
+      "operatorPubKey": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 48,
+        "maxItems": 48,
+        "position": 15
+      },
+      "service": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "position": 16
+      },
+      "proTxHash": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "position": 17
+      },
+      "status": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 15,
+        "position": 18
+      },
+      "refillOf": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 19
+      }
+    },
+    "required": [
+      "$createdAt",
+      "$updatedAt",
+      "title",
+      "mnType",
+      "operatorId",
+      "rewardBps",
+      "earlyPeriodBlocks",
+      "earlyPenalty",
+      "roster",
+      "revision",
+      "status"
+    ],
+    "additionalProperties": false
+  },
+  "seat": {
+    "type": "object",
+    "documentsMutable": true,
+    "canBeDeleted": true,
+    "transferable": 0,
+    "creationRestrictionMode": 0,
+    "signatureSecurityLevelRequirement": 2,
+    "indices": [
+      {
+        "name": "byGroupOwner",
+        "unique": true,
+        "properties": [
+          {
+            "groupId": "asc"
+          },
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      },
+      {
+        "name": "byOwner",
+        "properties": [
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "properties": {
+      "groupId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0
+      },
+      "amount": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 400000000000,
+        "position": 1
+      },
+      "message": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 280,
+        "position": 2
+      },
+      "status": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 15,
+        "position": 3
+      }
+    },
+    "required": [
+      "$createdAt",
+      "$updatedAt",
+      "groupId",
+      "amount",
+      "status"
+    ],
+    "additionalProperties": false
+  },
+  "invite": {
+    "type": "object",
+    "documentsMutable": true,
+    "canBeDeleted": true,
+    "transferable": 0,
+    "creationRestrictionMode": 0,
+    "signatureSecurityLevelRequirement": 2,
+    "indices": [
+      {
+        "name": "byTo",
+        "properties": [
+          {
+            "toId": "asc"
+          }
+        ]
+      },
+      {
+        "name": "byGroup",
+        "properties": [
+          {
+            "groupId": "asc"
+          }
+        ]
+      }
+    ],
+    "properties": {
+      "groupId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0
+      },
+      "toId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 1
+      },
+      "amount": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 400000000000,
+        "position": 2
+      },
+      "message": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 280,
+        "position": 3
+      },
+      "status": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 15,
+        "position": 4
+      }
+    },
+    "required": [
+      "$createdAt",
+      "$updatedAt",
+      "groupId",
+      "toId",
+      "amount",
+      "status"
+    ],
+    "additionalProperties": false
+  },
+  "approval": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": true,
+    "transferable": 0,
+    "creationRestrictionMode": 0,
+    "signatureSecurityLevelRequirement": 2,
+    "indices": [
+      {
+        "name": "byGroupRevisionOwner",
+        "unique": true,
+        "properties": [
+          {
+            "groupId": "asc"
+          },
+          {
+            "revision": "asc"
+          },
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "properties": {
+      "groupId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0
+      },
+      "revision": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 4294967295,
+        "position": 1
+      },
+      "termsHash": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "position": 2
+      },
+      "shareAmount": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 400000000000,
+        "position": 3
+      }
+    },
+    "required": [
+      "$createdAt",
+      "groupId",
+      "revision",
+      "termsHash",
+      "shareAmount"
+    ],
+    "additionalProperties": false
+  },
+  "vault": {
+    "type": "object",
+    "documentsMutable": true,
+    "canBeDeleted": true,
+    "transferable": 0,
+    "creationRestrictionMode": 0,
+    "signatureSecurityLevelRequirement": 2,
+    "indices": [
+      {
+        "name": "byCredential",
+        "unique": true,
+        "properties": [
+          {
+            "$ownerId": "asc"
+          },
+          {
+            "credentialId": "asc"
+          }
+        ]
+      }
+    ],
+    "properties": {
+      "credentialId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 16,
+        "maxItems": 255,
+        "position": 0
+      },
+      "recipientKey": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "position": 1
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 255,
+        "position": 2
+      },
+      "authKeyId": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 4294967295,
+        "position": 3
+      },
+      "enc": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "position": 4
+      },
+      "sealed": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 256,
+        "position": 5
+      }
+    },
+    "required": [
+      "$createdAt",
+      "$updatedAt",
+      "credentialId",
+      "recipientKey",
+      "version",
+      "authKeyId",
+      "enc",
+      "sealed"
+    ],
+    "additionalProperties": false
+  }
+}
