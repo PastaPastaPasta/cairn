@@ -11,7 +11,7 @@ const ROUTES: Array<[string, RegExp]> = [
   ['/looking', /Looking for a group/],
   ['/operators', /^Operators$/],
   ['/operators/4EfA9Jrvv3nnCFdSf7fad59851iiTRZ6Wcu6YVJ4iSeF', /Operator 4EfA9J/],
-  ['/me', /My profile/],
+  ['/me', /My Cairn/],
   ['/check', /Check a Dash Core message/],
   ['/learn', /How shared masternodes work/],
   ['/settings', /Settings/],
