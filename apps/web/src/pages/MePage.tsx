@@ -90,10 +90,15 @@ function ProfileEditor({ identityId }: { identityId: string }) {
       }
       const contractId = registry.contractId!;
       const op = profile ? replaceOp(contractId, 'profile', profile.id, profile.revision, data) : createOp(contractId, 'profile', data);
-      await write(op);
-      // read it back with a proof: what Platform stores, not what this page sent
-      const back = await readProfile(registry, identityId);
-      if (!back.profile || back.profile.displayName !== name.trim()) throw new Error('The profile was sent, but Platform does not show it yet. Reload in a minute.');
+      const done = await write(op);
+      // read it back with a proof: what Platform stores, not what this page sent; a lagging node may still serve the old revision
+      const want = done.revision ?? 1;
+      let back = await readProfile(registry, identityId);
+      for (let i = 0; i < 5 && (back.profile?.revision ?? 0) < want; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        back = await readProfile(registry, identityId);
+      }
+      if (!back.profile || back.profile.revision < want) throw new Error('Platform confirmed the change, but the node read now does not show it yet. Reload in a minute.');
       invalidateProfile();
       setSaved({ revision: back.profile.revision, height: back.height });
     });
