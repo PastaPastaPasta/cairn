@@ -1,0 +1,9 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`seal and open > a fixed vector stays stable 1`] = `
+{
+  "enc": "402802aae25501861e6da002ef9f3e105b9296c3e3c90c92e600ec9a0ff52657",
+  "sealedHead": "1fbe3f2fbb609c52f8eb66b20fc6edee",
+  "tag": "74660d7223007c1fe5266e115a849a50",
+}
+`;
