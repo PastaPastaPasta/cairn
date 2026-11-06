@@ -142,6 +142,8 @@ describe("checkEnvelopeAgainstTerms", () => {
     const swapped = { ...termsA, shares: [{ ...termsA.shares[0]!, label: "Carol" }, termsA.shares[1]!, { ...termsA.shares[2]!, label: "Alice" }] };
     const r = checkEnvelopeAgainstTerms(env("draft-complete"), swapped, { myLabel: "Carol" });
     expect(codes(r, "stop")).toEqual(expect.arrayContaining(["share-amount", "my-amount"]));
+    const funded = checkEnvelopeAgainstTerms(env("fundingSigned"), termsA, { myLabel: "Bob" });
+    expect(funded.findings.find((f) => f.code === "my-contribution")!.detail).toContain(`50 DASH to ${A.contributions[1].change.address}`);
     const signing = checkEnvelopeAgainstTerms(env("signing"), termsA, { myLabel: "Alice" });
     expect(signing.findings.find((f) => f.code === "my-approval")!.title).toBe("Your approval is included");
   });
@@ -182,6 +184,8 @@ describe("checkRegistrationAgainstTerms", () => {
     expect(codes(checkRegistrationAgainstTerms(A.final, { ...termsA, rewardBps: 0 }), "stop")).toEqual(["tx-reward"]);
     expect(codes(checkRegistrationAgainstTerms(A.final, { ...termsA, service: "127.0.0.1:1" }), "stop")).toEqual(["tx-service"]);
     expect(codes(checkRegistrationAgainstTerms(A.updateShare.hex, termsA), "stop")).toEqual(["not-shared-protx"]);
+    expect(checkRegistrationAgainstTerms(A.final, termsA, { proTxHash: A.proTxHash.toUpperCase() }).verdict).toBe("ok");
+    expect(codes(checkRegistrationAgainstTerms(A.final, termsA, { proTxHash: "00".repeat(32) }), "stop")).toEqual(["protx-hash"]);
     const d = decodeSharedProRegTx(A.final);
     d.payload.joinSigs[1] = d.payload.joinSigs[0]!;
     const forged = encodeTxHex({ ...d.tx, extraPayload: encodeProRegTxPayload(d.payload) });

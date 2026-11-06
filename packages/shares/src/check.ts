@@ -232,6 +232,17 @@ export function checkEnvelopeAgainstTerms(
           `owner ${row.ownerAddress || "-"}, refund ${row.refundAddress || "-"}, reward ${row.rewardAddress || "(refund address)"}. Cairn cannot see your wallet; Dash-Qt checks they are yours.`,
         );
       }
+      const contribution = env.contributions.find((c) => c.label.trim() === opts.myLabel!.trim());
+      if (contribution) {
+        f.add(
+          "info",
+          "my-contribution",
+          "Check your coins and change in your wallet",
+          `inputs ${contribution.inputs.map((i) => `${i.txid}:${i.vout}`).join(", ")}; change ${
+            contribution.change ? `${dash(contribution.change.amount)} to ${contribution.change.address}` : "none"
+          }`,
+        );
+      }
       const sig = report.sigs[myIdx];
       if (sig?.present) {
         f.add(sig.valid === false ? "warn" : "info", "my-approval", sig.valid === false ? "Your approval is no longer valid" : "Your approval is included", sig.reason ?? "");
@@ -297,7 +308,11 @@ function payloadVsTerms(f: Findings, p: ProRegTxPayload, terms: TermSheet): void
  * share amounts (order-insensitive), operator key, voting key, operator reward, early-exit terms
  * and service, that consensus share-table rules hold, and that every joinSig verifies.
  */
-export function checkRegistrationAgainstTerms(proRegTxHex: string, terms: TermSheet): CheckResult {
+export function checkRegistrationAgainstTerms(
+  proRegTxHex: string,
+  terms: TermSheet,
+  opts: { proTxHash?: string } = {},
+): CheckResult {
   const f = new Findings();
   let d: ReturnType<typeof decodeSharedProRegTx>;
   try {
@@ -308,6 +323,9 @@ export function checkRegistrationAgainstTerms(proRegTxHex: string, terms: TermSh
   }
   const p = d.payload;
   f.add("info", "protx", `Registration ${d.txid.slice(0, 8)}…`, `proTxHash ${d.txid}, collateral output ${d.collateralIndex}`);
+  if (opts.proTxHash !== undefined && opts.proTxHash.toLowerCase() !== d.txid) {
+    f.add("stop", "protx-hash", "This is not the registration that was linked", `expected ${opts.proTxHash}, got ${d.txid}`);
+  }
   if (p.version !== ProTxVersion.ExtAddr) f.add("stop", "version", "Unexpected registration version", `nVersion ${p.version}`);
 
   payloadVsTerms(f, p, terms);
