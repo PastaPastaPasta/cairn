@@ -3,6 +3,7 @@
 import { MAX_ENVELOPE_BYTES, type ChainShare, type TermSheet } from '@cairn/shares';
 import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from 'react';
 import { VERDICT_TITLE, checkMessage, dashPlain as dash, roundName, type CheckContext, type CheckView, type RowAddresses } from './checker.ts';
+import { Icon } from '../ui/Icon.tsx';
 import { FactList, FindingList, Technical, VerdictBanner } from './ui.tsx';
 
 export interface CheckerProps {
@@ -83,7 +84,7 @@ export function Checker({ network, terms, myLabel: initialLabel, chainShares, pr
         {intro && <p className="muted">{intro}</p>}
       </div>
       <p className="checker-private small" data-testid="checker-private">
-        <span aria-hidden="true">⌂</span> Checked in this browser. Nothing you paste or open here is uploaded or sent anywhere.
+        <Icon name="lock" size={15} /> Checked in this browser. Nothing you paste or open here is uploaded or sent anywhere.
       </p>
       {terms && (
         <div className="checker-me">

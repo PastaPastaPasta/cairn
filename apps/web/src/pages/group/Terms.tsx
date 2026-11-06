@@ -9,6 +9,7 @@ import { exitWords, termWarnings } from '../../matching/exit.ts';
 import type { GroupView } from '../../matching/group.ts';
 import { dash, pct } from '../../matching/money.ts';
 import { Warnings } from '../../ui/fields.tsx';
+import { Icon } from '../../ui/Icon.tsx';
 import { WriteStatus } from '../../ui/Loaded.tsx';
 import { PersonName } from '../../ui/Person.tsx';
 import { useAction } from '../../ui/useAction.ts';
@@ -128,9 +129,13 @@ export function TermSheetSection({ view, people, me, ops, done, formed = false }
               <td className="num num-col">{dash(s.amount)}</td>
               <td>
                 {s.approval === 'approved' ? (
-                  <span className="state state-ok">✓ Approved</span>
+                  <span className="state state-ok">
+                    <Icon name="check" size={12} /> Approved
+                  </span>
                 ) : s.approval === 'mismatch' ? (
-                  <span className="state state-bad">✗ Does not match</span>
+                  <span className="state state-bad">
+                    <Icon name="x" size={12} /> Does not match
+                  </span>
                 ) : (
                   <span className="state state-wait">Waiting</span>
                 )}
