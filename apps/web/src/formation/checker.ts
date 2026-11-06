@@ -78,7 +78,9 @@ export const VERDICT_TITLE: Record<Verdict, string> = {
   neutral: 'Readable',
 };
 
-const dash = (d: bigint) => formatDash(d, { unit: 'DASH', groupSeparator: ',' });
+export const dash = (d: bigint) => formatDash(d, { unit: 'DASH', groupSeparator: ',' });
+export const dashPlain = (d: bigint) => formatDash(d, { unit: 'DASH' });
+const shortHash = (h: string) => `${h.slice(0, 8)}…${h.slice(-6)}`;
 const pct = (bps: number) => `${(bps / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`;
 const days = (blocks: number) => Math.round(blocks / 576);
 const HEX = /^[0-9a-fA-F]+$/;
@@ -355,7 +357,7 @@ function sigsView(text: string, ctx: CheckContext): CheckView {
   }
   const facts: Fact[] = [
     { label: 'Message', value: title },
-    { label: 'Masternode', value: report.proTxHash ? `${report.proTxHash.slice(0, 8)}…${report.proTxHash.slice(-6)}` : '(missing)' },
+    { label: 'Masternode', value: report.proTxHash ? shortHash(report.proTxHash) : '(missing)' },
     { label: 'Network', value: report.network ? networkName(report.network) : '(missing)' },
     { label: 'Approvals included', value: total ? `${signed} of ${total}${ctx.chainShares ? `, ${valid} valid` : ''}` : String(signed) },
   ];
@@ -432,7 +434,7 @@ export function judgeDissolution(rep: ProDisReport, shares: readonly ChainShare[
 
 function dissolutionFacts(rep: ProDisReport): Fact[] {
   return [
-    { label: 'Masternode', value: `${rep.proTxHash.slice(0, 8)}…${rep.proTxHash.slice(-6)}` },
+    { label: 'Masternode', value: shortHash(rep.proTxHash) },
     { label: 'Leaving share', value: `share ${rep.actorIndex + 1}` },
     { label: 'Signed', value: rep.mode === 'unsigned' ? 'not yet (a request)' : rep.mode === 'unilateral' ? 'by one owner (leaving alone)' : 'by every owner' },
   ];
@@ -551,7 +553,7 @@ function registrationView(hex: string, ctx: CheckContext): CheckView {
   const signed = d.tx.vin.filter((i) => i.scriptSig.length > 0).length;
   const service = coreP2PEntries(p.netInfo);
   const facts: Fact[] = [
-    { label: 'ProTx hash', value: `${d.txid.slice(0, 8)}…${d.txid.slice(-6)}` },
+    { label: 'ProTx hash', value: shortHash(d.txid) },
     { label: 'Shares', value: p.shares.map((s) => dash(s.amount)).join(' · ') },
     { label: 'Operator reward', value: pct(p.operatorReward) },
     { label: 'Early-exit terms', value: p.earlyPeriodBlocks ? `${dash(p.earlyPenalty)} for leaving in the first ${p.earlyPeriodBlocks.toLocaleString('en-US')} blocks (about ${days(p.earlyPeriodBlocks)} days)` : 'none: anyone can leave at any time' },

@@ -1,6 +1,5 @@
 // /g/:id/form (DESIGN.md M9-M10): forming a locked, fully approved group's masternode in Dash-Qt. The coordinator's setup sheet,
 // every member's three rounds with the checker, the dash-cli path, and linking the registration once it is broadcast.
-import { formatDash } from '@cairn/shares';
 import { useMemo, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAccount } from '../app/account.tsx';
@@ -10,14 +9,13 @@ import { ActivationCard } from '../ui/Activation.tsx';
 import { PageHead } from '../ui/states.tsx';
 import { useAction } from '../ui/useAction.ts';
 import { Checker } from './Checker.tsx';
+import { dashPlain as dash } from './checker.ts';
 import { cliPlan, renderCommand } from './cli.ts';
 import { coreNetwork, linkedProTx, markStartedOp, sessionStarted, useGroupBundle, type GroupBundle, type Agreement } from './data.ts';
 import { GroupGate, GroupTabs, LinkRegistration, RegistrationCard } from './parts.tsx';
 import { setupSheet, type SetupPage } from './setup.ts';
 import { CodeBlock, CopyButton, CopyValue, Technical } from './ui.tsx';
 import { primaryOf, useRegistrations, useV24Active } from './useRegistration.ts';
-
-const dash = (d: bigint) => formatDash(d, { unit: 'DASH' });
 
 export function GroupFormPage() {
   const { id = '' } = useParams();

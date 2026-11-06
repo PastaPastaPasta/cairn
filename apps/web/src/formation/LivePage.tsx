@@ -8,6 +8,7 @@ import { useApp } from '../app/context.tsx';
 import { personName, useProfile } from '../data/profile.ts';
 import { PageHead } from '../ui/states.tsx';
 import { Checker } from './Checker.tsx';
+import { dash } from './checker.ts';
 import { percentString } from './cli.ts';
 import { coreNetwork, linkedProTx, useGroupBundle, type Agreement, type GroupBundle } from './data.ts';
 import { earlyView, labelChainShares, rewardSplit } from './live.ts';
@@ -16,7 +17,6 @@ import { CodeBlock, CopyButton, Technical } from './ui.tsx';
 import { primaryOf, useRegistrations } from './useRegistration.ts';
 import type { MnState, RegistrationJudgement } from './verify.ts';
 
-const dash = (d: bigint) => formatDash(d, { unit: 'DASH', groupSeparator: ',' });
 const n = (x: number) => x.toLocaleString('en-US');
 const GOVERNANCE = 'https://gov.dashhq.org';
 

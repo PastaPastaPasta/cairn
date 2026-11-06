@@ -1,11 +1,9 @@
 // The message checker (DESIGN.md M9): paste or drop what Dash-Qt copied and see, in this browser only, what it is and whether it is
 // safe to act on. The text is read locally (a FileReader for files) and handed to pure functions; nothing is sent anywhere.
-import { MAX_ENVELOPE_BYTES, formatDash, type ChainShare, type TermSheet } from '@cairn/shares';
+import { MAX_ENVELOPE_BYTES, type ChainShare, type TermSheet } from '@cairn/shares';
 import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from 'react';
-import { VERDICT_TITLE, checkMessage, roundName, type CheckContext, type CheckView, type RowAddresses } from './checker.ts';
+import { VERDICT_TITLE, checkMessage, dashPlain as dash, roundName, type CheckContext, type CheckView, type RowAddresses } from './checker.ts';
 import { FactList, FindingList, Technical, VerdictBanner } from './ui.tsx';
-
-const dash = (d: bigint) => formatDash(d, { unit: 'DASH' });
 
 export interface CheckerProps {
   network: CheckContext['network'];
