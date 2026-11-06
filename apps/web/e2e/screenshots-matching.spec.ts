@@ -31,6 +31,7 @@ for (const scheme of ['light', 'dark'] as const) {
           await page.locator('h1').first().waitFor();
           if (p.settle) await p.settle(page);
           if (p.testId) await page.getByTestId(p.testId).waitFor({ timeout: 60_000 });
+          await page.locator('.person-name.mono-ish').first().waitFor({ state: 'detached', timeout: 60_000 }).catch(() => {});
           await page.locator('.list-status [role="status"], .spinner').first().waitFor({ state: 'detached', timeout: 30_000 }).catch(() => {});
           await page.evaluate(() => document.fonts.ready);
           await page.screenshot({ path: `screenshots/matching/${p.name}-${size.name}-${scheme}.png`, fullPage: true });

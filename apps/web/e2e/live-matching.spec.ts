@@ -45,9 +45,10 @@ test('@live operator and two members agree terms on testnet up to "Ready to form
 
   // O1: the operator's listing
   await go(op.page, '/me#operator');
-  const listing = op.page.getByTestId('operator-form').or(op.page.getByTestId('my-operator'));
+  const listing = op.page.getByTestId('operator-start').or(op.page.getByTestId('my-operator'));
   await expect(listing).toBeVisible({ timeout: 120_000 });
-  if (await op.page.getByTestId('operator-form').isVisible()) {
+  if (await op.page.getByTestId('operator-start').isVisible()) {
+    await op.page.getByTestId('operator-start').click();
     await op.page.getByTestId('operator-name').fill('Stonepath Nodes');
     await op.page.getByTestId('operator-reward').fill('10');
     await op.page.getByTestId('operator-regions').fill('EU-West, US-East');
@@ -123,6 +124,13 @@ test('@live operator and two members agree terms on testnet up to "Ready to form
     await m.page.getByTestId('approve').click();
     await expect(m.page.getByTestId('approve-box')).toContainText('You approved these terms', { timeout: WRITE });
   }
+
+  // a member withdraws consent (deletes the approval) and gives it again
+  await b.page.getByRole('button', { name: 'Withdraw my approval' }).click();
+  await expect(b.page.getByTestId('approve')).toBeVisible({ timeout: WRITE });
+  await b.page.getByTestId('approve-read').check();
+  await b.page.getByTestId('approve').click();
+  await expect(b.page.getByTestId('approve-box')).toContainText('You approved these terms', { timeout: WRITE });
 
   for (const m of [op, a, b]) {
     await openGroup(m.page, groupId);

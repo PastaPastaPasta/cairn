@@ -94,6 +94,15 @@ export function OperatorEditor({ identityId }: { identityId: string }) {
       </div>
     );
 
+  if (!current && !editing)
+    return (
+      <div className="form-actions">
+        <button type="button" className="btn" onClick={() => setEditing(true)} data-testid="operator-start">
+          List me as an operator
+        </button>
+      </div>
+    );
+
   const bps = parsePercentInput(reward);
   const minBps = min.trim() ? parsePercentInput(min) : undefined;
   const maxBps = max.trim() ? parsePercentInput(max) : undefined;

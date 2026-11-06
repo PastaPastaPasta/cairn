@@ -30,7 +30,11 @@ test('@live signed-in screenshots of the matching pages', async ({ browser }) =>
   const opts = { deviceScaleFactor: 2 };
   const op = await signedIn(browser, 'cairn/testnet-matching-operator', 'operator', opts);
   const a = await signedIn(browser, 'cairn/testnet-matching-member-a', 'member A', opts);
-  const group = (p: Page) => p.getByTestId('next-steps').waitFor({ timeout: 120_000 });
+  // names arrive after the documents (profiles and DPNS): wait until the roster shows them
+  const group = async (p: Page) => {
+    await p.getByTestId('next-steps').waitFor({ timeout: 120_000 });
+    await p.getByTestId('roster').locator('.person-name.mono-ish').first().waitFor({ state: 'detached', timeout: 60_000 }).catch(() => {});
+  };
   await shoot(op.page, `/g/${DEMO_GROUP}`, 'group-organizer', group);
   await shoot(a.page, `/g/${DEMO_GROUP}`, 'group-member', group);
   await shoot(a.page, '/me', 'me-member', (p) => p.getByTestId('my-groups').waitFor({ timeout: 120_000 }));
