@@ -124,7 +124,14 @@ function LiveRegistration({ j, view, agreement }: { j: RegistrationJudgement; vi
             <p className="small">{j.mnText}</p>
           </div>
         )}
-        <RegistrationCard j={j} />
+        <RegistrationCard j={j}>
+          {j.state === 'recorded-after' && (
+            <p className="reg-detail" data-testid="recorded-after-note">
+              This changes only the “verified” label and the operator’s track record, never the masternode, its rewards or anyone’s coins, so if you are a co-owner
+              and agreed to these terms in Dash-Qt there is nothing you need to do.
+            </p>
+          )}
+        </RegistrationCard>
       </section>
 
       {onChain && f && terms && (

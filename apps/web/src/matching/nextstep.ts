@@ -161,7 +161,7 @@ function laterStep(role: Role, v: GroupView, me: string | null, stage: Stage, st
       return step(
         'wait',
         'Registered, but not verified',
-        'The masternode on chain matches these terms, but they were recorded on Cairn after it was registered, so Cairn cannot show that this group agreed to it first.',
+        'The masternode on chain matches these terms, but they were not all on Cairn well before it was registered, so Cairn cannot show that this group agreed to it first.',
         'live',
       );
     case 'mismatch':

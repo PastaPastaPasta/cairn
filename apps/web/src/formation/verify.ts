@@ -1,7 +1,7 @@
 // M10: is a linked registration the masternode the group approved? Computed from chain facts and the approvals on every read; the
-// group's own status field is never consulted. "Verified" means agreed before registered: anyone can copy a registered
-// masternode's public terms into a group afterwards, so a match counts only when every approval, and the operator's key on Cairn,
-// are older than the registration's block.
+// group's own status field is never consulted. "Verified" means agreed before registered: anyone can copy a masternode's public
+// terms into a group once its registration is broadcast, so a match counts only when every approval, and the operator's key on
+// Cairn, are at least AGREE_MARGIN_MS older than the registration's block.
 import { OP_ACCEPT_STATUS, type Approval, type Group, type OpAccept } from '@cairn/contract';
 import { type CheckResult, checkRegistrationAgainstTerms, coreP2PEntries, decodeSharedProRegTx } from '@cairn/shares';
 import type { Agreement } from '../matching/agreement.ts';
@@ -88,27 +88,35 @@ export function mnStateOf(f: ChainFacts | null): { state: MnState; text: string 
 }
 
 /**
- * When the operator's key was on Cairn (ms), the latest it can be shown to have been: the operator's own accepted answer in a
- * member-led group (its last change, since its history is not kept). In an operator-led group the key is in the organizer's group,
- * whose history is not kept either; members approve only terms the group shows, and those include the key, so the first approval
- * of the locked terms bounds it.
+ * How long before the registration's block time every approval and the operator's key must be on Cairn. Platform's `$createdAt`
+ * is its own block time, which a user cannot set, but a registration's terms are public from the moment it is broadcast: someone
+ * watching the mempool can copy them into a group and approve them before the block is mined, and a miner may set the block's time
+ * somewhat ahead. Honest groups approve before their Dash-Qt session, which takes several rounds, so they clear this easily.
+ */
+export const AGREE_MARGIN_MS = 15 * 60_000;
+
+/**
+ * When the operator's key was on Cairn (ms): the first approval of the locked terms by a roster member, since the approved terms
+ * hash covers the key. In a member-led group the operator's own accepted answer must also carry that key (its time is not used:
+ * it changes on every later edit).
  */
 export function operatorKeyPublishedAt(g: Group, opAccepts: readonly OpAccept[], approvals: readonly Approval[]): number | null {
   const key = (g.operatorPubKey ?? '').toLowerCase();
-  if (!key) return null;
-  if (g.operatorId && g.operatorId === g.ownerId) {
-    const times = approvals.filter((a) => a.termsRevision === g.termsRevision).map((a) => a.createdAt);
-    return times.length && times.every((t) => t !== undefined) ? Math.min(...(times as number[])) : null;
-  }
-  const a = opAccepts.find((o) => o.ownerId === g.operatorId && o.status === OP_ACCEPT_STATUS.accepted && (o.operatorPubKey ?? '').toLowerCase() === key);
-  return a?.updatedAt ?? a?.createdAt ?? null;
+  const locked = (g.lockedHash ?? '').toLowerCase();
+  if (!key || !locked) return null;
+  const operatorLed = !!g.operatorId && g.operatorId === g.ownerId;
+  if (!operatorLed && !opAccepts.some((o) => o.ownerId === g.operatorId && o.status === OP_ACCEPT_STATUS.accepted && (o.operatorPubKey ?? '').toLowerCase() === key)) return null;
+  const times = approvals
+    .filter((a) => a.termsRevision === g.termsRevision && a.termsHash.toLowerCase() === locked && g.roster.some((r) => r.id === a.ownerId))
+    .map((a) => a.createdAt);
+  return times.length && times.every((t) => t !== undefined) ? Math.min(...(times as number[])) : null;
 }
 
-/** What was recorded on Cairn only at or after the registration's block time (empty: everything was agreed before). */
+/** What was not on Cairn by AGREE_MARGIN_MS before the registration's block time (empty: everything was agreed in time). */
 export function recordedLate(agreement: Agreement, keyPublishedAt: number | null, blockTime: number): string[] {
-  const at = blockTime * 1000;
-  const late = agreement.members.filter((m) => m.approval?.createdAt === undefined || m.approval.createdAt >= at).map((m) => `${m.label || 'a co-owner'}’s approval`);
-  if (keyPublishedAt === null || keyPublishedAt >= at) late.push('the operator’s key');
+  const cutoff = blockTime * 1000 - AGREE_MARGIN_MS;
+  const late = agreement.members.filter((m) => m.approval?.createdAt === undefined || m.approval.createdAt > cutoff).map((m) => `${m.label || 'a co-owner'}’s approval`);
+  if (keyPublishedAt === null || keyPublishedAt > cutoff) late.push('the operator’s key');
   return late;
 }
 
@@ -168,7 +176,7 @@ export function judgeRegistration(agreement: Agreement, lookup: ChainFacts | { n
       ...base,
       state: 'recorded-after',
       headline: STATE_HEADLINE['recorded-after'],
-      detail: `The masternode in ${block(lookup.height)} has exactly these shares, operator, voting key, reward, exit terms and service, but ${listWords(late)} ${late.length === 1 ? 'was' : 'were'} recorded on Cairn only after it was registered. Anyone can copy a registered masternode’s public terms, so Cairn does not count it as this group’s verified masternode or in the operator’s track record.`,
+      detail: `The masternode in ${block(lookup.height)} has exactly these shares, operator, voting key, reward, exit terms and service, but ${listWords(late)} ${late.length === 1 ? 'was' : 'were'} not on Cairn ${AGREE_MARGIN_MS / 60_000} minutes before it was registered. Anyone can copy a masternode’s public terms once its registration is broadcast, so Cairn does not count it as this group’s verified masternode or in the operator’s track record.`,
     };
   }
   return {

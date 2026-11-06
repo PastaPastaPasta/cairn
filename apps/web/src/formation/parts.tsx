@@ -12,7 +12,7 @@ import { NotOpenHere, PageHead } from '../ui/states.tsx';
 import { useAction } from '../ui/useAction.ts';
 import { FindingList, Technical } from './ui.tsx';
 import { keyPublishedAtOf, useRegistrationCheck, type RegState } from './useRegistration.ts';
-import type { RegistrationJudgement } from './verify.ts';
+import { AGREE_MARGIN_MS, type RegistrationJudgement } from './verify.ts';
 
 /**
  * The group's pages: matching and terms, forming, the live masternode, and the message checker against its approved terms.
@@ -115,7 +115,7 @@ const TRUST: Record<string, string> = {
 };
 const when = (ms: number | undefined) => (ms === undefined ? 'unknown' : new Date(ms).toISOString().replace('T', ' ').slice(0, 16) + ' UTC');
 
-export function RegistrationCard({ j, compact = false }: { j: RegistrationJudgement; compact?: boolean }) {
+export function RegistrationCard({ j, compact = false, children }: { j: RegistrationJudgement; compact?: boolean; children?: ReactNode }) {
   const f = j.facts;
   return (
     <div className={`reg-card reg-${STATE_CLASS[j.state]}`} data-testid="registration" data-state={j.state}>
@@ -124,6 +124,7 @@ export function RegistrationCard({ j, compact = false }: { j: RegistrationJudgem
         {j.headline}
       </p>
       <p className="reg-detail">{j.detail}</p>
+      {children}
       {j.problems.length > 0 && (
         <>
           <p className="reg-diff-title">What differs</p>
@@ -147,8 +148,8 @@ export function RegistrationCard({ j, compact = false }: { j: RegistrationJudgem
           )}
           <p className="small">
             The terms are recomputed from the group and compared with every member’s approval on Dash Platform; the group’s own status is not used. It counts as
-            verified only when every approval, and the operator’s key on Cairn, are older than the registration’s block
-            {f?.blockTime ? ` (${when(f.blockTime * 1000)})` : ''}.
+            verified only when every approval, and the operator’s key on Cairn, are at least {AGREE_MARGIN_MS / 60_000} minutes older than the registration’s
+            block{f?.blockTime ? ` (${when(f.blockTime * 1000)})` : ''}.
           </p>
           {j.check && <FindingList findings={j.check.findings} />}
         </Technical>

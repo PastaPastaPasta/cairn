@@ -145,6 +145,7 @@ test('the live page checks the demo group against real testnet chain data', asyn
   await expect(reg).toHaveAttribute('data-state', 'recorded-after', { timeout: 150_000 });
   await expect(reg).toContainText('Registration matches these terms, but they were recorded after it was registered');
   await expect(reg.locator('.reg-headline')).not.toHaveText('Registration verified');
+  await expect(page.getByTestId('recorded-after-note')).toContainText('changes only the “verified” label and the operator’s track record');
   // registered without a service: banned until the operator's service update, never "live" (D-002, F-013)
   await expect(page.getByTestId('mn-state')).toHaveAttribute('data-state', /no-service|banned|valid/);
   await expect(page.getByTestId('mn-state').locator('.mn-valid')).toHaveCount(0);
