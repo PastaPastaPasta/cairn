@@ -95,7 +95,7 @@ test('the sign-in sheet opens from the header and offers every way in', async ({
   await page.getByTestId('signin-button').click();
   const sheet = page.locator('dialog.sheet[open]');
   await expect(sheet).toBeVisible();
-  for (const t of ['Create an account', 'I have a recovery phrase', 'Use a passkey', 'Paste a key']) await expect(sheet.getByRole('button', { name: new RegExp(t) })).toBeVisible();
+  for (const t of ['Create an account', 'I have a Cairn account phrase', 'Use a passkey', 'Paste a key']) await expect(sheet.getByRole('button', { name: new RegExp(t) })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(sheet).toBeHidden();
 });

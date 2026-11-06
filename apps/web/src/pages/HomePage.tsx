@@ -97,7 +97,7 @@ export function HomePage() {
               Your coins. Your share goes into a collateral only a dissolution can spend, and a dissolution sends it back to your refund address, minus any
               agreed early penalty if you leave early.
             </li>
-            <li>Your wallet’s keys or recovery phrase. Nobody in a group, and nothing on Cairn, ever needs them.</li>
+            <li>Your Dash Core wallet’s keys or recovery phrase. Your Cairn account phrase is a separate one that only signs your profile and approvals.</li>
             <li>
               Control of leaving. Any member can leave alone at any time. Everyone gets their share back; whoever leaves before the agreed early period ends pays
               the agreed penalty to the others.

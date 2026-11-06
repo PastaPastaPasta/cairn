@@ -1,4 +1,4 @@
-// A secret input (recovery phrase, voucher link): masked until "Show". Used by the sign-in sheet and the Recover tool.
+// A secret input (Cairn account phrase, voucher link): masked until "Show". Used by the sign-in sheet and the Recover tool.
 import { useState, type ClipboardEvent } from 'react';
 
 /** Masking a textarea needs -webkit-text-security; where it is missing a password input stands in while hidden. */
@@ -14,7 +14,7 @@ function pasteOneLine(set: (v: string) => void) {
   };
 }
 
-/** A recovery phrase or voucher link: masked until "Show" (shoulder surfing, screen sharing, screenshots). */
+/** A Cairn account phrase or voucher link: masked until "Show" (shoulder surfing, screen sharing, screenshots). */
 export function SecretField(p: { label: string; what: string; value: string; onChange(v: string): void; testId: string; placeholder?: string; disabled?: boolean }) {
   const [shown, setShown] = useState(false);
   const common = {

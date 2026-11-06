@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
@@ -18,8 +18,11 @@ export function SettingsPage() {
   const { session } = useAccount();
   const auth = useAuth();
   const { hash } = useLocation();
+  const recover = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
-    if (hash === '#recover') document.getElementById('recover')?.scrollIntoView();
+    if (hash !== '#recover' || !recover.current) return;
+    recover.current.open = true;
+    recover.current.scrollIntoView();
   }, [hash]);
   return (
     <div className="page settings">
@@ -40,9 +43,12 @@ export function SettingsPage() {
           ))}
         </div>
         {registry.contractId && (
-          <p className="small muted">
-            Cairn contract on {registry.label}: <span className="mono-ish break">{registry.contractId}</span>
-          </p>
+          <details className="small muted">
+            <summary>Technical details</summary>
+            <p>
+              Cairn contract on {registry.label}: <span className="mono-ish break">{registry.contractId}</span>
+            </p>
+          </details>
         )}
       </section>
       <section className="settings-block" aria-labelledby="theme-h">
@@ -75,9 +81,11 @@ export function SettingsPage() {
           </p>
         )}
       </section>
-      <section className="settings-block" id="recover" aria-labelledby="recover-h">
-        <h2 id="recover-h">Recover funds</h2>
-        <RecoverFunds />
+      <section className="settings-block" aria-label="Recover funds">
+        <details id="recover" className="settings-disclosure" ref={recover}>
+          <summary>Paid for an account and it didn't finish?</summary>
+          <RecoverFunds />
+        </details>
       </section>
     </div>
   );

@@ -38,6 +38,7 @@ describe('custody and leaving copy', () => {
     expect(t).toContain('goes into a collateral only a dissolution can spend');
     expect(t).toContain('minus any agreed early penalty if you leave early');
     expect(t).toContain('Share the rewards');
+    expect(t).toContain('Your Dash Core wallet’s keys or recovery phrase. Your Cairn account phrase is a separate one that only signs your profile and approvals.');
   });
 
   it('the guide states what a stolen owner key can cost', async () => {
@@ -48,5 +49,12 @@ describe('custody and leaving copy', () => {
     );
     expect(t).toContain('each block pays part of its reward to one masternode');
     expect(t).toContain('the leaver’s minus any agreed early penalty');
+  });
+
+  it('the guide names the Cairn account phrase and does not tell people both to keep it Cairn-only and to reuse it', async () => {
+    const t = await text(<LearnPage />);
+    expect(t).toContain('Its Cairn account phrase is a Dash Platform identity phrase: it also opens this account in other Platform apps. Don’t put real money on it.');
+    expect(t).toContain('Your Dash Core wallet’s recovery phrase or private keys');
+    expect(t).not.toMatch(/Cairn recovery phrase|keep it for Cairn only/);
   });
 });

@@ -3,7 +3,7 @@
 // Without PRF support nothing is written: the provider is told to drop the new passkey and the user keeps their phrase.
 import { identifierBytes, localPasskeys, openVault, prfInput, removePasskey, toBase64, wipe, type VaultEntryDoc } from '@cairn/auth';
 import { forgetPasskey, getPasskeyPrf, PRF_UNAVAILABLE_MESSAGE } from '@cairn/auth/webauthn';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from './context.tsx';
 import { errorText, rpId } from './runtime.ts';
 import { isCancelled, usePasskeyCreate, usePrfSupport } from './usePasskeyCreate.ts';
@@ -34,7 +34,7 @@ export function PasskeySignIn() {
   return (
     <div>
       {support === 'no' ? (
-        <p className="notice-box">This browser can't use passkeys to keep a Cairn sign-in. Use your recovery phrase instead.</p>
+        <p className="notice-box">This browser can't use passkeys to keep a Cairn sign-in. Use your Cairn account phrase instead.</p>
       ) : (
         <>
           <p>Choose the passkey you added to Cairn. Your device unlocks the key it keeps; nothing is sent to a server.</p>
@@ -46,6 +46,59 @@ export function PasskeySignIn() {
         </>
       )}
       {error && <p className="error" role="alert">{error}</p>}
+    </div>
+  );
+}
+
+/** Offered right after an account is created or restored: keys live in memory only, a passkey is how you stay signed in. */
+export function PasskeyOffer() {
+  const { session, closeSheet } = useAuth();
+  const { support, step, error, create, confirm } = usePasskeyCreate({});
+  const ineligible = !session || session.source === 'passkey' || support === 'no';
+  useEffect(() => {
+    if (ineligible) closeSheet();
+  }, [ineligible, closeSheet]);
+  if (ineligible) return null;
+  return (
+    <div className="passkey-offer" data-testid="passkey-offer">
+      <p>
+        <b>Stay signed in on this device with a passkey.</b> Your Cairn account phrase is not kept in this browser, so a refresh or a new tab signs you out. A passkey
+        unlocks it again with your fingerprint, face or device PIN. It costs about 0.0005 DASH from your account credit.
+      </p>
+      {step === 'confirm' && (
+        <div className="notice-box">
+          <p>Passkey created. Confirm it once more so Cairn can lock your account to it.</p>
+          <button type="button" className="btn btn-primary" onClick={confirm}>
+            Confirm with the passkey
+          </button>
+        </div>
+      )}
+      {step === 'saving' && (
+        <p className="muted" aria-live="polite">
+          <span className="spinner" aria-hidden="true" /> Saving the encrypted entry on Platform…
+        </p>
+      )}
+      {step === 'done' && (
+        <>
+          <p className="notice" data-testid="passkey-saved">Done. You can now sign in with your passkey.</p>
+          <div className="form-actions">
+            <button type="button" className="btn btn-primary" onClick={closeSheet}>
+              Close
+            </button>
+          </div>
+        </>
+      )}
+      {error && <p className="error" role="alert">{error}</p>}
+      {step === 'idle' && (
+        <div className="form-actions">
+          <button type="button" className="btn btn-primary" onClick={create}>
+            Add a passkey
+          </button>
+          <button type="button" className="btn btn-quiet" onClick={closeSheet} data-testid="passkey-offer-skip">
+            Not now
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -71,7 +124,7 @@ export function Passkeys() {
     }
   };
 
-  const what = session.wallet ? 'recovery phrase' : 'sign-in key';
+  const what = session.wallet ? 'Cairn account phrase' : 'sign-in key';
   return (
     <div className="passkeys">
       <div className="passkeys-intro">

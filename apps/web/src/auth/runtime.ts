@@ -45,6 +45,17 @@ export function formatCredits(credits: bigint): string {
   return `${whole}.${frac} DASH`;
 }
 
+/** What one Platform change (a profile save, a post, an approval) costs in credits: about 0.0005 DASH. */
+export const CHANGE_COST_CREDITS = 50_000_000n;
+
+/** "0.045 DASH": truncated, never rounded up; more places only when the balance is below 0.001. */
+export function formatCreditsShort(credits: bigint): string {
+  const places = credits < 100_000_000n ? 5n : 3n;
+  const v = credits / 10n ** (11n - places);
+  const base = 10n ** places;
+  return `${v / base}.${(v % base).toString().padStart(Number(places), '0')} DASH`;
+}
+
 export const formatDashNumber = (duffs: number | bigint): string => (Number(duffs) / 1e8).toFixed(8).replace(/0+$/, '').replace(/\.$/, '');
 export const formatDuffs = (duffs: number | bigint): string => `${formatDashNumber(duffs)} DASH`;
 

@@ -48,7 +48,7 @@ export async function signedIn(browser: Browser, secretName: string, label: stri
   await page.getByTestId('signin-button').click();
   const phrase = storedPhrase(secretName);
   if (phrase) {
-    await page.getByRole('button', { name: /I have a recovery phrase/ }).click();
+    await page.getByRole('button', { name: /I have a Cairn account phrase/ }).click();
     await page.getByTestId('phrase-input').fill(phrase);
     await page.locator('dialog.sheet[open]').getByRole('button', { name: 'Sign in', exact: true }).click();
   } else {

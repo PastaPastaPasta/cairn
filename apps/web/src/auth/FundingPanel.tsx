@@ -212,7 +212,7 @@ export function FundingPanel(p: FundingPanelProps) {
       {view.lateDuffs > 0n && (
         <div className="notice-box" role="status" data-testid="late-payment">
           <p>
-            {formatDuffs(view.lateDuffs)} arrived at {view.address} after the asset lock was made. It was not used and is still there; only your recovery phrase
+            {formatDuffs(view.lateDuffs)} arrived at {view.address} after the asset lock was made. It was not used and is still there; only your Cairn account phrase
             (or key) controls that address, and ordinary wallets don't show it.
           </p>
           {view.state === 'done' ? (
@@ -320,7 +320,7 @@ function ErrorBox({ text, retry, onRecover }: { text: string; retry(): void; onR
       <p>{text}</p>
       <p className="muted small">
         Your progress is saved in this browser. Retrying continues where it stopped; nothing is paid twice. On another device, or if this keeps failing,{' '}
-        <RecoverLink onClick={onRecover}>Recover funds</RecoverLink> finds the payment from your recovery phrase alone.
+        <RecoverLink onClick={onRecover}>Recover funds</RecoverLink> finds the payment from your Cairn account phrase alone.
       </p>
       <button type="button" className="btn" onClick={retry}>
         Try again

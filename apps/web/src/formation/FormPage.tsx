@@ -184,7 +184,7 @@ function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void })
           <section className="never" aria-labelledby="never-title">
             <h2 id="never-title">Never share</h2>
             <ul className="crosses">
-              <li>Your recovery phrase, wallet file or any private key. Nobody in a group, and nothing on Cairn, ever needs them.</li>
+              <li>Your Dash Core wallet’s recovery phrase, wallet file or any private key. Nobody in a group, and nothing on Cairn, ever needs them.</li>
               <li>The operator’s BLS secret key, unless you are the operator. Only the public key goes into the terms.</li>
               <li>Coins. You never send DASH to anyone: your coins move only in the registration your own wallet signs.</li>
               <li>A signature for a message the checker stops. Ask for a fresh copy instead.</li>
