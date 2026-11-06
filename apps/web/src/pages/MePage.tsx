@@ -1,12 +1,12 @@
 // /me: the signed-in member's own things. Today: the profile, written through the vendored document writer and read back with a
 // proved query, which is the end-to-end proof that writes work. Groups, seats, approvals and the listing come next.
-import { CONTACT_KINDS, DocError, ROLE, createOp, profileData, replaceOp, type ContactKind, type Contacts, type Profile } from '@cairn/contract';
+import { CONTACT_KINDS, DocError, ROLE, createOp, nameProblem, profileData, replaceOp, toProfile, type ContactKind, type Contacts, type DocData, type Profile } from '@cairn/contract';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
 import { formatCredits } from '../auth/runtime.ts';
-import { invalidateProfile, readProfile, useProfile } from '../data/profile.ts';
+import { readProfile, seedProfile, useProfile } from '../data/profile.ts';
 import { openSignIn } from '../ui/Account.tsx';
 import { NotOpenHere, PageHead } from '../ui/states.tsx';
 import { useAction } from '../ui/useAction.ts';
@@ -20,12 +20,11 @@ const CONTACT_LABELS: Record<ContactKind, { label: string; hint: string }> = {
   website: { label: 'Website', hint: 'https://…' },
 };
 
-/** Characters that let one name pass for another: direction overrides, zero-width and other invisible marks (govhub D-035). */
-const DECEPTIVE = /[​-‏‪-‮⁠-⁩﻿­]/;
-export function nameProblem(name: string): string | null {
-  if (DECEPTIVE.test(name)) return 'Remove invisible or text-direction characters from the name.';
-  if (!name.trim()) return 'Enter a name.';
-  return null;
+/** Whether a profile read back from Platform holds exactly the fields a write sent. */
+export function holdsWrite(back: Profile, sent: DocData): boolean {
+  const want = toProfile({ $id: back.id, $ownerId: back.ownerId, ...sent });
+  const fields = (p: Profile) => JSON.stringify([p.displayName, p.about ?? null, p.contacts, p.roles]);
+  return fields(back) === fields(want);
 }
 
 export default function MePage() {
@@ -70,16 +69,18 @@ function ProfileEditor({ identityId }: { identityId: string }) {
 
   useEffect(() => {
     if (loading) return;
-    setName(profile?.displayName ?? dpns ?? '');
+    setName(profile?.displayName || dpns || '');
     setAbout(profile?.about ?? '');
     setContacts(profile?.contacts ?? {});
-    setRoles(profile?.roles || ROLE.member);
+    setRoles(profile?.roles ?? ROLE.member);
   }, [profile, dpns, loading]);
 
   const problem = name ? nameProblem(name) : null;
+  // without a successful read the page cannot know whether a profile exists: a create would hit the unique index and still cost a fee
+  const blocked = !!problem || !!readError;
   const save = (e: FormEvent) => {
     e.preventDefault();
-    if (problem) return;
+    if (blocked) return;
     setSaved(null);
     void run(async () => {
       let data;
@@ -99,7 +100,8 @@ function ProfileEditor({ identityId }: { identityId: string }) {
         back = await readProfile(registry, identityId);
       }
       if (!back.profile || back.profile.revision < want) throw new Error('Platform confirmed the change, but the node read now does not show it yet. Reload in a minute.');
-      invalidateProfile();
+      if (!holdsWrite(back.profile, data)) throw new Error('Platform now holds a different profile than this page sent (another tab or app may have changed it). Reload before you edit again.');
+      seedProfile(registry, identityId, back.profile);
       setSaved({ revision: back.profile.revision, height: back.height });
     });
   };
@@ -115,7 +117,7 @@ function ProfileEditor({ identityId }: { identityId: string }) {
               Display name
               <input value={name} onChange={(e) => setName(e.target.value)} maxLength={64} required aria-describedby="name-help" autoComplete="nickname" />
               <span id="name-help" className="small muted">
-                {dpns ? `Your Dash username is ${dpns}; it is shown next to this name.` : 'Up to 64 characters.'}
+                {dpns ? `Your Dash username ${dpns} is shown first, with this name next to it.` : 'Up to 64 characters.'}
               </span>
             </label>
             {problem && (
@@ -162,7 +164,7 @@ function ProfileEditor({ identityId }: { identityId: string }) {
               Saving costs about 0.0005 DASH of credit{balance !== null ? `; you have ${formatCredits(balance)}` : ''}.
             </p>
             <div className="form-actions">
-              <button type="submit" className="btn btn-primary" disabled={busy || loading || !!problem} data-testid="profile-save">
+              <button type="submit" className="btn btn-primary" disabled={busy || loading || blocked} data-testid="profile-save">
                 {busy ? 'Saving…' : profile ? 'Save changes' : 'Create profile'}
               </button>
             </div>
@@ -177,7 +179,7 @@ function ProfileEditor({ identityId }: { identityId: string }) {
               Saved and read back from Dash Platform{saved.height ? ` at block ${saved.height.toLocaleString('en-US')}` : ''} (version {saved.revision}).
             </p>
           )}
-          {readError && <p className="error small">Could not read your profile: {readError}</p>}
+          {readError && <p className="error small">Could not read your profile, so saving is off until it can be read: {readError}. Reload to try again.</p>}
         </form>
         <aside className="me-side" aria-label="Your account">
           <h2>Your account</h2>
@@ -191,7 +193,7 @@ function ProfileEditor({ identityId }: { identityId: string }) {
               <p data-testid="me-dpns">{dpns}</p>
             </>
           )}
-          <ProfileStatus profile={profile} loading={loading} />
+          <ProfileStatus profile={profile} loading={loading} failed={!!readError} />
           <h2>Coming next</h2>
           <p className="small">
             Your groups, seats and approvals, and posting that you are looking. See <Link to="/learn">how a group forms</Link>.
@@ -202,8 +204,9 @@ function ProfileEditor({ identityId }: { identityId: string }) {
   );
 }
 
-function ProfileStatus({ profile, loading }: { profile: Profile | null; loading: boolean }) {
+function ProfileStatus({ profile, loading, failed }: { profile: Profile | null; loading: boolean; failed: boolean }) {
   if (loading) return <p className="small muted">Reading your profile…</p>;
+  if (failed) return <p className="small">Your profile could not be read.</p>;
   if (!profile) return <p className="small">No profile on Platform yet.</p>;
   return (
     <p className="small">

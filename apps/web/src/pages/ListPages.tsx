@@ -202,7 +202,7 @@ function OperatorRows({ items }: { items: Operator[] }) {
         <li key={o.id} className="row">
           <div className="row-main">
             <Link className="row-title" to={`/operators/${o.ownerId}`}>
-              {o.name}
+              {o.nameSuspect ? `“${o.name}”` : o.name}
             </Link>
             <p className="row-meta small">
               Asks {pct(o.rewardBps)} of rewards{o.regions.length ? `, runs nodes in ${o.regions.join(', ')}` : ''}
