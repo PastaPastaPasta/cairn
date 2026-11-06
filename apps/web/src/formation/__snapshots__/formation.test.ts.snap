@@ -1,0 +1,37 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`dash-cli commands > renders the whole sequence for the d400c120 terms 1`] = `
+"# Each member, in their own wallet: Make fresh addresses and pick your coins
+dash-cli -testnet getnewaddress "cairn-owner"
+dash-cli -testnet getnewaddress "cairn-refund"
+dash-cli -testnet getnewaddress "cairn-reward"
+dash-cli -testnet getnewaddress "cairn-change"
+dash-cli -testnet listunspent 1
+dash-cli -testnet lockunspent false '[{"txid":"<TXID>","vout":<VOUT>}]'
+
+# Alice: Build the funding transaction (no collateral output)
+dash-cli -testnet createrawtransaction '[{"txid":"<ALICE_TXID>","vout":<ALICE_VOUT>},{"txid":"<BOB_TXID>","vout":<BOB_VOUT>},{"txid":"<CAROL_TXID>","vout":<CAROL_VOUT>}]' '{"<ALICE_CHANGE_ADDRESS>":<ALICE_CHANGE_DASH>,"<BOB_CHANGE_ADDRESS>":<BOB_CHANGE_DASH>,"<CAROL_CHANGE_ADDRESS>":<CAROL_CHANGE_DASH>}'
+
+# Alice: Prepare the registration with the approved terms
+dash-cli -testnet protx shared_register_prepare "<FUNDING_TX>" '[{"amount":50000000000,"refundAddress":"<ALICE_REFUND_ADDRESS>","rewardAddress":"<ALICE_REWARD_ADDRESS>","ownerAddress":"<ALICE_OWNER_ADDRESS>"},{"amount":30000000000,"refundAddress":"<BOB_REFUND_ADDRESS>","rewardAddress":"<BOB_REWARD_ADDRESS>","ownerAddress":"<BOB_OWNER_ADDRESS>"},{"amount":20000000000,"refundAddress":"<CAROL_REFUND_ADDRESS>","rewardAddress":"<CAROL_REWARD_ADDRESS>","ownerAddress":"<CAROL_OWNER_ADDRESS>"}]' "" "8ca1de0998a6d21724322b77bbe0adcb524c0aa276a6554a1fc66993b63aff8a327b5ebef76e83a6ccaeac3d9ff5f1c6" "ygtn5nLwguprM3A49sjSzhZrHjUMqVywby" "3.00" 52560 500000000
+
+# Each member, in their own wallet: Check the terms, then approve your share
+dash-cli -testnet decoderawtransaction "<PREPARED_TX>"
+dash-cli -testnet protx shared_sign "<PREPARED_TX>"
+
+# Anyone: Put every approval into the transaction
+dash-cli -testnet protx shared_combine "<PREPARED_TX>" '[{"shareIndex":0,"signature":"<ALICE_SIGNATURE>"},{"shareIndex":1,"signature":"<BOB_SIGNATURE>"},{"shareIndex":2,"signature":"<CAROL_SIGNATURE>"}]'
+
+# Each member, one after another: Sign your own coins
+dash-cli -testnet signrawtransactionwithwallet "<COMBINED_TX>"
+
+# Anyone: Broadcast the registration
+dash-cli -testnet sendrawtransaction "<SIGNED_TX>"
+
+# Each member, after one confirmation: Create your standby dissolutions
+dash-cli -testnet protx shared_dissolve "<PROTX_HASH>" <MY_SHARE_INDEX> 100000 false false
+dash-cli -testnet protx shared_dissolve "<PROTX_HASH>" <MY_SHARE_INDEX> 100000 false true
+
+# The operator: Start the node and get paid
+dash-cli -testnet protx update_service "<PROTX_HASH>" "<IP:PORT>" "<OPERATOR_BLS_SECRET>" "<OPERATOR_PAYOUT_ADDRESS>" "<FEE_SOURCE_ADDRESS>""
+`;
