@@ -1,7 +1,7 @@
 import { GROUP_STATUS, INVITE_STATUS, OP_ACCEPT_STATUS, SEAT_FLAG, SEAT_STATUS, groupData, termSheetFromGroup, toGroup, type Invite } from '@cairn/contract';
 import { termsHash } from '@cairn/shares';
 import { describe, expect, it } from 'vitest';
-import { EXIT_PRESETS, exitProblem, exitWords, termWarnings } from './exit.ts';
+import { EXIT_PRESETS, exitProblem, exitShort, exitWords, termWarnings } from './exit.ts';
 import { A, B, BLS, C, D, GID, OPR, ORG, SERVICE, VOTING, approval, group, id, looking, opAccept, seat } from './fixtures.ts';
 import { acceptSeat, change, groupView, lockPlan, refillFields, removeShare, saveChoices, type GroupBundle } from './group.ts';
 import { asciiLabel, deriveLabels, labelProblem } from './labels.ts';
@@ -14,8 +14,14 @@ const bundle = (over: Partial<GroupBundle> = {}): GroupBundle => ({ group: group
 const invite = (toId: string, amount: number): Invite => ({ id: id(70), ownerId: ORG, docRevision: 1, groupId: GID, toId, amount, status: INVITE_STATUS.open }) as Invite;
 
 describe('exit terms', () => {
-  it('offer presets in blocks at 576 a day, up to Core’s cap', () => {
-    expect(EXIT_PRESETS.map((p) => p.blocks)).toEqual([0, 52_416, 104_832, 210_240, 420_480]);
+  it('offer exactly Dash-Qt’s preset buttons (src/qt/sharedmncreatedialog.cpp), up to Core’s cap', () => {
+    expect(EXIT_PRESETS.map((p) => [p.label, p.blocks])).toEqual([
+      ['No early period', 0],
+      ['3 months', 52_560],
+      ['6 months', 105_120],
+      ['1 year', 210_240],
+      ['2 years', 420_480],
+    ]);
   });
   it('enforce the penalty rules as you type', () => {
     expect(exitProblem(0, 0)).toBeNull();
@@ -27,7 +33,10 @@ describe('exit terms', () => {
   });
   it('say what leaving costs, and warn about free exits and the permanent reward', () => {
     expect(exitWords(0, 0)).toBe('Anyone can leave at any time, with no penalty.');
-    expect(exitWords(210_240, D(25))).toBe('Leaving in the first 1 year costs 25 DASH, paid to the others. After that, anyone can leave at no cost.');
+    expect(exitWords(210_240, D(25))).toBe('Leaving within 1 year of registration costs 25 DASH, paid to the others. After that, anyone can leave at no cost.');
+    expect(exitWords(52_416, D(5))).toBe('Leaving within about 91 days of registration costs 5 DASH, paid to the others. After that, anyone can leave at no cost.');
+    expect(exitWords(52_560, D(5))).toMatch(/^Leaving within 3 months of registration/);
+    expect(exitShort(52_416, D(5))).toBe('5 DASH to leave within about 91 days');
     expect(termWarnings({ earlyPeriodBlocks: 0, rewardBps: 1500 }).map((w) => w.id)).toEqual(['free-exit', 'reward-permanent']);
     expect(termWarnings({ earlyPeriodBlocks: 1, rewardBps: 1500 }).map((w) => w.id)).toEqual(['reward-permanent']);
   });
