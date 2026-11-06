@@ -10,6 +10,8 @@ export default defineConfig({
   timeout: 90_000,
   expect: { timeout: 20_000 },
   fullyParallel: true,
+  // the smoke suite reads testnet Platform; one retry absorbs a slow node in CI
+  retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 2 : 3,
   reporter: [['list']],
   // live specs spend real tDASH and type real phrases: only when asked, and never with traces (a failed run would keep them)

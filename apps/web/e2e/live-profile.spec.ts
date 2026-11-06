@@ -1,6 +1,6 @@
 // Opt-in live TESTNET run (CAIRN_LIVE=1 npm run e2e:live -w @cairn/web): create an account exactly as a user does (new phrase, pay the
 // QR address), with the dash-faucet helper playing the user's wallet; then write a profile through the vendored document writer and
-// see it read back with a proof. Spends about 0.01 tDASH. The phrase goes to ~/.local/share/cairn/e2e-user.json (0600), never to logs.
+// see it read back with a proof. Spends about 0.01 tDASH. The phrase goes to ~/.local/share/cairn/e2e-user-<time>.json (0600), never to logs.
 import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -21,7 +21,7 @@ test('@live create an account on testnet and save a profile', async ({ page }) =
   const words = (await page.getByTestId('phrase-words').locator('li').allInnerTexts()).map((t) => t.trim().split(/\s+/)[1]!);
   expect(words).toHaveLength(12);
   mkdirSync(OUT, { recursive: true, mode: 0o700 });
-  const file = join(OUT, 'e2e-user.json');
+  const file = join(OUT, `e2e-user-${Date.now()}.json`);
   writeFileSync(file, JSON.stringify({ phrase: words.join(' '), network: 'testnet', at: new Date().toISOString() }) + '\n', { mode: 0o600 });
   chmodSync(file, 0o600);
   await page.getByRole('button', { name: 'I wrote it down' }).click();
