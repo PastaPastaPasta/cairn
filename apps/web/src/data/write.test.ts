@@ -3,7 +3,8 @@ import { GROUP_STATUS, MN_TYPE, SEAT_STATUS, createOp, deleteOp, groupData, repl
 import { describe, expect, it, vi } from 'vitest';
 import { PROFILES } from '../config/registry.ts';
 import { A, GID, ORG, id } from '../matching/fixtures.ts';
-import { readDoc, remember } from './cairn.ts';
+import { readDoc, readStored, remember } from './cairn.ts';
+import * as platform from './platform.ts';
 import { holdsData, StaleWrite, UnconfirmedWrite, writeConfirmed, type WriteDeps } from './write.ts';
 
 vi.mock('./platform.ts', () => ({ getCairnDoc: vi.fn(async () => null), queryCairn: vi.fn() }));
@@ -15,12 +16,10 @@ const seat = (amount: number) => seatData({ groupId: GID, amount, status: SEAT_S
 /** A document as a proved read returns it: identifiers base58, the data as stored. */
 const stored = (data: Record<string, unknown>, revision: number, docId = SEAT_ID): RawDoc => ({ ...data, $id: docId, $ownerId: A, $revision: revision, groupId: GID, $createdAt: 5, $updatedAt: 6 });
 
+/** One sequence of node answers for both the pre-flight read and the read-back. */
 function deps(reads: Array<RawDoc | null>): WriteDeps & { calls: number } {
-  const d = {
-    calls: 0,
-    read: vi.fn(async () => reads[Math.min(d.calls++, reads.length - 1)] ?? null),
-    sleep: async () => {},
-  };
+  const next = vi.fn(async () => reads[Math.min(d.calls++, reads.length - 1)] ?? null);
+  const d = { calls: 0, read: next, stored: next, sleep: async () => {} };
   return d;
 }
 
@@ -53,6 +52,32 @@ describe('confirmed writes', () => {
     expect(write).not.toHaveBeenCalled();
   });
 
+  it('asks a second node before calling a document gone', async () => {
+    const data = seat(400e8);
+    const write = vi.fn(async () => ({ id: SEAT_ID, revision: 2 }));
+    const d = deps([null, stored(seat(300e8), 1), stored(data, 2)]);
+    await expect(writeConfirmed(r, write, replaceOp(CID, 'seat', SEAT_ID, 1, data), d)).resolves.toBeTruthy();
+    expect(write).toHaveBeenCalledOnce();
+    const gone = deps([null, null]);
+    await expect(writeConfirmed(r, write, replaceOp(CID, 'seat', SEAT_ID, 1, data), gone)).rejects.toBeInstanceOf(StaleWrite);
+    expect(gone.calls).toBe(2);
+    expect(write).toHaveBeenCalledOnce();
+  });
+
+  it('does not take this tab’s copy for a document Platform no longer has (deleted elsewhere)', async () => {
+    const DOC = id(81);
+    remember(r, 'seat', DOC, stored(seat(300e8), 1, DOC));
+    const getCairnDoc = vi.mocked(platform.getCairnDoc);
+    getCairnDoc.mockClear();
+    const write = vi.fn(async () => ({ id: DOC, revision: 2 }));
+    const live = { read: readDoc, stored: readStored, sleep: async () => {} };
+    await expect(writeConfirmed(r, write, replaceOp(CID, 'seat', DOC, 1, seat(400e8)), live)).rejects.toBeInstanceOf(StaleWrite);
+    expect(getCairnDoc).toHaveBeenCalledTimes(2);
+    expect(write).not.toHaveBeenCalled();
+    // pages still see the tab's copy while a node lags behind its own write
+    await expect(readDoc(r, 'seat', DOC)).resolves.toMatchObject({ $id: DOC });
+  });
+
   it('runs the caller’s check before signing, and sends nothing when it throws', async () => {
     const write = vi.fn(async () => ({ id: SEAT_ID, revision: 1 }));
     const check = vi.fn(async () => {
@@ -70,7 +95,7 @@ describe('confirmed writes', () => {
 
   it('confirms deleting a document this tab wrote, which the node no longer has', async () => {
     remember(r, 'approval', SEAT_ID, stored(seat(300e8), 1));
-    await expect(writeConfirmed(r, async () => ({ id: SEAT_ID }), deleteOp(CID, 'approval', SEAT_ID), { read: readDoc, sleep: async () => {} })).resolves.toBeNull();
+    await expect(writeConfirmed(r, async () => ({ id: SEAT_ID }), deleteOp(CID, 'approval', SEAT_ID), { read: readDoc, stored: async () => stored(seat(300e8), 1), sleep: async () => {} })).resolves.toBeNull();
     await expect(readDoc(r, 'approval', SEAT_ID)).resolves.toBeNull();
   });
 

@@ -7,7 +7,7 @@ import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
 import type { Registry } from '../config/registry.ts';
 import type { DocumentOp, DocumentResult } from '../session/session.ts';
-import { forget, readDoc, remember } from './cairn.ts';
+import { forget, readDoc, readStored, remember } from './cairn.ts';
 
 type Readable = Exclude<DocType, 'vault'>;
 const readerFor = (type: DocType, network: Network) => (raw: RawDoc) => (type === 'group' ? toGroup(raw, network) : READERS[type as Readable](raw));
@@ -26,10 +26,13 @@ export function holdsData(type: DocType, back: RawDoc, sent: Record<string, unkn
 }
 
 export interface WriteDeps {
+  /** The read-back after a write (this tab's copy may stand in for a node that lags behind it). */
   read(r: Registry, type: DocType, id: string): Promise<RawDoc | null>;
+  /** The pre-flight read: Platform's own answer only. */
+  stored(r: Registry, type: DocType, id: string): Promise<RawDoc | null>;
   sleep(ms: number): Promise<void>;
 }
-const DEFAULT_DEPS: WriteDeps = { read: readDoc, sleep: (ms) => new Promise((ok) => setTimeout(ok, ms)) };
+const DEFAULT_DEPS: WriteDeps = { read: readDoc, stored: readStored, sleep: (ms) => new Promise((ok) => setTimeout(ok, ms)) };
 const TRIES = 6;
 
 /** Platform accepted the write but its result could not be proved here; `id` is the document it wrote (it may well exist). */
@@ -56,7 +59,8 @@ export class StaleWrite extends Error {
 /** A replace or delete of a document that is gone, or that someone replaced after the page read it. */
 async function preflight(r: Registry, op: DocOp, deps: WriteDeps): Promise<void> {
   if (op.action === 'create') return;
-  const stored = await deps.read(r, op.type, op.id);
+  // a node without the document may only be behind: ask once more (the SDK picks a node per request) before refusing
+  const stored = (await deps.stored(r, op.type, op.id)) ?? (await deps.stored(r, op.type, op.id));
   // a stored revision below the page's is a node lagging behind, not a newer version: Platform decides
   if (!stored || (op.action === 'replace' && Number(stored.$revision ?? 1) > op.revision)) throw new StaleWrite();
 }

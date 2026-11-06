@@ -105,6 +105,12 @@ export async function readDoc(r: Registry, type: DocType, id: string): Promise<R
   return raw;
 }
 
+/** What Platform holds (proved), never this tab's copy: a document deleted elsewhere reads as gone. Only a delete this tab confirmed is known. */
+export async function readStored(r: Registry, type: DocType, id: string): Promise<RawDoc | null> {
+  if (known.get(knownKey(r, type, id)) === null) return null;
+  return getCairnDoc(r, type, id);
+}
+
 const ofGroup = (groupId: string) => (raw: RawDoc) => rawId(raw, 'groupId') === groupId;
 
 export class GroupUnreadable extends Error {}
