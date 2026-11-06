@@ -1,13 +1,20 @@
-// /me: the signed-in member's own things. Today: the profile, written through the vendored document writer and read back with a
-// proved query, which is the end-to-end proof that writes work. Groups, seats, approvals and the listing come next.
-import { CONTACT_KINDS, DocError, ROLE, createOp, nameProblem, profileData, replaceOp, toProfile, type ContactKind, type Contacts, type DocData, type Profile } from '@cairn/contract';
-import { useEffect, useState, type FormEvent } from 'react';
+// /me: the signed-in identity's own things, each with its next step: groups (as organizer, co-owner, requester, invitee or
+// operator), the looking post and its matches, the operator listing, and the profile. Every write goes through the vendored
+// document writer and is read back with a proof.
+import { CONTACT_KINDS, DocError, LOOKING_STATUS, ROLE, createOp, nameProblem, profileData, replaceOp, toProfile, type ContactKind, type Contacts, type DocData, type Looking, type Profile } from '@cairn/contract';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
 import { formatCredits } from '../auth/runtime.ts';
+import { forgetPerson } from '../data/people.ts';
 import { readProfile, seedProfile, useProfile } from '../data/profile.ts';
 import { openSignIn } from '../ui/Account.tsx';
+import { LookingEditor } from '../ui/LookingEditor.tsx';
+import { Matches } from '../ui/Matches.tsx';
+import { GroupsNeedingOperator, MyGroups } from './me/MyGroups.tsx';
+import { OperatorEditor, useMyOperator } from './me/OperatorEditor.tsx';
+import '../styles/matching.css';
 import { NotOpenHere, PageHead } from '../ui/states.tsx';
 import { useAction } from '../ui/useAction.ts';
 
@@ -33,17 +40,17 @@ export default function MePage() {
   if (!registry.contractId)
     return (
       <div className="page">
-        <PageHead title="My profile" />
+        <PageHead title="My Cairn" />
         <NotOpenHere />
       </div>
     );
   if (!session)
     return (
       <div className="page">
-        <PageHead title="My profile" lede="Your groups, seats, approvals and profile live here once you sign in." />
+        <PageHead title="My Cairn" lede="Your groups, seats, invitations, approvals, your looking post and operator listing, and your profile live here once you sign in." />
         <div className="soon">
           <p>
-            <b>Sign in to make your profile.</b> Browsing needs no account. A profile lets groups and operators know who you are and how to reach you.
+            <b>Sign in to see your groups and make your profile.</b> Browsing needs no account. A profile lets groups and operators know who you are and how to reach you.
           </p>
           <p>
             <button type="button" className="btn btn-primary" onClick={openSignIn}>
@@ -53,7 +60,67 @@ export default function MePage() {
         </div>
       </div>
     );
-  return <ProfileEditor identityId={session.identityId} />;
+  return <MeDashboard identityId={session.identityId} />;
+}
+
+const SECTIONS = [
+  { id: 'groups', label: 'Groups' },
+  { id: 'looking', label: 'Looking' },
+  { id: 'operator', label: 'Operator' },
+  { id: 'profile', label: 'Profile' },
+];
+
+function MeDashboard({ identityId }: { identityId: string }) {
+  const listing = useMyOperator(identityId);
+  const isOperator = listing.status === 'ready' && !!listing.data;
+  const [looking, setLooking] = useState<Looking | null>(null);
+  const onLooking = useCallback((l: Looking | null) => setLooking(l), []);
+  return (
+    <div className="page me">
+      <PageHead title="My Cairn" lede="What needs you next, in every group you are part of, and how others see you.">
+        <nav className="me-nav" aria-label="On this page">
+          {SECTIONS.map((s) => (
+            <a key={s.id} href={`#${s.id}`}>
+              {s.label}
+            </a>
+          ))}
+        </nav>
+      </PageHead>
+      <section className="me-section" id="groups" aria-labelledby="me-groups">
+        <h2 id="me-groups">Your groups and next steps</h2>
+        <MyGroups me={identityId} isOperator={isOperator} />
+      </section>
+      <section className="me-section" id="looking" aria-labelledby="me-looking">
+        <h2 id="me-looking">Looking for a group</h2>
+        <div className="side-card">
+          <LookingEditor identityId={identityId} onChange={onLooking} />
+        </div>
+        {looking?.status === LOOKING_STATUS.open && (
+          <>
+            <h3 className="me-sub">Your matches</h3>
+            <Matches me={looking} />
+          </>
+        )}
+      </section>
+      <section className="me-section" id="operator" aria-labelledby="me-operator">
+        <h2 id="me-operator">Operator listing</h2>
+        <p className="muted">If you run masternodes, list yourself so groups can choose you. Skip this if you only bring a share.</p>
+        <div className="side-card">
+          <OperatorEditor identityId={identityId} />
+        </div>
+        {isOperator && (
+          <>
+            <h3 className="me-sub">Groups that need an operator</h3>
+            <GroupsNeedingOperator />
+          </>
+        )}
+      </section>
+      <section className="me-section" id="profile" aria-labelledby="me-profile">
+        <h2 id="me-profile">Profile</h2>
+        <ProfileEditor identityId={identityId} />
+      </section>
+    </div>
+  );
 }
 
 function ProfileEditor({ identityId }: { identityId: string }) {
@@ -102,13 +169,14 @@ function ProfileEditor({ identityId }: { identityId: string }) {
       if (!back.profile || back.profile.revision < want) throw new Error('Platform confirmed the change, but the node read now does not show it yet. Reload in a minute.');
       if (!holdsWrite(back.profile, data)) throw new Error('Platform now holds a different profile than this page sent (another tab or app may have changed it). Reload before you edit again.');
       seedProfile(registry, identityId, back.profile);
+      forgetPerson(registry, identityId);
       setSaved({ revision: back.profile.revision, height: back.height });
     });
   };
 
   return (
-    <div className="page me">
-      <PageHead title="My profile" lede="How groups, operators and people looking for a group see you. Everything here is public on Dash Platform." />
+    <div>
+      <p className="muted">How groups, operators and people looking for a group see you. Everything here is public on Dash Platform.</p>
       <div className="me-layout">
         <form className="form profile-form" onSubmit={save} aria-busy={busy} data-testid="profile-form">
           <fieldset disabled={busy || loading}>
@@ -182,7 +250,7 @@ function ProfileEditor({ identityId }: { identityId: string }) {
           {readError && <p className="error small">Could not read your profile, so saving is off until it can be read: {readError}. Reload to try again.</p>}
         </form>
         <aside className="me-side" aria-label="Your account">
-          <h2>Your account</h2>
+          <h3>Your account</h3>
           <p className="small muted">Identity</p>
           <p className="mono-ish break small" data-testid="me-identity">
             {identityId}
@@ -194,9 +262,8 @@ function ProfileEditor({ identityId }: { identityId: string }) {
             </>
           )}
           <ProfileStatus profile={profile} loading={loading} failed={!!readError} />
-          <h2>Coming next</h2>
           <p className="small">
-            Your groups, seats and approvals, and posting that you are looking. See <Link to="/learn">how a group forms</Link>.
+            New here? See <Link to="/learn">how a group forms</Link>.
           </p>
         </aside>
       </div>
