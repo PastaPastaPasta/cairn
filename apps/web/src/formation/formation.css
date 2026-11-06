@@ -664,14 +664,13 @@
   background: var(--accent-wash);
   color: var(--accent-ink);
 }
-.trail-state-current,
-.trail-state-in-qt {
+.trail-state-current {
   background: var(--ochre-wash);
   color: var(--ochre-ink);
 }
 .trail-state-in-qt {
+  color: var(--ochre-ink);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ochre) 55%, transparent);
-  background: transparent;
 }
 .trail-chev {
   grid-column: 4;

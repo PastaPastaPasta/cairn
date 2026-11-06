@@ -150,13 +150,13 @@ export function CairnStack({ stones, total = 1000, variant = 'stack', animate = 
 
 /** The stone colours in words, once per page that shows stones without their own legend. */
 export function StoneKey({ closed = false }: { closed?: boolean }) {
-  const keys: Array<[string, string]> = [
+  const keys = [
     ['requested', 'asking'],
     ['in', 'in'],
     ['approved', 'approved the terms'],
     ['signed', 'signed in Dash Core'],
-    ...(closed ? [['closed', 'closed'] as [string, string]] : []),
-  ];
+    ...(closed ? [['closed', 'closed']] : []),
+  ] as const;
   return (
     <ul className="stone-key small" aria-label="What the stone colours mean">
       {keys.map(([k, words]) => (

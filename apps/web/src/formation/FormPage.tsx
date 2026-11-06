@@ -133,15 +133,13 @@ function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void })
         );
       case 'round1':
       case 'round2':
-      case 'round3': {
-        const n = Number(id.slice(-1));
+      case 'round3':
         return (
           <>
-            {role === 'coordinator' ? <SetupSheet pages={pages(id)} all={sheet} /> : <RoundSteps steps={ROUNDS[n - 1]!} />}
+            {role === 'coordinator' ? <SetupSheet pages={pages(id)} all={sheet} /> : <RoundSteps steps={ROUNDS[id]} />}
             <CheckButton />
           </>
         );
-      }
       case 'broadcast':
         return role === 'coordinator' ? (
           <SetupSheet pages={pages('broadcast')} all={sheet} />
@@ -464,23 +462,23 @@ function SetupSheet({ pages, all }: { pages: SetupPage[]; all: SetupPage[] }) {
 }
 
 /** A co-owner's part of each round, in Dash-Qt's own button names. */
-const ROUNDS: readonly (readonly string[])[] = [
-  [
+const ROUNDS = {
+  round1: [
     'The coordinator sends one Invitation to everyone. Paste it into the checker with your row picked: it should say “Safe to continue”.',
     'In Dash-Qt: Masternodes tab → Shared Masternode… → Paste From Clipboard (or Open File…).',
     'Under “This is me”, choose your row. Press “Use new address” for your owner, refund and reward addresses, and copy the owner address into the checker.',
     'Press “Reserve Coins and Copy Details” and send that reply to the coordinator. Your coins stay in your wallet, set aside.',
     'If a newer invitation arrives, check it too: Dash-Qt takes it only if your row is unchanged, and you reply again.',
   ],
-  [
+  round2: [
     'Once every row is filled the coordinator locks the terms and sends Locked Terms. Check it, with your owner address.',
     'Paste it into Dash-Qt and read every line. If it matches, press “Approve and Copy Reply” and send the reply.',
   ],
-  [
+  round3: [
     'With every approval in, the coordinator sends the Signing Request. Check it.',
     'Paste it into Dash-Qt and press “Sign and Copy Reply”. Your wallet signs only your own coins, and refuses if your share or change was changed.',
   ],
-];
+} as const satisfies Record<'round1' | 'round2' | 'round3', readonly string[]>;
 
 function RoundSteps({ steps }: { steps: readonly string[] }) {
   return (

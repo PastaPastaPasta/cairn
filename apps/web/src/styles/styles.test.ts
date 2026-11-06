@@ -10,7 +10,7 @@ const SHARED = new Set(['me-side']);
 const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
 /** The classes a stylesheet's rules start with (`.facts dt, .x > .y` → facts, x), outside @keyframes. */
-export function rootClasses(css: string): Set<string> {
+function rootClasses(css: string): Set<string> {
   const out = new Set<string>();
   const body = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
   for (const m of body.matchAll(/([^{}@;]+)\{/g)) {
