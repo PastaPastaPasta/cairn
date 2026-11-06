@@ -1,6 +1,6 @@
 import { decodeAddress, isNetwork, type Network } from "./address.ts";
 import { bytesToHex, sha256, utf8 } from "./bytes.ts";
-import { parseServiceEntry } from "./netinfo.ts";
+import { validateCoreService } from "./netinfo.ts";
 import {
   MAX_SHARES,
   MIN_SHARES,
@@ -145,11 +145,9 @@ export function validateTermSheet(t: TermSheet): TermIssue[] {
     add("operatorPubKey", "operator-key", "The operator key must be 96 lower-case hex characters (a BLS public key).");
   }
   if (t.service !== "") {
-    const e = typeof t.service === "string" ? parseServiceEntry(t.service) : undefined;
-    if (!e) add("service", "service", 'The service must be "IPv4:port" or "[IPv6]:port", or empty.');
-    else if (t.network === "main" && (e.type !== "service" || e.net !== "ipv4" || e.port !== 9999)) {
-      add("service", "service-mainnet", "On mainnet the service must be an IPv4 address with port 9999.");
-    }
+    const s = typeof t.service === "string" && isNetwork(t.network) ? validateCoreService(t.service, t.network) : undefined;
+    if (!s) add("service", "service", "The service must be an IPv4 address and port, or empty.");
+    else if (!s.ok) add("service", s.reason, s.message);
   }
   const voting = typeof t.votingAddress === "string" && isNetwork(t.network) ? decodeAddress(t.votingAddress, t.network) : undefined;
   if (voting?.type !== "p2pkh") add("votingAddress", "voting-address", "The voting address must be a P2PKH address on this network.");

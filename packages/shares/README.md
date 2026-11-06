@@ -51,6 +51,12 @@ Prefixes: mainnet P2PKH 76 (`X…`), P2SH 16 (`7…`); test/devnet/regtest 140 (
   for the kind and proTxHash.
 - `netinfo`: ExtNetInfo/MnNetInfo codec, `coreP2PEntries`, and `netInfoMatchesServiceList`
   (Dash-Qt's `NetInfoMatches`).
+- `validateCoreService(text, network)`: whether `"a.b.c.d:port"` can be a shared masternode's
+  primary Core P2P service (`ExtNetInfo::ValidateService` for CORE_P2P, `CheckIPv4Primaries`,
+  `ValidateMainnetPrimaryPort`): IPv4 only, routable (`CNetAddr::IsRoutable`; not on regtest),
+  port neither 0 nor `IsBadPort` (`isBadPort`), 9999 on mainnet. Returns the canonical
+  `ip:port` or Core's reason (`service`, `service-unroutable`, `service-port`,
+  `service-mainnet`).
 
 ### consent
 - `sharedRegConsentHash(tx, payload)`: `CProRegTx::MakeSharedRegConsentHash`. Returns
@@ -87,7 +93,8 @@ Prefixes: mainnet P2PKH 76 (`X…`), P2SH 16 (`7…`); test/devnet/regtest 140 (
 - `canonicalize(t)`: sorted keys at every level, no whitespace, bigints as decimal strings,
   only the fields above. `termsHash(t)` = hex `sha256("cairn-terms-v1\n" + canonical)`.
 - `validateTermSheet(t)`: Core's rules plus Cairn's policy that a penalty is set exactly when
-  there is an early period (`penalty-required`); mainnet services must be IPv4 port 9999.
+  there is an early period (`penalty-required`); a service, when set, must pass
+  `validateCoreService`.
 - `parseTermSheet(json)`: back from canonical JSON.
 
 ### check

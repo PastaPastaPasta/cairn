@@ -1,4 +1,5 @@
 import { type Bytes, DecodeError, Reader, Writer, bytesToHex, equalBytes } from "./bytes.ts";
+import type { Network } from "./address.ts";
 
 /** NetInfoPurpose (src/evo/netinfo.h) */
 export const NetInfoPurpose = { CORE_P2P: 0, PLATFORM_P2P: 1, PLATFORM_HTTPS: 2 } as const;
@@ -255,6 +256,54 @@ export function parseServiceEntry(text: string): NetEntry | undefined {
   const addr = parseIPv6(host);
   if (!addr || addr.every((b) => b === 0) || hasPrefix(addr, IPV4_IN_IPV6)) return undefined;
   return { type: "service", net: addr[0] === 0xfc ? "cjdns" : "ipv6", addr, port };
+}
+
+/** IsBadPort (src/netbase.cpp): privileged ports and well-known ports of other protocols */
+export function isBadPort(port: number): boolean {
+  if (port > 0 && port <= 1023) return true;
+  return [1719, 1720, 1723, 2049, 3659, 4045, 5060, 5061, 6000, 6566, 6665, 6666, 6667, 6668, 6669, 6697, 8332, 8333, 10080, 18332, 18333].includes(port);
+}
+
+/** CNetAddr::IsRoutable for an IPv4 address with -allowprivatenet off (src/netaddress.cpp) */
+export function isRoutableIPv4(a: Bytes): boolean {
+  const [b0, b1, b2] = [a[0]!, a[1]!, a[2]!];
+  if (a.every((b) => b === 0) || a.every((b) => b === 0xff)) return false; // !IsValid
+  if (b0 === 10 || (b0 === 192 && b1 === 168) || (b0 === 172 && b1 >= 16 && b1 <= 31)) return false; // RFC1918
+  if (b0 === 198 && (b1 === 18 || b1 === 19)) return false; // RFC2544
+  if (b0 === 169 && b1 === 254) return false; // RFC3927
+  if (b0 === 100 && b1 >= 64 && b1 <= 127) return false; // RFC6598
+  if ((b0 === 192 && b1 === 0 && b2 === 2) || (b0 === 198 && b1 === 51 && b2 === 100) || (b0 === 203 && b1 === 0 && b2 === 113)) return false; // RFC5737
+  return b0 !== 127 && b0 !== 0; // IsLocal
+}
+
+export type CoreServiceProblem = "service" | "service-unroutable" | "service-port" | "service-mainnet";
+export type CoreServiceCheck =
+  | { ok: true; ip: string; port: number; canonical: string }
+  | { ok: false; reason: CoreServiceProblem; message: string };
+
+/**
+ * Whether "a.b.c.d:port" can be a shared masternode's (ProTx v3) primary Core P2P service, as
+ * Core checks it: ExtNetInfo::ValidateService for CORE_P2P (valid, routable unless regtest,
+ * port neither 0 nor IsBadPort), CheckIPv4Primaries (the first entry must be IPv4) and
+ * ValidateMainnetPrimaryPort (port 9999 on mainnet). The port is never assumed.
+ */
+export function validateCoreService(text: string, network: Network): CoreServiceCheck {
+  const e = /^[0-9.]+:\d{1,5}$/.test(text) ? parseServiceEntry(text) : undefined;
+  if (!e || e.type !== "service" || e.net !== "ipv4") {
+    return { ok: false, reason: "service", message: "The service must be an IPv4 address and port, such as 198.51.0.7:9999." };
+  }
+  // RequireRoutableExternalIP is false only on regtest
+  if (network !== "regtest" && !isRoutableIPv4(e.addr)) {
+    return { ok: false, reason: "service-unroutable", message: "The service must be a public IP address, not a private, local or reserved one." };
+  }
+  if (isBadPort(e.port)) {
+    return { ok: false, reason: "service-port", message: `Dash Core refuses port ${e.port}: use a port above 1023 that no other common service uses.` };
+  }
+  if (network === "main" && e.port !== 9999) {
+    return { ok: false, reason: "service-mainnet", message: "On mainnet the service must use port 9999." };
+  }
+  const ip = Array.from(e.addr).join(".");
+  return { ok: true, ip, port: e.port, canonical: `${ip}:${e.port}` };
 }
 
 /** Split like the Qt wizard (`[,\s]+`, empty parts skipped) */

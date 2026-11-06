@@ -182,7 +182,7 @@ describe("checkRegistrationAgainstTerms", () => {
 
   test("differences and broken signatures stop", () => {
     expect(codes(checkRegistrationAgainstTerms(A.final, { ...termsA, rewardBps: 0 }), "stop")).toEqual(["tx-reward"]);
-    expect(codes(checkRegistrationAgainstTerms(A.final, { ...termsA, service: "127.0.0.1:1" }), "stop")).toEqual(["tx-service"]);
+    expect(codes(checkRegistrationAgainstTerms(A.final, { ...termsA, service: "127.0.0.1:20009" }), "stop")).toEqual(["tx-service"]);
     expect(codes(checkRegistrationAgainstTerms(A.updateShare.hex, termsA), "stop")).toEqual(["not-shared-protx"]);
     expect(checkRegistrationAgainstTerms(A.final, termsA, { proTxHash: A.proTxHash.toUpperCase() }).verdict).toBe("ok");
     expect(codes(checkRegistrationAgainstTerms(A.final, termsA, { proTxHash: "00".repeat(32) }), "stop")).toEqual(["protx-hash"]);
