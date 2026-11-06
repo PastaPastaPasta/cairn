@@ -32,8 +32,9 @@ function load(r: Registry, id: string) {
  */
 export function seedProfile(r: Registry, id: string, profile: Profile): void {
   const key = cacheKey(r, id);
-  const prev = cache.get(key) ?? Promise.resolve({ profile: null, dpns: null });
-  cache.set(key, prev.catch(() => ({ profile: null, dpns: null })).then(({ dpns }) => ({ profile, dpns })));
+  const none = { profile: null, dpns: null };
+  const prev = cache.get(key) ?? Promise.resolve(none);
+  cache.set(key, prev.catch(() => none).then(({ dpns }) => ({ profile, dpns })));
   for (const l of listeners) l();
 }
 

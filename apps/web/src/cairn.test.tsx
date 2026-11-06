@@ -68,16 +68,17 @@ describe('network profiles', () => {
   });
 });
 
+const ID = 'GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec';
+
 describe('display names', () => {
   it('refuse invisible and direction characters', () => {
     expect(nameProblem('Lena')).toBeNull();
-    expect(nameProblem('Le‮na')).toMatch(/invisible/);
-    expect(nameProblem('Le​na')).toMatch(/invisible/);
+    expect(nameProblem('Le\u202Ena')).toMatch(/invisible/);
+    expect(nameProblem('Le\u200Bna')).toMatch(/invisible/);
     expect(nameProblem('   ')).toMatch(/Enter/);
     expect(nameProblem('Verified Lena')).toMatch(/badge/);
   });
 
-  const ID = 'GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec';
   const profile = (displayName: string): Profile => toProfile({ $id: ID, $ownerId: ID, $revision: 2, displayName });
 
   it('show the proved Dash username first, then the own name, quoted when it imitates a label', () => {
@@ -90,7 +91,6 @@ describe('display names', () => {
 });
 
 describe('profile read-back', () => {
-  const ID = 'GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec';
   const sent = profileData({ displayName: 'Lena', about: 'Lisbon', contacts: { discord: 'lena', website: 'https://lena.example' }, roles: 1 });
   const back = (over: Record<string, unknown>) => toProfile({ $id: ID, $ownerId: ID, $revision: 3, ...sent, ...over });
 
