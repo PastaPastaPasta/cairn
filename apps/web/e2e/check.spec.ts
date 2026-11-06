@@ -136,14 +136,19 @@ test.describe('against a group’s approved terms (testnet)', () => {
   });
 });
 
-test('the live page verifies the demo group against real testnet chain data', async ({ page }) => {
+test('the live page checks the demo group against real testnet chain data', async ({ page }) => {
   test.setTimeout(180_000);
   await stubActivation(page);
   await page.goto(`/g/${DEMO_GROUP}/live`);
   const reg = page.getByTestId('registration').first();
-  await expect(reg).toHaveAttribute('data-state', 'verified', { timeout: 150_000 });
-  await expect(reg).toContainText('Live (verified)');
-  await expect(page.getByTestId('mn-state')).toHaveAttribute('data-state', /valid|banned/);
+  // the demo copied d400c120's public terms after Dash-Qt registered it: it matches, but was not agreed before (F-003)
+  await expect(reg).toHaveAttribute('data-state', 'recorded-after', { timeout: 150_000 });
+  await expect(reg).toContainText('Registration matches these terms, but they were recorded after it was registered');
+  await expect(reg).not.toContainText('verified');
+  // registered without a service: banned until the operator's service update, never "live" (D-002, F-013)
+  await expect(page.getByTestId('mn-state')).toHaveAttribute('data-state', /no-service|banned|valid/);
+  await expect(page.getByTestId('mn-state').locator('.mn-valid')).toHaveCount(0);
+  await expect(page.getByTestId('maintenance-note')).toBeVisible();
   await expect(page.getByTestId('early-period')).toContainText('ends at block 1,635,878');
   await expect(page.getByTestId('reward-split')).toContainText('48.5%');
 });
@@ -155,18 +160,21 @@ test('the group, form and live pages tell one lifecycle, from the documents and 
   await page.goto(`/g/${MATCHING_DEMO}`);
   await expect(page.getByTestId('group-status')).toHaveText('Ready to form', { timeout: 90_000 });
   await expect(page.getByRole('navigation', { name: 'This group' })).toBeVisible();
+  await expect(page.getByTestId('tab-live-later')).toHaveText('Live · after forming');
   // a linked registration: the group page asks the chain, not the organizer's "live" claim
   await page.goto(`/g/${DEMO_GROUP}`);
-  await expect(page.getByTestId('group-status')).toHaveText('Live (verified)', { timeout: 150_000 });
-  await expect(page.getByTestId('step-visitor')).toContainText('This masternode is live');
+  await expect(page.getByTestId('group-status')).toHaveText('Registered · terms recorded after registration', { timeout: 150_000 });
+  await expect(page.getByTestId('step-visitor')).toContainText('Registered, but not verified');
   await page.getByRole('navigation', { name: 'This group' }).getByRole('link', { name: 'Form' }).click();
   const status = page.getByTestId('form-status');
   await expect(status).toContainText('Ready to form', { timeout: 90_000 });
-  await expect(status.getByRole('link', { name: 'Live (verified)' })).toBeVisible({ timeout: 150_000 });
+  await expect(status.getByRole('link', { name: /recorded after it was registered/ })).toBeVisible({ timeout: 150_000 });
   await page.getByRole('navigation', { name: 'This group' }).getByRole('link', { name: 'Check a message' }).click();
   await expect(page).toHaveURL(new RegExp(`/check\\?group=${DEMO_GROUP}$`));
   await expect(page.getByTestId('checker-my-row')).toBeVisible({ timeout: 90_000 });
   // the checker fixture: approved by all three, so /check compares against it, but its operator never accepted, so not ready
   await page.goto(`/g/${CHECKER_GROUP}`);
   await expect(page.getByTestId('group-status')).toHaveText('Terms locked · 3 of 3 approved', { timeout: 90_000 });
+  // the footer names what is actually missing (F-017)
+  await expect(page.getByTestId('form-link')).toContainText('The operator has not accepted this group.');
 });

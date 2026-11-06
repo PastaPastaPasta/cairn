@@ -11,6 +11,7 @@ vi.mock('@dashevo/evo-sdk', () => ({
   ensureInitialized: async () => {},
   EvoSDK: class {
     documents = { getWithProof, queryWithProof };
+    contracts = { fetch: async () => ({}) };
     async connect() {}
   },
 }));

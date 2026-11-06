@@ -46,8 +46,8 @@ export class PlatformTimeout extends Error {
 }
 
 /** One read's deadline. The SDK's own timeout does not end a request a node accepted and never answers. */
-export const READ_DEADLINE_MS = 15_000;
-const CONNECT_DEADLINE_MS = 30_000;
+export const READ_DEADLINE_MS = 20_000;
+const CONNECT_DEADLINE_MS = 20_000;
 
 function deadline<T>(p: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
@@ -63,7 +63,7 @@ export async function withSdk<T>(r: Registry, read: (sdk: Sdk) => Promise<T>, o:
   for (let i = 1; ; i++) {
     const sdk = getSdk(r);
     try {
-      const ready = await deadline(sdk, CONNECT_DEADLINE_MS).catch((e: unknown) => {
+      const ready = await deadline(withContract(r, sdk), CONNECT_DEADLINE_MS).catch((e: unknown) => {
         if (e instanceof PlatformTimeout && current?.sdk === sdk) current = null;
         throw e;
       });
@@ -72,6 +72,25 @@ export async function withSdk<T>(r: Registry, read: (sdk: Sdk) => Promise<T>, o:
       if (!(e instanceof PlatformTimeout) || i >= attempts) throw e;
     }
   }
+}
+
+const contracts = new WeakMap<Promise<Sdk>, Promise<Sdk>>();
+
+/**
+ * The connected SDK with the cairn contract fetched once: the SDK fetches it before its first query anyway, and doing it here
+ * keeps that round trip out of each read's deadline and makes the first reads of a page run side by side.
+ */
+function withContract(r: Registry, sdk: Promise<Sdk>): Promise<Sdk> {
+  let p = contracts.get(sdk);
+  if (!p) {
+    p = sdk.then(async (s) => {
+      if (r.contractId) await s.contracts.fetch(r.contractId);
+      return s;
+    });
+    p.catch(() => contracts.delete(sdk));
+    contracts.set(sdk, p);
+  }
+  return p;
 }
 
 /** Identifier fields a query compares: a value that is not base58 of 32 bytes can match nothing, and the SDK would throw on it. */

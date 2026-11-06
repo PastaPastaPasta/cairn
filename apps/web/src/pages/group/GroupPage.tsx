@@ -42,6 +42,7 @@ export function GroupPage() {
     );
   return (
     <div className="page group-page">
+      {load.status === 'error' && <PageHead title="Group" />}
       <Loaded load={load} retry={load.reload} what="Reading this group from Dash Platform…">
         {(b) =>
           b ? (
@@ -51,7 +52,7 @@ export function GroupPage() {
               <PageHead title={`Group ${shortId(id)}`} />
               <div className="empty-state">
                 <p>
-                  <b>No group with this id on {registry.label}.</b> It may have been deleted, or the link is for the other network.
+                  <b>No group with this link on {registry.label}.</b> It may have been deleted, the link may be cut off, or it is for the other network.
                 </p>
                 <p>
                   <Link to="/groups">See open groups</Link>
@@ -184,7 +185,7 @@ function GroupBody({ bundle, reload, refreshing, updated }: { bundle: GroupBundl
         {me && stage === 'dissolved' && g.roster.some((r) => r.id === me) && <RefillPanel view={view} people={people} me={me} />}
         {view.locked && !view.ready && !forming && (
           <p className="small muted form-link" data-testid="form-link">
-            Not ready to form yet. {view.waitingFor[0]} <Link to={`/g/${g.id}/form`}>What forming involves →</Link>
+            Not ready to form yet. {view.waitingFor.join(' ')} <Link to={`/g/${g.id}/form`}>What forming involves →</Link>
           </p>
         )}
       </div>

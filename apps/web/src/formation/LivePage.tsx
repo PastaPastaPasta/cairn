@@ -119,7 +119,7 @@ function LiveRegistration({ j, view, agreement }: { j: RegistrationJudgement; vi
       <section className={`live-hero live-${j.state}`} aria-label="Status" data-testid="live-status">
         {onChain && (
           <div className="live-mn" data-testid="mn-state" data-state={j.mnState}>
-            <p className="live-mn-label small muted">Earning</p>
+            <p className="live-mn-label small muted">Rewards</p>
             <p className={`live-mn-state mn-${mnTone}`}>{MN_HEADLINE[j.mnState]}</p>
             <p className="small">{j.mnText}</p>
           </div>
