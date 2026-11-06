@@ -79,19 +79,20 @@ function useLockedStage(g: Group): Stage | null {
   const [stage, setStage] = useState<Stage | null>(null);
   const locked = g.status === GROUP_STATUS.locked;
   useEffect(() => {
-    if (!locked || !registry.contractId) return;
+    if (!locked || !registry.contractId) return setStage(null);
     const key = `${registry.network}:${g.id}:${g.updatedAt ?? 0}`;
     let hit = lockedStages.get(key);
     if (!hit || Date.now() - hit.at > STAGE_TTL_MS) {
       const read = loadGroupBundle(registry, g.id).then(
         (b) => (b ? stageOf(groupView(b, registry.network), null) : null),
         () => {
-          lockedStages.delete(key);
+          if (lockedStages.get(key) === entry) lockedStages.delete(key);
           return null;
         },
       );
-      hit = { at: Date.now(), stage: read };
-      lockedStages.set(key, hit);
+      const entry = { at: Date.now(), stage: read };
+      hit = entry;
+      lockedStages.set(key, entry);
     }
     let live = true;
     void hit.stage.then((s) => live && setStage(s));
@@ -129,8 +130,8 @@ export function OpenGroupsPreview() {
   const recent = useStatusList(GROUPS, RECENT_GROUP_STATUSES, none);
   if (!registry.contractId) return <NotOpenHere compact />;
   return (
-    <Loaded load={taking} retry={taking.reload} isEmpty={(d) => d.items.length === 0} empty={<RecentlyFormed recent={recent} label={registry.label} />}>
-      {(d) => <GroupRows groups={d.items.slice(0, 5)} />}
+    <Loaded load={taking} retry={taking.reload}>
+      {(d) => (d.items.length ? <GroupRows groups={d.items.slice(0, 5)} /> : <RecentlyFormed recent={recent} label={registry.label} />)}
     </Loaded>
   );
 }
@@ -140,7 +141,14 @@ function RecentlyFormed({ recent, label }: { recent: ReturnType<typeof useStatus
   const items = recent.status === 'ready' ? recent.data.items.slice(0, 3) : [];
   return (
     <>
-      <NothingOpen label={label} />
+      <div className="empty-state">
+        <NothingOpen label={label} />
+      </div>
+      {recent.status === 'loading' && (
+        <p className="small muted" role="status" data-testid="recent-loading">
+          <span className="spinner" aria-hidden="true" /> Reading recently formed groups…
+        </p>
+      )}
       {items.length > 0 && (
         <>
           <h3 className="h4">Recently formed or forming</h3>

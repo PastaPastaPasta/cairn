@@ -62,7 +62,7 @@ export function Roster({ view, people, me, ops, done, frozen = false }: { view: 
               <li key={s.id} className={`roster-row${s.id === me ? ' mine' : ''}`} data-state={s.state}>
                 <div className="roster-who">
                   <PersonName id={s.id} person={people.get(s.id)} you={s.id === me} fallback={s.label} />
-                  {s.label && (people.get(s.id)?.name ? s.label !== people.get(s.id)!.name && <span className="label-chip small muted">label in Dash-Qt: <span className="mono-ish">{s.label}</span></span> : <span className="small muted"> (label in Dash-Qt; no profile)</span>)}
+                  {s.label && (people.get(s.id)?.name ? s.label !== people.get(s.id)!.name && <span className="label-chip small muted">label in Dash-Qt: <span className="mono-ish">{s.label}</span></span> : <span className="small muted"> (label in Dash-Qt)</span>)}
                   {roleTags(s.id).map((t) => (
                     <span key={t} className="role-tag">
                       {t}
