@@ -128,6 +128,9 @@ participant's row and coins. The checker never uploads a message.
   registrar update, standby and unanimous dissolutions, and a penalty-paying unilateral
   dissolution. Envelope fingerprints are produced by Core's own UniValue writer (`echojson`
   through `dash-cli`).
+- `test/vectors/univalue/`: 54 UniValue edge cases (overlong and CESU UTF-8, surrogates, raw
+  number tokens, duplicate keys) echoed through dashd 24.0.0 with `dash-cli -stdin echojson`;
+  the port must accept and write exactly what Core does.
 - The C++ `share_list_validation`, `canonical_signature_verification` and
   `split_amount_by_shares` cases are ported in `test/rules.test.ts`, `test/testnet-vector.test.ts`
   and `test/basics.test.ts`.
