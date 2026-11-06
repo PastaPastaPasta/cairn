@@ -4,8 +4,15 @@ The `cairn` Dash Platform data contract (DESIGN.md section 7): one contract per 
 
 | Network | Contract id | Owner identity | Registered | Fee |
 |---|---|---|---|---|
-| testnet (PV14) | `9Zv3f6uyGfrnCsqNLUajVmJ5AWwjKLwpt31sBQZm3TUz` | `5tjhGV6gSQcaJBUBbCSNJNHN4ompj5QiXDKXFqdV7T3Y` | 2026-11-06 | 0.40336635 DASH |
-| mainnet | not yet (needs ~0.45 DASH) | | | |
+| testnet (PV14) | `GBzzoKK997RgipgG7BkP4vrA5CKS631nw4tbTgzes49k` | `5tjhGV6gSQcaJBUBbCSNJNHN4ompj5QiXDKXFqdV7T3Y` | 2026-11-06 | 0.44380268 DASH |
+| mainnet | not yet (needs ~0.45 DASH, plus margin) | | | |
+
+Retired: testnet `9Zv3f6uyGfrnCsqNLUajVmJ5AWwjKLwpt31sBQZm3TUz` (2026-11-06, the first foundation schema: 8 types, required
+`group.operatorId`, 10x early-period cap). Nothing reads it any more; its documents were test data.
+
+On the current testnet contract a group was created without `operatorId`, found by `groupsOrganizedBy` and `groupsByStatus`,
+given an operator (found by `groupsOfOperator`), cleared again (gone from `groupsOfOperator`) and deleted: Drive handles the
+optional indexed property as the book says.
 
 `deployments.json` is the one place the ids live; the web app and scripts read it.
 

@@ -1,9 +1,9 @@
 {
   "testnet": {
-    "contractId": "9Zv3f6uyGfrnCsqNLUajVmJ5AWwjKLwpt31sBQZm3TUz",
+    "contractId": "GBzzoKK997RgipgG7BkP4vrA5CKS631nw4tbTgzes49k",
     "ownerId": "5tjhGV6gSQcaJBUBbCSNJNHN4ompj5QiXDKXFqdV7T3Y",
-    "registeredAt": "2026-11-06T17:40:06.735Z",
-    "feeCredits": "40336635170"
+    "registeredAt": "2026-11-06T18:49:40.595Z",
+    "feeCredits": "44380268090"
   },
   "mainnet": {
     "contractId": null,
