@@ -92,7 +92,7 @@ function MyGroupItem({ group: { view, steps: fromDocs }, me, isOperator }: { gro
         <Link to={`/g/${view.group.id}`} className="fit-title">
           {view.group.title}
         </Link>
-        <CairnStack variant="row" legend={false} stones={stonesOf(view, me, () => null)} />
+        <CairnStack variant="row" legend={false} closed={view.closed} stones={stonesOf(view, me, () => null)} />
       </div>
       <ul className="my-steps">
         {steps.map((s) => (

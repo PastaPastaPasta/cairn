@@ -1,6 +1,7 @@
 // Small pieces the formation pages share: copy buttons, the verdict banner, findings and fact lists.
 import type { Finding, Level } from '@cairn/shares';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Icon, type IconName } from '../ui/Icon.tsx';
 import type { Fact, Verdict } from './checker.ts';
 import './formation.css';
 
@@ -20,9 +21,7 @@ export function CopyButton({ value, label = 'Copy', what }: { value: string; lab
   };
   return (
     <button type="button" className="copy-btn" onClick={copy} aria-label={what ? `${label} ${what}` : label} data-state={state}>
-      <span aria-hidden="true" className="copy-icon">
-        {state === 'copied' ? '✓' : '⧉'}
-      </span>
+      <Icon name={state === 'copied' ? 'check' : 'copy'} size={14} />
       <span aria-live="polite">{state === 'copied' ? 'Copied' : state === 'failed' ? 'Select and copy' : label}</span>
     </button>
   );
@@ -42,13 +41,13 @@ export function CopyValue({ label, value, copy, hint, mono = true }: { label: st
   );
 }
 
-const VERDICT_ICON: Record<Verdict, string> = { ok: '✓', warn: '!', stop: '✕', neutral: 'i' };
+const VERDICT_ICON: Record<Verdict, IconName> = { ok: 'check', warn: 'alert', stop: 'x', neutral: 'info' };
 
 export function VerdictBanner({ verdict, title, text, children, testId = 'verdict' }: { verdict: Verdict; title: string; text: string; children?: ReactNode; testId?: string }) {
   return (
     <div className={`verdict verdict-${verdict}`} role={verdict === 'stop' ? 'alert' : 'status'} data-testid={testId} data-verdict={verdict}>
       <span className="verdict-icon" aria-hidden="true">
-        {VERDICT_ICON[verdict]}
+        <Icon name={VERDICT_ICON[verdict]} size={24} />
       </span>
       <div className="verdict-body">
         <p className="verdict-title">{title}</p>
@@ -86,7 +85,7 @@ export function FindingList({ findings }: { findings: readonly Finding[] }) {
 
 export function FactList({ facts, className = '' }: { facts: readonly Fact[]; className?: string }) {
   return (
-    <dl className={`facts ${className}`}>
+    <dl className={`fact-grid ${className}`}>
       {facts.map((f) => (
         <div key={f.label} className={`fact${f.tone ? ` fact-${f.tone}` : ''}`}>
           <dt>{f.label}</dt>

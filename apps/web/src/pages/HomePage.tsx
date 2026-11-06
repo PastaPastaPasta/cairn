@@ -4,13 +4,21 @@ import { ActivationCard } from '../ui/Activation.tsx';
 import { CairnStack, type Stone } from '../ui/CairnStack.tsx';
 import { OpenGroupsPreview } from './ListPages.tsx';
 
-/** The hero's sample group (shown as a sample, never as a real listing). */
+/** The hero's sample group (shown as a sample, never as a real listing): three co-owners in, and the visitor asking for a seat. */
 export const SAMPLE_STONES: Stone[] = [
   { id: 'lena', label: 'Lena', amount: 300, state: 'approved' },
   { id: 'marco', label: 'Marco', amount: 200, state: 'approved' },
-  { id: 'you', label: 'You', amount: 150, state: 'in', mine: true },
-  { id: 'kim', label: 'Kim', amount: 100, state: 'requested' },
+  { id: 'ana', label: 'Ana', amount: 150, state: 'approved' },
+  { id: 'you', label: 'You', amount: 100, state: 'requested', mine: true },
 ];
+
+/** The sample's caption, from the stones themselves so the words and the drawing cannot disagree. */
+export function sampleCaption(stones: readonly Stone[], total = 1000): string {
+  const inGroup = stones.filter((s) => s.state !== 'requested').reduce((a, s) => a + s.amount, 0);
+  const mine = stones.find((s) => s.mine)?.amount ?? 0;
+  const left = total - inGroup - mine;
+  return `A sample group: ${inGroup} of ${total} DASH. Your ${mine} makes ${inGroup + mine}; ${left > 0 ? `${left} more and it’s full.` : 'that fills it.'}`;
+}
 
 const STEPS = [
   {
@@ -53,10 +61,7 @@ export function HomePage() {
           <p className="hero-promise">Cairn never holds your coins or keys. Your DASH moves only in transactions Dash Core checks, never through anyone’s hands.</p>
         </div>
         <div className="hero-cairn">
-          <CairnStack stones={SAMPLE_STONES} animate />
-          <p className="hero-cairn-note small muted">
-            A sample group. Bring 350 DASH, and Lena’s node is ready.
-          </p>
+          <CairnStack stones={SAMPLE_STONES} caption={sampleCaption(SAMPLE_STONES)} animate />
         </div>
       </section>
 

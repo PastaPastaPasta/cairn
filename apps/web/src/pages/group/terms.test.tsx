@@ -42,7 +42,7 @@ describe('the locked term sheet', () => {
     expect(check.className).toContain('bad');
     expect(check.getAttribute('role')).toBe('alert');
     expect((r.el.querySelector('[data-testid="approve"]') as HTMLButtonElement).disabled).toBe(true);
-    expect(r.el.textContent).toContain('✗ Does not match');
+    expect(r.el.textContent).toContain('Does not match');
     await r.unmount();
   });
 

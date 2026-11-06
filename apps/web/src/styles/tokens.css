@@ -56,6 +56,8 @@
   --ochre: #c2832b;
   --ochre-ink: #85550f;
   --ochre-wash: #f4e6cf;
+  /* the viewer's own row or panel: a warm tint in light, plain slate in dark (a brown fill turns muddy on slate) */
+  --mine-wash: #f8efe0;
 
   /* Dash itself */
   --dash: #008de4;
@@ -63,11 +65,13 @@
 
   /* stones of the cairn, by share state */
   --stone-requested: transparent;
-  --stone-in: #8d8a80;
+  --stone-in: #cfe0d5;
   --stone-approved: #5f8f7b;
   --stone-signed: #2f6b57;
   --stone-edge: #1e2226;
-  --stone-open: #bfb6a6;
+  --stone-open: #a39d92;
+  --stone-closed: #e4ded2;
+  --stone-closed-line: #a39d92;
 
   --pass: #2f6b57;
   --pass-fill: #3f8a6f;
@@ -77,6 +81,8 @@
   --fail-fill: #c8493c;
   --slate: #5c636a;
   --track: #e4ded2;
+  /* every text field's fill, on paper and on cards alike */
+  --field: #fffefb;
   --disabled-bg: #ebe6dc;
   --disabled-ink: #6c7177;
 
@@ -96,7 +102,7 @@
   --line-strong: #46535a;
   --lichen: #7cc2a6;
   --accent: #7cc2a6;
-  --accent-ink: #8fcdb3;
+  --accent-ink: #a3d9c1;
   --accent-wash: #1f332c;
   --accent-fill: #6fb698;
   --accent-fill-hover: #8ccbb0;
@@ -104,13 +110,16 @@
   --ochre: #e1a94e;
   --ochre-ink: #e9b968;
   --ochre-wash: #3a2e1c;
+  --mine-wash: #222c31;
   --dash: #3aa9f0;
   --dash-ink: #6cc0f5;
-  --stone-in: #77756d;
+  --stone-in: #2c463d;
   --stone-approved: #4f8a73;
   --stone-signed: #7cc2a6;
   --stone-edge: #ebe7df;
-  --stone-open: #46535a;
+  --stone-open: #6b7a80;
+  --stone-closed: #222b30;
+  --stone-closed-line: #5d6a70;
   --pass: #7cc2a6;
   --pass-fill: #4f9a7e;
   --warn: #e9b968;
@@ -119,6 +128,7 @@
   --fail-fill: #d9594c;
   --slate: #a3a6a2;
   --track: #263136;
+  --field: #11171a;
   --disabled-bg: #222b30;
   --disabled-ink: #8f9599;
   --float-shadow: 0 14px 40px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
@@ -137,7 +147,7 @@
     --line-strong: #46535a;
     --lichen: #7cc2a6;
     --accent: #7cc2a6;
-    --accent-ink: #8fcdb3;
+    --accent-ink: #a3d9c1;
     --accent-wash: #1f332c;
     --accent-fill: #6fb698;
     --accent-fill-hover: #8ccbb0;
@@ -145,13 +155,16 @@
     --ochre: #e1a94e;
     --ochre-ink: #e9b968;
     --ochre-wash: #3a2e1c;
+    --mine-wash: #222c31;
     --dash: #3aa9f0;
     --dash-ink: #6cc0f5;
-    --stone-in: #77756d;
+    --stone-in: #2c463d;
     --stone-approved: #4f8a73;
     --stone-signed: #7cc2a6;
     --stone-edge: #ebe7df;
-    --stone-open: #46535a;
+    --stone-open: #6b7a80;
+    --stone-closed: #222b30;
+    --stone-closed-line: #5d6a70;
     --pass: #7cc2a6;
     --pass-fill: #4f9a7e;
     --warn: #e9b968;
@@ -160,6 +173,7 @@
     --fail-fill: #d9594c;
     --slate: #a3a6a2;
     --track: #263136;
+    --field: #11171a;
     --disabled-bg: #222b30;
     --disabled-ink: #8f9599;
     --float-shadow: 0 14px 40px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);

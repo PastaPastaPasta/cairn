@@ -177,9 +177,22 @@ button {
   border: 0;
   margin: 0;
   padding: 0;
+  background: none;
   display: grid;
   gap: var(--s-4);
   min-width: 0;
+}
+/* a page-level form sits on one card, the same surface and padding as .side-card */
+.form-card > fieldset {
+  padding: var(--s-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+}
+.form input:not([type='checkbox']):not([type='radio']),
+.form select,
+.form textarea {
+  background: var(--field);
 }
 .form legend {
   font-family: var(--font-display);
@@ -198,7 +211,7 @@ select {
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-s);
-  background: var(--surface);
+  background: var(--field);
   font-weight: 400;
 }
 textarea {
@@ -281,11 +294,26 @@ input[type='radio'] {
   cursor: not-allowed;
 }
 
+/* ---- icons ------------------------------------------------------------------------------------- */
+/* The same shapes as ui/Icon.tsx, as masks for the icons a stylesheet draws (`mask: var(--icon-check)`). */
+:root {
+  --icon-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  --icon-x: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E");
+  --icon-not-equal: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 9.5h14M5 14.5h14M15 5 9 19'/%3E%3C/svg%3E");
+  --icon-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 4.2 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0Z'/%3E%3Cpath d='M12 9.5v4M12 17h.01'/%3E%3C/svg%3E");
+}
+.icon {
+  display: inline-block;
+  flex: none;
+  vertical-align: -0.15em;
+}
 /* ---- shell ---------------------------------------------------------------------------------- */
 .shell {
   min-height: 100vh;
   display: grid;
   grid-template-rows: auto 1fr auto;
+  /* one column no wider than the screen: rows that scroll sideways (nav, group tabs) must not widen the page */
+  grid-template-columns: minmax(0, 1fr);
 }
 .top {
   position: sticky;
@@ -321,6 +349,8 @@ input[type='radio'] {
   letter-spacing: -0.04em;
   line-height: 1;
   padding-bottom: 0.12em;
+  /* govhub-auth.css gives its own header's wordmark a tall min height on phones */
+  min-block-size: 0;
 }
 .mark .mark-stone {
   fill: var(--ink);
@@ -462,18 +492,21 @@ input[type='radio'] {
 
 @media (max-width: 760px) {
   .top-in {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--s-2) var(--s-3);
     padding: var(--s-3) var(--s-4) var(--s-1);
   }
   .nav {
     grid-column: 1 / -1;
     grid-row: 2;
-    justify-content: space-between;
+    gap: var(--s-2);
     margin: 0 calc(-1 * var(--s-2));
+    overflow-x: auto;
+    scrollbar-width: none;
   }
   .nav a {
     padding: 0.4rem 0.5rem;
+    white-space: nowrap;
   }
   .main {
     padding: var(--s-5) var(--s-4) var(--s-7);
@@ -520,12 +553,35 @@ input[type='radio'] {
   stroke-width: 3.5;
   stroke-opacity: 1;
 }
+.stone-requested.stone-mine {
+  fill: var(--ochre-wash);
+  stroke-width: 2.5;
+  stroke-dasharray: 6 4;
+}
 .stone-open {
   fill: none;
   stroke: var(--stone-open);
   stroke-width: 1.5;
   stroke-dasharray: 2 5;
   stroke-linecap: round;
+}
+.stone-open-label {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  fill: var(--ink-3);
+}
+.stone-hatch-bg {
+  fill: var(--stone-closed);
+}
+.stone-hatch-line {
+  stroke: var(--stone-closed-line);
+  stroke-width: 2;
+}
+.cairn-closed .stone {
+  stroke: var(--stone-closed-line);
+}
+.cairn-closed .stone-check {
+  display: none;
 }
 .stone-check {
   fill: none;
@@ -554,6 +610,12 @@ input[type='radio'] {
   align-items: center;
   gap: var(--s-2);
 }
+.cairn-key-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .cairn-key-amount {
   text-align: right;
 }
@@ -578,6 +640,34 @@ input[type='radio'] {
 .cairn-key-requested .cairn-swatch {
   border: 2px dashed var(--ochre);
 }
+.cairn-key-open .cairn-swatch {
+  border: 1.5px dotted var(--stone-open);
+}
+.cairn-key-open {
+  color: var(--ink-3);
+}
+.cairn-key-closed .cairn-swatch,
+.cairn-closed .cairn-swatch {
+  border-color: var(--stone-closed-line);
+  background: repeating-linear-gradient(45deg, var(--stone-closed-line) 0 1.5px, var(--stone-closed) 1.5px 4px);
+}
+.stone-key {
+  list-style: none;
+  margin: var(--s-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-4);
+  color: var(--ink-3);
+}
+.stone-key li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.stone-key .cairn-swatch {
+  flex: none;
+}
 .cairn-key-mine .cairn-key-name {
   font-weight: 600;
 }
@@ -599,6 +689,10 @@ input[type='radio'] {
 }
 .cairn-row .stone-open {
   vector-effect: non-scaling-stroke;
+}
+.cairn-row .stone-open-asked {
+  stroke: var(--ochre);
+  stroke-dasharray: 4 3;
 }
 .cairn-cap-row {
   font-size: var(--t-s);
@@ -670,9 +764,6 @@ input[type='radio'] {
 .hero-cairn {
   justify-self: center;
   width: min(100%, 320px);
-}
-.hero-cairn-note {
-  margin-top: var(--s-3);
 }
 .steps-section {
   padding: var(--s-7) 0;
@@ -786,7 +877,10 @@ input[type='radio'] {
   }
   .hero-cairn {
     justify-self: start;
-    width: min(100%, 280px);
+    width: min(100%, 26rem);
+  }
+  .hero-cairn .cairn-svg {
+    max-width: 210px;
   }
   .steps {
     grid-template-columns: 1fr 1fr;
@@ -888,7 +982,11 @@ a.row-title {
   border-radius: var(--radius-l);
   background: var(--surface);
   border: 1px dashed var(--line-strong);
-  max-width: 44rem;
+}
+/* full width, so it lines up with the filters or list above it; the words keep a readable measure */
+.empty-state p,
+.soon p {
+  max-width: 62ch;
 }
 .empty-state p:last-child,
 .soon p:last-child {
@@ -1090,6 +1188,54 @@ details[open] summary {
     grid-template-columns: 1fr;
   }
 }
+/* Segmented control: a fieldset of radios drawn as one pill (theme, and the form page's role). */
+.seg {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 2px;
+  margin: 0;
+  padding: 3px;
+  min-inline-size: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--sunk);
+}
+.seg label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  font-size: var(--t-s);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink-2);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.seg label:hover {
+  color: var(--ink);
+}
+.seg label.on {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow:
+    0 0 0 1px var(--line-strong),
+    0 1px 2px rgb(30 34 38 / 0.08);
+}
+.seg input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.seg label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .settings-block {
   max-width: 44rem;
   padding: var(--s-5) 0;
@@ -1122,4 +1268,29 @@ details[open] summary {
 }
 .net-choice-name {
   font-weight: 600;
+}
+
+/* ---- 404 ------------------------------------------------------------------------------------- */
+.fallen-cairn {
+  display: block;
+  margin: var(--s-4) 0 var(--s-5);
+}
+.fallen-cairn .ground {
+  stroke: var(--line-strong);
+  stroke-width: 0.8;
+  stroke-linecap: round;
+}
+.fallen-cairn .mark-base {
+  fill: var(--ink);
+}
+.fallen-cairn .mark-mid {
+  fill: var(--lichen);
+}
+.fallen-cairn .mark-top {
+  fill: var(--ochre);
+}
+.not-found-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
 }

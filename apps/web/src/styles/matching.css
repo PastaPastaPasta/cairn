@@ -211,15 +211,22 @@ input[inputmode='numeric'] {
   }
 }
 .subfields {
-  padding: var(--s-4) !important;
-  border: 1px solid var(--line) !important;
-  border-radius: var(--radius-m);
-  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  margin: 0;
+  min-inline-size: 0;
+  padding: var(--s-4) 0 0 !important;
+  border: 0 !important;
+  border-top: 1px solid var(--line) !important;
+  border-radius: 0;
 }
+/* in the flow under the rule, like the form's other section headings, not notched into a box */
 .subfields > legend {
-  font-size: var(--t-m) !important;
-  padding: 0 var(--s-2) !important;
-  margin-left: calc(-1 * var(--s-2));
+  float: left;
+  width: 100%;
+  margin-bottom: var(--s-1);
+  padding: 0;
+  font-family: var(--font-display);
+  font-weight: 650;
+  font-size: var(--t-l);
 }
 .checks {
   display: grid;
@@ -325,19 +332,14 @@ input[inputmode='numeric'] {
   line-height: 1.5;
 }
 .warning::before {
-  content: '!';
+  content: '';
   position: absolute;
   left: var(--s-3);
-  top: var(--s-3);
-  width: 1.3rem;
-  height: 1.3rem;
-  border-radius: 50%;
-  background: var(--ochre);
-  color: var(--paper);
-  font-weight: 700;
-  font-size: var(--t-xs);
-  display: grid;
-  place-items: center;
+  top: calc(var(--s-3) + 0.1rem);
+  width: 1.15rem;
+  height: 1.15rem;
+  background: var(--ochre-ink);
+  mask: var(--icon-alert) center / contain no-repeat;
 }
 .new-group {
   max-width: 44rem;
@@ -405,18 +407,24 @@ input[inputmode='numeric'] {
   color: var(--ochre-ink);
   font-weight: 600;
 }
+/* Every item starts with its separator, and the list is shifted left by one separator and clipped there: whichever item starts
+   a line, its dot falls in the clipped strip, so no line ever begins with "·". */
 .facts-inline {
+  --sep: 1.5rem;
   list-style: none;
   padding: 0;
-  margin: var(--s-1) 0 0;
+  margin: var(--s-1) 0 0 calc(-1 * var(--sep));
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-1) var(--s-3);
+  row-gap: var(--s-1);
   color: var(--ink-2);
+  clip-path: inset(0 0 0 var(--sep));
 }
-.facts-inline li:not(:first-child)::before {
+.facts-inline li::before {
   content: '·';
-  margin-right: var(--s-3);
+  display: inline-block;
+  width: var(--sep);
+  text-align: center;
   color: var(--ink-3);
 }
 @media (max-width: 640px) {
@@ -486,15 +494,25 @@ input[inputmode='numeric'] {
   background: var(--accent-wash);
   color: var(--accent-ink);
 }
-.pref-ok::before {
-  content: '✓ ';
+.pref-ok::before,
+.pref-miss::before,
+.hash-check.ok::before,
+.hash-check.bad::before {
+  content: '';
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.25em;
+  vertical-align: -0.15em;
+  background: currentColor;
+  mask: var(--icon-check) center / contain no-repeat;
 }
 .pref-miss {
   background: var(--sunk);
   color: var(--ink-2);
 }
 .pref-miss::before {
-  content: '≠ ';
+  mask-image: var(--icon-not-equal);
 }
 .combo-sum {
   font-size: var(--t-m);
@@ -557,9 +575,29 @@ input[inputmode='numeric'] {
     grid-template-columns: 1fr;
     gap: var(--s-5);
   }
+  /* beside its words, so the roster and terms stay near the top on a phone */
   .group-cairn {
-    justify-self: start;
-    width: min(100%, 260px);
+    justify-self: stretch;
+    width: 100%;
+  }
+  .group-cairn .cairn-stack {
+    display: grid;
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+    gap: var(--s-2) var(--s-4);
+    align-items: end;
+  }
+  .group-cairn .cairn-svg {
+    grid-row: span 2;
+  }
+  .group-cairn .cairn-cap {
+    margin-top: 0;
+  }
+  .group-cairn .cairn-key {
+    grid-template-columns: 0.9rem minmax(0, 1fr) auto;
+    row-gap: 0;
+  }
+  .group-cairn .cairn-key-state {
+    grid-column: 2 / -1;
   }
 }
 .next-steps {
@@ -578,7 +616,7 @@ input[inputmode='numeric'] {
 }
 .next-todo {
   border-left-color: var(--ochre);
-  background: color-mix(in srgb, var(--ochre-wash) 55%, var(--surface));
+  background: var(--mine-wash);
 }
 .next-warn {
   border-left-color: var(--fail-fill);
@@ -741,16 +779,13 @@ input[inputmode='numeric'] {
   background: var(--accent-wash);
   color: var(--accent-ink);
 }
-.hash-check.ok::before {
-  content: '✓ ';
-}
 .hash-check.bad {
   background: color-mix(in srgb, var(--fail-fill) 14%, var(--surface));
   color: var(--fail);
   border: 1px solid var(--fail);
 }
 .hash-check.bad::before {
-  content: '✗ ';
+  mask-image: var(--icon-x);
 }
 .sheet-table {
   width: 100%;
@@ -777,7 +812,10 @@ input[inputmode='numeric'] {
   white-space: nowrap;
 }
 .sheet-table tr.mine td {
-  background: var(--ochre-wash);
+  background: var(--mine-wash);
+}
+.sheet-table tr.mine td:first-child {
+  box-shadow: inset 3px 0 0 var(--ochre);
 }
 @media (max-width: 520px) {
   .sheet-table thead {
@@ -812,7 +850,8 @@ input[inputmode='numeric'] {
   margin-top: var(--s-4);
   padding: var(--s-4);
   border-radius: var(--radius-m);
-  background: color-mix(in srgb, var(--ochre-wash) 55%, var(--surface));
+  background: var(--mine-wash);
+  border-left: 4px solid var(--ochre);
   display: grid;
   gap: var(--s-3);
   justify-items: start;
@@ -856,7 +895,7 @@ input[inputmode='numeric'] {
   margin-bottom: var(--s-3);
 }
 /* the operator page's side card holds the chain-verified track record (formation/TrackRecord.tsx) as one of its sections */
-.side-card > .track {
+.side-card > .track-record {
   padding: 0 0 var(--s-4);
   margin-bottom: var(--s-4);
   background: none;
@@ -864,7 +903,7 @@ input[inputmode='numeric'] {
   border-bottom: 1px solid var(--line);
   border-radius: 0;
 }
-.side-card > .track h2 {
+.side-card > .track-record h2 {
   font-size: var(--t-l);
 }
 
@@ -887,6 +926,9 @@ input[inputmode='numeric'] {
 .me-nav a:hover {
   border-color: var(--accent);
 }
+.me {
+  max-width: 60rem;
+}
 .me-section {
   margin-top: var(--s-7);
   scroll-margin-top: 5rem;
@@ -895,7 +937,7 @@ input[inputmode='numeric'] {
   margin-top: 0;
 }
 .me-section > .side-card {
-  max-width: 44rem;
+  max-width: none;
 }
 .me-sub {
   margin-top: var(--s-6);

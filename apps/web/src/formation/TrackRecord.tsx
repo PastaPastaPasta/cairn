@@ -100,7 +100,7 @@ const MN_WORD: Record<MnState, string> = { valid: 'earning', 'no-service': 'not 
 export function OperatorTrackRecord({ operatorId }: { operatorId: string }) {
   const state = useOperatorTrackRecord(operatorId);
   return (
-    <section className="track" aria-labelledby="track-title" data-testid="track-record">
+    <section className="track-record" aria-labelledby="track-title" data-testid="track-record">
       <h2 id="track-title">Track record</h2>
       <p className="small muted">
         From the chain only: a group counts when its registration is proven on chain and is exactly what every member approved, with every approval and this

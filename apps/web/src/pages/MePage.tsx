@@ -178,7 +178,7 @@ function ProfileEditor({ identityId }: { identityId: string }) {
     <div>
       <p className="muted">How groups, operators and people looking for a group see you. Everything here is public on Dash Platform.</p>
       <div className="me-layout">
-        <form className="form profile-form" onSubmit={save} aria-busy={busy} data-testid="profile-form">
+        <form className="form form-card profile-form" onSubmit={save} aria-busy={busy} data-testid="profile-form">
           <fieldset disabled={busy || loading}>
             <legend className="visually-hidden">Profile</legend>
             <label>

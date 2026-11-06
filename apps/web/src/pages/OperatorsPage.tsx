@@ -12,6 +12,8 @@ import { usePeople } from '../data/people.ts';
 import { RADAR, radarMnUrl } from '../lib/radar.ts';
 import { parsePercentInput, shortId } from '../matching/money.ts';
 import { OPERATOR_STATUS_WORDS, operatorName, rewardRange } from '../matching/words.ts';
+import { CLOSED } from '../matching/group.ts';
+import { StoneKey } from '../ui/CairnStack.tsx';
 import { PercentField } from '../ui/fields.tsx';
 import { Loaded } from '../ui/Loaded.tsx';
 import { ContactList, PersonName } from '../ui/Person.tsx';
@@ -211,7 +213,14 @@ export function OperatorPage() {
                   </dl>
                   <section className="section" aria-labelledby="op-groups">
                     <h2 id="op-groups">Groups with this operator</h2>
-                    {groups.length ? <GroupRows groups={groups} /> : <p className="muted">No groups yet.</p>}
+                    {groups.length ? (
+                      <>
+                        <GroupRows groups={groups} />
+                        <StoneKey closed={groups.some((g) => CLOSED.includes(g.status))} />
+                      </>
+                    ) : (
+                      <p className="muted">No groups yet.</p>
+                    )}
                     {session && session.identityId !== id && op.status === OPERATOR_STATUS.open && (
                       <p>
                         <Link className="btn" to={`/groups/new?operator=${id}`}>

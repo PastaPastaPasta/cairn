@@ -8,7 +8,8 @@ import { personName } from './data/profile.ts';
 import { holdsWrite } from './pages/MePage.tsx';
 import { render } from './test/render.tsx';
 import { activationWords } from './ui/Activation.tsx';
-import { CairnStack, cairnSummary, type Stone } from './ui/CairnStack.tsx';
+import { SAMPLE_STONES, sampleCaption } from './pages/HomePage.tsx';
+import { CairnStack, cairnLayout, cairnSummary, type Stone } from './ui/CairnStack.tsx';
 
 const stones: Stone[] = [
   { id: 'a', label: 'Lena', amount: 300, state: 'approved' },
@@ -27,7 +28,39 @@ describe('the cairn', () => {
     expect(r.el.querySelectorAll('svg path.stone-in, svg path.stone-approved')).toHaveLength(2);
     expect(r.el.querySelector('svg')!.getAttribute('aria-hidden')).toBe('true');
     const items = [...r.el.querySelectorAll('.cairn-legend li')].map((li) => li.textContent);
-    expect(items).toEqual(['Marco200 DASHin the group', 'Lena300 DASHapproved the terms', 'Kim100 DASHasked for a seat']);
+    // top down, as drawn: what is open, the ask on top of the stack, then the shares
+    expect(items).toEqual(['Open400 DASHstill open', 'Kim100 DASHasked for a seat', 'Marco200 DASHin the group', 'Lena300 DASHapproved the terms']);
+    await r.unmount();
+  });
+
+  it('stacks an ask on the cairn, not inside the open space, and labels the open remainder with its size', async () => {
+    expect(cairnLayout(stones, 1000)).toMatchObject({ asked: [{ id: 'c', amount: 100 }], open: 400 });
+    // asks never draw past 1000: the second is cut to what is left, the third is not drawn
+    const crowded = cairnLayout([...stones, { id: 'd', label: 'D', amount: 450, state: 'requested' }, { id: 'e', label: 'E', amount: 100, state: 'requested' }], 1000);
+    expect(crowded.asked.map((s) => [s.id, s.amount])).toEqual([['c', 100], ['d', 400]]);
+    expect(crowded.open).toBe(0);
+    const r = await render(<CairnStack stones={stones} />);
+    expect(r.el.querySelector('.stone-open + .stone-open-label')?.textContent).toBe('400 open');
+    expect(r.el.querySelectorAll('.stone-asked-group path.stone-requested')).toHaveLength(1);
+    await r.unmount();
+  });
+
+  it('hatches every stone of a closed group', async () => {
+    const r = await render(<CairnStack stones={stones} closed />);
+    const fills = [...r.el.querySelectorAll<SVGElement>('path.stone-in, path.stone-approved')].map((p) => p.style.fill);
+    expect(fills).toHaveLength(2);
+    expect(fills.every((f) => f.startsWith('url('))).toBe(true);
+    expect(r.el.querySelector('figure')!.className).toContain('cairn-closed');
+    await r.unmount();
+  });
+
+  it('the home page sample adds up: three co-owners in, the visitor asking, and the rest open', async () => {
+    expect(sampleCaption(SAMPLE_STONES)).toBe('A sample group: 650 of 1000 DASH. Your 100 makes 750; 250 more and it’s full.');
+    expect(SAMPLE_STONES.find((s) => s.mine)).toMatchObject({ label: 'You', state: 'requested' });
+    expect(cairnLayout(SAMPLE_STONES, 1000).open).toBe(250);
+    const r = await render(<CairnStack stones={SAMPLE_STONES} caption={sampleCaption(SAMPLE_STONES)} />);
+    expect(r.el.querySelector('.stone-open-label')?.textContent).toBe('250 open');
+    expect(r.el.querySelector('.cairn-key-mine')?.textContent).toBe('You100 DASHasking for a seat');
     await r.unmount();
   });
 

@@ -44,7 +44,7 @@ export interface RequestRow {
 
 const LOCKED: readonly number[] = [GROUP_STATUS.locked, GROUP_STATUS.formingOnchain, GROUP_STATUS.live];
 export const isLockedStatus = (s: number) => LOCKED.includes(s);
-const CLOSED: readonly number[] = [GROUP_STATUS.dissolved, GROUP_STATUS.cancelled];
+export const CLOSED: readonly number[] = [GROUP_STATUS.dissolved, GROUP_STATUS.cancelled];
 
 export interface GroupView {
   group: Group;

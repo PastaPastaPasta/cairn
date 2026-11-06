@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { collectErrors, listSettled, stubActivation } from './helpers.ts';
+import { DEMO_GROUP, collectErrors, listSettled, stubActivation } from './helpers.ts';
 
 const ROUTES: Array<[string, RegExp]> = [
   ['/', /Build a masternode together/],
@@ -57,8 +57,9 @@ test('fonts come from this origin only', async ({ page }) => {
 test('home shows the sample cairn in words and the activation card', async ({ page }) => {
   await stubActivation(page);
   await page.goto('/');
-  await expect(page.locator('.hero figcaption')).toHaveText('650 of 1000 DASH from 3 co-owners. 350 DASH still open. One person has asked for a seat.');
-  await expect(page.locator('.hero .cairn-legend li')).toHaveCount(4);
+  await expect(page.locator('.hero figcaption')).toHaveText('A sample group: 650 of 1000 DASH. Your 100 makes 750; 250 more and it’s full.');
+  await expect(page.locator('.hero .cairn-legend li')).toHaveCount(5);
+  await expect(page.locator('.hero .stone-open-label')).toHaveText('250 open');
   await expect(page.getByTestId('activation-card')).toContainText('Waiting for mainnet signalling');
 });
 
@@ -108,4 +109,37 @@ test('keyboard: skip link and nav are reachable', async ({ page }) => {
   await page.keyboard.press('Enter');
   await page.keyboard.press('Tab');
   await expect(page.locator(':focus')).toBeVisible();
+});
+
+test.describe('phone width', () => {
+  test.use({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
+  for (const path of ['/', '/groups', `/g/${DEMO_GROUP}`, `/g/${DEMO_GROUP}/form`, '/check', '/settings'])
+    test(`${path} does not scroll sideways`, async ({ page }) => {
+      await stubActivation(page);
+      await page.goto(path);
+      await page.locator('h1').first().waitFor();
+      if (path.endsWith('/form')) await page.getByTestId('form-status').waitFor({ timeout: 90_000 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+    });
+});
+
+test('the form page is a trail of steps with the checker beside it', async ({ page }) => {
+  test.setTimeout(150_000);
+  await stubActivation(page);
+  await page.goto(`/g/${DEMO_GROUP}/form`);
+  const trail = page.getByTestId('form-status');
+  await expect(trail.locator('.trail-step')).toHaveCount(7, { timeout: 90_000 });
+  await expect(trail.locator('.trail-step[data-step="agree"]')).toHaveClass(/is-done/);
+  await expect(page.locator('#checker [data-testid="checker-input"]')).toBeVisible();
+  // one step open at a time; opening another closes it
+  await expect(trail.locator('.trail-body:not([hidden])')).toHaveCount(1);
+  await trail.locator('.trail-step[data-step="round2"] .trail-btn').click();
+  await expect(trail.locator('.trail-step[data-step="round2"] .trail-btn')).toHaveAttribute('aria-expanded', 'true');
+  await expect(trail.locator('.trail-body:not([hidden])')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Check this round’s message' }).click();
+  await expect(page.locator('#checker [data-testid="checker-input"]')).toBeFocused();
+  // the coordinator's view folds in the setup sheet
+  await page.getByText('The coordinator', { exact: true }).click();
+  await trail.locator('.trail-step[data-step="setup"] .trail-btn').click();
+  await expect(trail.locator('.trail-step[data-step="setup"]').getByTestId('setup-sheet')).toContainText('Participants');
 });
