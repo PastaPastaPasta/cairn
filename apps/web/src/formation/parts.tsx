@@ -55,7 +55,7 @@ export function GroupUpdated() {
   );
 }
 
-export function GroupGate({ title, id, load, children }: { title: string; id: string; load: Load<GroupBundle | null> & { updated?: boolean }; children(bundle: GroupBundle): ReactNode }) {
+export function GroupGate({ title, id, load, children }: { title: string; id: string; load: Load<GroupBundle | null> & { updated?: boolean; reload?(): void }; children(bundle: GroupBundle): ReactNode }) {
   const { registry } = useApp();
   if (!registry.contractId)
     return (
@@ -93,6 +93,11 @@ export function GroupGate({ title, id, load, children }: { title: string; id: st
         <div className="empty-state" role={load.status === 'error' ? 'alert' : undefined}>
           <p>{load.status === 'error' ? `The group could not be read. ${load.error}` : `There is no group with this link on ${registry.label}.`}</p>
           {load.status === 'error' && <ErrorDetail detail={load.detail} />}
+          {load.status === 'error' && load.reload && (
+            <button type="button" className="btn btn-s" onClick={load.reload}>
+              Try again
+            </button>
+          )}
           <p>
             <Link to="/groups">See open groups</Link>
           </p>
