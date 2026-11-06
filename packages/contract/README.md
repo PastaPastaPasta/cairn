@@ -9,7 +9,7 @@ The `cairn` Dash Platform data contract (DESIGN.md section 7): one contract per 
 
 `deployments.json` is the one place the ids live; the web app and scripts read it.
 
-## Types (8 types, 14 indexes)
+## Types (9 types, 16 indexes)
 
 All types: `additionalProperties: false`, HIGH key (`signatureSecurityLevelRequirement: 2`), not transferable, owned by the
 writer's identity. Amounts are **duffs**. JSON-string fields carry compact JSON with an explicit `maxLength`.
@@ -19,23 +19,36 @@ writer's identity. Amounts are **duffs**. JSON-string fields carry compact JSON 
 | `profile` | yes | **displayName** 1..64, about ≤500, contacts (JSON ≤1024: discord, yappr, telegram, matrix, dashpay, website), roles (bits: 1 member, 2 operator) | `byOwner` unique `[$ownerId]` |
 | `operator` | yes | **name** ≤64, **rewardBps**, rewardMinBps, rewardMaxBps, regions (JSON ≤256), hosting ≤1000, capacity, claimedProTx (JSON ≤1500), **status** | `byOwner` unique; `byStatus [status, $updatedAt]` |
 | `looking` | yes | **amount**, operatorId?, **maxRewardBps**, earlyPref (JSON ≤256), **canCoordinate**, note ≤500, **status** | `byOwner` unique; `byStatus [status, $updatedAt]` |
-| `group` | yes | **title** ≤80, about ≤1000, **mnType**, **operatorId**, **rewardBps**, **earlyPeriodBlocks**, **earlyPenalty**, coordinatorId, votingHolderId, votingPolicy ≤280, chatUrl ≤256, formBy, **roster** (JSON ≤1024 `[{id, amount}]`), **revision**, lockedHash 32 B, operatorPubKey 48 B, service ≤64, proTxHash 32 B, **status**, refillOf | `byStatus [status, $updatedAt]`; `byOperator [operatorId, status]`; `byOwner [$ownerId]` |
-| `seat` | yes | **groupId**, **amount**, message ≤280, **status** | `byGroupOwner` unique `[groupId, $ownerId]`; `byOwner [$ownerId]` |
+| `group` | yes | **title** ≤80, about ≤1000, **mnType**, operatorId, **rewardBps**, **earlyPeriodBlocks** ≤420,480, **earlyPenalty**, coordinatorId, votingHolderId, votingPolicy ≤280, chatUrl ≤256, formBy, **roster** (JSON ≤2048 `[{id, amount, label?}]`), **revision**, lockedHash 32 B, operatorPubKey 48 B, service ≤64, proTxHash 32 B, **status**, refillOf, votingAddress 26..35, flags (bit 0: open amounts) | `byStatus [status, $updatedAt]`; `byOperator [operatorId, status]`; `byOwner [$ownerId]` |
+| `seat` | yes | **groupId**, **amount**, message ≤280, **status**, flags (bit 0 can coordinate / has Dash-Qt v24 on a desktop, bit 1 willing to hold the voting key), votingAddress 26..35, proTxHash 32 B | `byGroupOwner` unique `[groupId, $ownerId]`; `byOwner [$ownerId]` |
 | `invite` | yes | **groupId**, **toId**, **amount**, message ≤280, **status** | `byTo [toId]`; `byGroup [groupId]` |
 | `approval` | no (deletable: withdraw consent) | **groupId**, **revision**, **termsHash** 32 B, **shareAmount** | `byGroupRevisionOwner` unique `[groupId, revision, $ownerId]` |
+| `opAccept` | yes | **groupId**, **status** (1 accepted, 2 declined, 3 withdrawn), operatorPubKey 48 B, service ≤64, rewardBps, message ≤280 | `byGroupOwner` unique `[groupId, $ownerId]`; `byOwner [$ownerId]` |
 | `vault` | yes | identical to govhub's `forum.vault` (passkey vault of the vendored `@cairn/auth`) | `byCredential` unique `[$ownerId, credentialId]` |
 
 Mutable types require `$createdAt` and `$updatedAt`, `approval` requires `$createdAt`; `createOp` / `replaceOp` stamp them
 (Drive overwrites them with block time).
 
 Decisions:
-- Indexed properties must be required (govhub convention), so `group.operatorId` is required and a member-led group without an
-  operator stores the zero identifier `NO_OPERATOR` (`1111…1`); `toGroup` reads it back as `null`.
+- `group.operatorId` is optional: a member-led group whose operator is still to be chosen leaves it out, and `toGroup` reads that
+  as `null`. Platform enters a document without the value under null in the non-unique `byOperator` index (`nullSearchable`
+  defaults to true since PV1, and DPNS indexes its optional `records.identity` the same way), so `groupsOfOperator` is unaffected.
+  Every other indexed property is required (govhub's convention, which keeps unique indexes unique); `test/contract.test.ts`
+  allows only this one exception, and only in a non-unique index.
+- `opAccept` is the operator's side of a member-led group: the operator cannot write the organizer's group, so they accept,
+  decline or withdraw in their own document, with their BLS key, service and the reward they accept. Accepting a group with no
+  operator yet is an offer. The organizer copies key, service and reward into the group before locking; in an operator-led
+  group the operator is the organizer and the group carries them directly.
+- `seat.votingAddress` comes from the member the group chose to hold the voting key; the organizer copies it into
+  `group.votingAddress` (term sheet field `votingAddress`), required from lock on. `seat.proTxHash` lets the coordinator, who
+  is a co-owner but rarely the organizer, link the registration; Cairn checks it against the chain and the approvals.
+- Roster labels are the row labels typed into Dash-Qt; they live in the roster so every member computes the same term sheet.
 - Statuses are small integers (`schema.ts`): indexed strings would cost more and invite typos. `group.status` is the organizer's
   claim; live/dissolved/banned are recomputed from the chain on read.
-- Schema bounds are sanity caps (amounts ≤ 4000 DASH to leave room for shared EvoNodes, early period ≤ 4,204,800 blocks). The
-  Dash Core v24 share rules (≥ 100 DASH per share, sum 1000, ≤ 8 shares, penalty rules, 420,480-block early period) are enforced by
-  `@cairn/shares`, not the contract, because a registered contract can never tighten or loosen a type.
+- Schema bounds are caps that hold for every Dash Core version Cairn targets: amounts ≤ 4000 DASH (room for shared EvoNodes), the
+  early period ≤ 420,480 blocks and the operator reward ≤ 10,000 bps, exactly Core's limits. The rules that depend on the rest of a
+  document (≥ 100 DASH per share, sum 1000, ≤ 8 shares, penalty below the smallest share and only with a period, services Core
+  accepts, P2PKH voting addresses) are enforced by the models through `@cairn/shares`, on write and on read.
 - Everything stored is public. A contact handle the user keeps private is simply not stored.
 
 ## Queries
@@ -49,8 +62,9 @@ identifiers base58. `test/queries.test.ts` asserts the index each query lands on
 
 ```
 npm test -w @cairn/contract                          # lint + evo-sdk 5.0.0-rc.8 full validation at PV13 and PV14
-cd packages/contract/scripts/validate && npm ci && npm run validate   # + wasm-dpp 4.1.1 / 5.0.0-rc.8 with negative controls
-node --experimental-transform-types packages/contract/scripts/register.ts testnet init|status|fund|contract
+cd packages/contract/scripts/validate && npm ci && npm run validate   # + wasm-dpp 4.1.1 / 5.0.0-rc.8: negative controls, and
+                                                     #   MAX/MIN/over-limit documents of every type through a batch transition
+node --experimental-transform-types packages/contract/scripts/register.ts testnet init|status|fund|contract|retire
 ```
 
 `register.ts` follows govhub's `mainnet-bootstrap.ts`: the deployer seed lives only in the shared secret store

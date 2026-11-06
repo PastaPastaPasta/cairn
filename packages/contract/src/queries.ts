@@ -79,3 +79,11 @@ export const approvalsOf = (groupId: string, revision: number, startAfter?: stri
       startAfter,
     ),
   );
+
+// opAccept
+export const opAcceptsOfGroup = (groupId: string, startAfter?: string) =>
+  checked(paged({ documentTypeName: 'opAccept', where: [['groupId', '==', groupId]], orderBy: [['$ownerId', 'asc']], limit: PAGE }, startAfter));
+export const opAcceptOf = (groupId: string, ownerId: string) =>
+  checked({ documentTypeName: 'opAccept', where: [['groupId', '==', groupId], ['$ownerId', '==', ownerId]], limit: 1 });
+export const opAcceptsOf = (ownerId: string, startAfter?: string) =>
+  checked(paged({ documentTypeName: 'opAccept', where: [['$ownerId', '==', ownerId]], limit: PAGE }, startAfter));

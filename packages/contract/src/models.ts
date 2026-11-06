@@ -8,9 +8,9 @@
 import { base58, base64, hex } from '@scure/base';
 import {
   EVO_COLLATERAL, MAX_EARLY_PERIOD_BLOCKS, MIN_SHARE_AMOUNT, REGULAR_COLLATERAL, areShareAmountsValid, isCompletable, isEarlyPenaltyValid, isEarlyPeriodValid, minAmount,
-  remainingDuffs, validateCoreService, type Network as CoreNetwork,
+  decodeAddress, remainingDuffs, validateCoreService, type Network as CoreNetwork,
 } from '@cairn/shares';
-import { CAIRN_SCHEMAS, GROUP_STATUS, MAX_AMOUNT_DUFFS, MN_TYPE, NO_OPERATOR, prop, type DocType, type Network } from './schema.ts';
+import { CAIRN_SCHEMAS, GROUP_STATUS, MAX_AMOUNT_DUFFS, MN_TYPE, OP_ACCEPT_STATUS, prop, type DocType, type Network } from './schema.ts';
 import { badgeLike, cleanName, nameProblem } from './text.ts';
 
 export type RawDoc = Record<string, unknown>;
@@ -231,22 +231,30 @@ function checkShare(type: DocType, k: string, v: number): number {
   return v;
 }
 
-/** One share in a group's roster: the member's identity and amount (duffs). */
+/** One share in a group's roster: the member's identity, amount (duffs) and the row label everyone types into Dash-Qt. */
 export interface RosterEntry {
   id: string;
   amount: number;
+  /** Fixed by the organizer by lock time, so every member computes the same term sheet. */
+  label?: string;
 }
+const MAX_LABEL = 32;
+const labelOk = (v: unknown): v is string => typeof v === 'string' && v === cleanName(v) && v.length > 0 && chars(v) <= MAX_LABEL;
 export const collateralOf = (mnType: number): bigint => (mnType === MN_TYPE.evo ? EVO_COLLATERAL : REGULAR_COLLATERAL);
 /** A roster Dash Core could still accept: distinct members, each share 100 DASH up to the collateral, and a remainder that can be filled. */
 export function parseRoster(v: unknown, collateral: bigint = REGULAR_COLLATERAL): RosterEntry[] {
   if (!Array.isArray(v) || v.length > 8) throw new DocError('roster is not a list of up to 8 shares');
   const seen = new Set<string>();
+  const labels = new Set<string>();
   const roster = v.map((e) => {
     const o = e as Record<string, unknown>;
     if (!o || typeof o !== 'object' || !isIdentifier(o.id) || !Number.isSafeInteger(o.amount) || seen.has(o.id as string)) throw new DocError('roster entry malformed or repeated');
     if (BigInt(o.amount as number) < MIN_SHARE_AMOUNT || BigInt(o.amount as number) > collateral) throw new DocError('every roster share must be at least 100 DASH and at most the collateral');
+    if (o.label !== undefined && (!labelOk(o.label) || labels.has(o.label))) throw new DocError(`share labels must be distinct, 1..${MAX_LABEL} visible characters, without extra spaces`);
     seen.add(o.id as string);
-    return { id: o.id as string, amount: o.amount as number };
+    if (o.label === undefined) return { id: o.id as string, amount: o.amount as number };
+    labels.add(o.label);
+    return { id: o.id as string, amount: o.amount as number, label: o.label };
   });
   if (!isCompletable(roster.length, remainingDuffs(roster.map((r) => BigInt(r.amount)), collateral))) throw new DocError('the roster can no longer add up to the collateral with valid shares');
   return roster;
@@ -289,6 +297,16 @@ function groupTermsProblem(roster: RosterEntry[], collateral: bigint, earlyPerio
 }
 /** Statuses that claim the roster is a whole share table. */
 const COMPLETE_STATUSES: readonly number[] = [GROUP_STATUS.full, GROUP_STATUS.locked, GROUP_STATUS.formingOnchain, GROUP_STATUS.live];
+/** Statuses that claim frozen terms: everything the term sheet (@cairn/shares TermSheet) needs must be there. */
+const LOCKED_STATUSES: readonly number[] = [GROUP_STATUS.locked, GROUP_STATUS.formingOnchain, GROUP_STATUS.live];
+
+/** A P2PKH address (what Core takes as a voting key) on `network`, or on either network when unknown. */
+const isP2pkh = (v: string, network?: Network): boolean => decodeAddress(v, network && coreNetwork(network))?.type === 'p2pkh';
+function checkVotingAddress(type: DocType, v: string, network: Network): string {
+  if (!isP2pkh(v, network)) throw new DocError(`the voting address must be a ${network} P2PKH address (${network === 'mainnet' ? 'X' : 'y'}…)`);
+  return checkStr(type, 'votingAddress', v);
+}
+const votingAddressOrUndefined = (v: string | undefined, network?: Network) => (v !== undefined && isP2pkh(v, network) ? v : undefined);
 
 // ---- profile ---------------------------------------------------------------------------------------------------------------
 
@@ -426,7 +444,7 @@ export interface GroupFields {
   title: string;
   about?: string;
   mnType: number;
-  /** null: member-led group whose operator is still to be chosen (stored as NO_OPERATOR). */
+  /** null: a member-led group whose operator is still to be chosen (the property is left out). */
   operatorId: string | null;
   rewardBps: number;
   earlyPeriodBlocks: number;
@@ -450,6 +468,10 @@ export interface GroupFields {
   /** The organizer's claim; chain-derivable states are recomputed on read. */
   status: number;
   refillOf?: string;
+  /** P2PKH address of the voting key holder's key; part of the term sheet, required from lock on. */
+  votingAddress?: string;
+  /** GROUP_FLAG bits. */
+  flags?: number;
 }
 export type Group = DocMeta & GroupFields;
 
@@ -462,11 +484,17 @@ export function groupData(f: GroupFields, network: Network): DocData {
   checkInt('group', 'earlyPenalty', f.earlyPenalty);
   const problem = groupTermsProblem(roster, collateral, f.earlyPeriodBlocks, f.earlyPenalty, COMPLETE_STATUSES.includes(f.status));
   if (problem) throw new DocError(problem);
+  if (LOCKED_STATUSES.includes(f.status)) {
+    const missing: string[] = (['operatorId', 'operatorPubKey', 'votingAddress', 'coordinatorId', 'votingHolderId', 'lockedHash'] as const).filter((k) => !f[k]);
+    if (roster.some((r) => !r.label)) missing.push('a label on every share');
+    if (missing.length) throw new DocError(`locked terms need ${missing.join(', ')}`);
+    if (!roster.some((r) => r.id === f.coordinatorId)) throw new DocError('the coordinator must be one of the co-owners');
+  }
   return defined({
     title: checkStr('group', 'title', f.title.trim()),
     about: opt(f.about?.trim(), (v) => checkStr('group', 'about', v)),
     mnType,
-    operatorId: idBytes(f.operatorId ?? NO_OPERATOR, 'operatorId'),
+    operatorId: opt(f.operatorId, (v) => idBytes(v, 'operatorId')),
     rewardBps: checkInt('group', 'rewardBps', f.rewardBps),
     earlyPeriodBlocks: f.earlyPeriodBlocks,
     earlyPenalty: f.earlyPenalty,
@@ -479,7 +507,7 @@ export function groupData(f: GroupFields, network: Network): DocData {
       return checkStr('group', 'chatUrl', u);
     }),
     formBy: opt(f.formBy, (v) => checkInt('group', 'formBy', v)),
-    roster: jsonStr('group', 'roster', roster.map((r) => ({ id: r.id, amount: r.amount }))),
+    roster: jsonStr('group', 'roster', roster),
     revision: checkInt('group', 'revision', f.revision),
     lockedHash: opt(f.lockedHash, (v) => hexBytes('group', 'lockedHash', v, 32)),
     operatorPubKey: opt(f.operatorPubKey, (v) => hexBytes('group', 'operatorPubKey', v, 48)),
@@ -487,14 +515,15 @@ export function groupData(f: GroupFields, network: Network): DocData {
     proTxHash: opt(f.proTxHash, (v) => hexBytes('group', 'proTxHash', v, 32)),
     status: checkInt('group', 'status', f.status),
     refillOf: opt(f.refillOf, (v) => idBytes(v, 'refillOf')),
+    votingAddress: opt(f.votingAddress?.trim(), (v) => checkVotingAddress('group', v, network)),
+    flags: opt(f.flags, (v) => checkInt('group', 'flags', v)),
   });
 }
 /**
  * A stored group. Throws when its roster or early-exit terms break Dash Core's rules (no front end may show them as terms);
- * drops a service Core would refuse, judged by `network`'s rules when given.
+ * drops a service or voting address Core would refuse, judged by `network`'s rules when given.
  */
 export function toGroup(d: RawDoc, network?: Network): Group {
-  const op = ident(d, 'operatorId');
   const chat = optStr(d, 'chatUrl');
   const mnType = num(d, 'mnType');
   const roster = json(d, 'roster', (v) => parseRoster(v, collateralOf(mnType)));
@@ -506,7 +535,7 @@ export function toGroup(d: RawDoc, network?: Network): Group {
     title: str(d, 'title'),
     about: optStr(d, 'about'),
     mnType,
-    operatorId: op === NO_OPERATOR ? null : op,
+    operatorId: optIdent(d, 'operatorId') ?? null,
     rewardBps: num(d, 'rewardBps'),
     earlyPeriodBlocks,
     earlyPenalty,
@@ -524,6 +553,8 @@ export function toGroup(d: RawDoc, network?: Network): Group {
     proTxHash: optHex(d, 'proTxHash', 32),
     status: num(d, 'status'),
     refillOf: optIdent(d, 'refillOf'),
+    votingAddress: votingAddressOrUndefined(optStr(d, 'votingAddress'), network),
+    flags: optNum(d, 'flags'),
   };
 }
 
@@ -534,17 +565,35 @@ export interface SeatFields {
   amount: number;
   message?: string;
   status: number;
+  /** SEAT_FLAG bits: can coordinate (has Dash-Qt v24 on a desktop), willing to hold the voting key. */
+  flags?: number;
+  /** P2PKH address of the voting key, from the member the group chose to hold it. */
+  votingAddress?: string;
+  /** The ProRegTx this member links after broadcast (any member can; Cairn checks it against the chain and the approvals). */
+  proTxHash?: string;
 }
 export type Seat = DocMeta & SeatFields;
-export function seatData(f: SeatFields): DocData {
+export function seatData(f: SeatFields, network: Network): DocData {
   return defined({
     groupId: idBytes(f.groupId, 'groupId'),
     amount: checkShare('seat', 'amount', f.amount),
     message: opt(f.message?.trim(), (v) => checkStr('seat', 'message', v)),
     status: checkInt('seat', 'status', f.status),
+    flags: opt(f.flags, (v) => checkInt('seat', 'flags', v)),
+    votingAddress: opt(f.votingAddress?.trim(), (v) => checkVotingAddress('seat', v, network)),
+    proTxHash: opt(f.proTxHash, (v) => hexBytes('seat', 'proTxHash', v, 32)),
   });
 }
-export const toSeat = (d: RawDoc): Seat => ({ ...meta(d), groupId: ident(d, 'groupId'), amount: num(d, 'amount'), message: optStr(d, 'message'), status: num(d, 'status') });
+export const toSeat = (d: RawDoc, network?: Network): Seat => ({
+  ...meta(d),
+  groupId: ident(d, 'groupId'),
+  amount: num(d, 'amount'),
+  message: optStr(d, 'message'),
+  status: num(d, 'status'),
+  flags: optNum(d, 'flags') ?? 0,
+  votingAddress: votingAddressOrUndefined(optStr(d, 'votingAddress'), network),
+  proTxHash: optHex(d, 'proTxHash', 32),
+});
 
 export interface InviteFields {
   groupId: string;
@@ -589,6 +638,45 @@ export const toApproval = (d: RawDoc): Approval => ({
   shareAmount: num(d, 'shareAmount'),
 });
 
+// ---- opAccept --------------------------------------------------------------------------------------------------------------
+
+/**
+ * The operator's side of a member-led group, owned by the operator (they cannot write the organizer's group). The organizer copies
+ * the key, service and reward into the group before locking. In an operator-led group the operator is the organizer, so the group
+ * carries them directly.
+ */
+export interface OpAcceptFields {
+  groupId: string;
+  status: number;
+  /** BLS operator public key, 48 bytes (96 hex); may follow the acceptance, before lock. */
+  operatorPubKey?: string;
+  service?: string;
+  /** The operator reward they accept, in basis points; required when accepting. */
+  rewardBps?: number;
+  message?: string;
+}
+export type OpAccept = DocMeta & OpAcceptFields;
+export function opAcceptData(f: OpAcceptFields, network: Network): DocData {
+  if (f.status === OP_ACCEPT_STATUS.accepted && f.rewardBps === undefined) throw new DocError('accepting a group needs the operator reward you accept');
+  return defined({
+    groupId: idBytes(f.groupId, 'groupId'),
+    status: checkInt('opAccept', 'status', f.status),
+    operatorPubKey: opt(f.operatorPubKey, (v) => hexBytes('opAccept', 'operatorPubKey', v, 48)),
+    service: opt(f.service?.trim(), (v) => checkStr('opAccept', 'service', parseService(v, network).canonical)),
+    rewardBps: opt(f.rewardBps, (v) => checkInt('opAccept', 'rewardBps', v)),
+    message: opt(f.message?.trim(), (v) => checkStr('opAccept', 'message', v)),
+  });
+}
+export const toOpAccept = (d: RawDoc, network?: Network): OpAccept => ({
+  ...meta(d),
+  groupId: ident(d, 'groupId'),
+  status: num(d, 'status'),
+  operatorPubKey: optHex(d, 'operatorPubKey', 48),
+  service: serviceOrUndefined(optStr(d, 'service'), network),
+  rewardBps: optNum(d, 'rewardBps'),
+  message: optStr(d, 'message'),
+});
+
 /** Every reader by type, for generic list code. */
 export const READERS = {
   profile: toProfile,
@@ -598,4 +686,5 @@ export const READERS = {
   seat: toSeat,
   invite: toInvite,
   approval: toApproval,
+  opAccept: toOpAccept,
 } satisfies Partial<Record<DocType, (d: RawDoc) => DocMeta>>;
