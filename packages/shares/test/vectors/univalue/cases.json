@@ -1,0 +1,272 @@
+[
+  {
+    "input": "WyJwbGFpbiJd",
+    "accepted": true,
+    "output": "WwogIFsKICAgICJwbGFpbiIKICBdCl0="
+  },
+  {
+    "input": "WyJcdTAwZTkiXQ==",
+    "accepted": true,
+    "output": "WwogIFsKICAgICLDqSIKICBdCl0="
+  },
+  {
+    "input": "WyLDqSJd",
+    "accepted": true,
+    "output": "WwogIFsKICAgICLDqSIKICBdCl0="
+  },
+  {
+    "input": "WyJcdWQ4M2RcdWRlMDAiXQ==",
+    "accepted": true,
+    "output": "WwogIFsKICAgICLwn5iAIgogIF0KXQ=="
+  },
+  {
+    "input": "WyLwn5iAIl0=",
+    "accepted": true,
+    "output": "WwogIFsKICAgICLwn5iAIgogIF0KXQ=="
+  },
+  {
+    "input": "WyLAgCJd",
+    "accepted": true,
+    "output": "WwogIFsKICAgICJcdTAwMDAiCiAgXQpd"
+  },
+  {
+    "input": "WyLggIAiXQ==",
+    "accepted": true,
+    "output": "WwogIFsKICAgICJcdTAwMDAiCiAgXQpd"
+  },
+  {
+    "input": "WyLBvyJd",
+    "accepted": true,
+    "output": "WwogIFsKICAgICJcdTAwN2YiCiAgXQpd"
+  },
+  {
+    "input": "WyLtoL3tuIAiXQ==",
+    "accepted": true,
+    "output": "WwogIFsKICAgICLwn5iAIgogIF0KXQ=="
+  },
+  {
+    "input": "WyLtoL0iXQ==",
+    "accepted": false,
+    "error": "error: Error parsing JSON: [\"\ufffd\ufffd\ufffd\"]"
+  },
+  {
+    "input": "WyLtuIAiXQ==",
+    "accepted": false,
+    "error": "error: Error parsing JSON: [\"\ufffd\ufffd\ufffd\"]"
+  },
+  {
+    "input": "WyL0kICAIl0=",
+    "accepted": true,
+    "output": "WwogIFsKICAgICL0kICAIgogIF0KXQ=="
+  },
+  {
+    "input": "WyL3v7+/Il0=",
+    "accepted": true,
+    "output": "WwogIFsKICAgICL3v7+/IgogIF0KXQ=="
+  },
+  {
+    "input": "WyL4iICAgCJd",
+    "accepted": false,
+    "error": "error: Error parsing JSON: [\"\ufffd\ufffd\ufffd\ufffd\ufffd\"]"
+  },
+  {
+    "input": "WyL/Il0=",
+    "accepted": false,
+    "error": "error: Error parsing JSON: [\"\ufffd\"]"
+  },
+  {
+    "input": "WyKAIl0=",
+    "accepted": false,
+    "error": "error: Error parsing JSON: [\"\ufffd\"]"
+  },
+  {
+    "input": "WyLDIl0=",
+    "accepted": false,
+    "error": "error: Error parsing JSON: [\"\ufffd\"]"
+  },
+  {
+    "input": "WyJ/Il0=",
+    "accepted": true,
+    "output": "WwogIFsKICAgICJcdTAwN2YiCiAgXQpd"
+  },
+  {
+    "input": "WyJcdTAwN2YiXQ==",
+    "accepted": true,
+    "output": "WwogIFsKICAgICJcdTAwN2YiCiAgXQpd"
+  },
+  {
+    "input": "WyJcLyJd",
+    "accepted": true,
+    "output": "WwogIFsKICAgICIvIgogIF0KXQ=="
+  },
+  {
+    "input": "WyJcdTAwMDAiXQ==",
+    "accepted": true,
+    "output": "WwogIFsKICAgICJcdTAwMDAiCiAgXQpd"
+  },
+  {
+    "input": "WyJcdURCRkZcdURGRkYiXQ==",
+    "accepted": true,
+    "output": "WwogIFsKICAgICLzv7+/IgogIF0KXQ=="
+  },
+  {
+    "input": "WyJcdTEyRzQiXQ==",
+    "accepted": false,
+    "error": "error: Error parsing JSON: [\"\\u12G4\"]"
+  },
+  {
+    "input": "WyJcdWQ4MDBcdTAwNDEiXQ==",
+    "accepted": false,
+    "error": "error: Error parsing JSON: [\"\\ud800\\u0041\"]"
+  },
+  {
+    "input": "WyJcdTAwNDFcdWRjMDAiXQ==",
+    "accepted": false,
+    "error": "error: Error parsing JSON: [\"\\u0041\\udc00\"]"
+  },
+  {
+    "input": "WyJcdWQ4MDBcdWQ4MDAiXQ==",
+    "accepted": false,
+    "error": "error: Error parsing JSON: [\"\\ud800\\ud800\"]"
+  },
+  {
+    "input": "WyJhCWIiXQ==",
+    "accepted": false,
+    "error": "error: Error parsing JSON: [\"a\tb\"]"
+  },
+  {
+    "input": "WyJcYSJd",
+    "accepted": false,
+    "error": "error: Error parsing JSON: [\"\\a\"]"
+  },
+  {
+    "input": "WyJcdTAwIl0=",
+    "accepted": false,
+    "error": "error: Error parsing JSON: [\"\\u00\"]"
+  },
+  {
+    "input": "MS41MA==",
+    "accepted": true,
+    "output": "WwogIDEuNTAKXQ=="
+  },
+  {
+    "input": "LTA=",
+    "accepted": true,
+    "output": "WwogIC0wCl0="
+  },
+  {
+    "input": "MUUrMg==",
+    "accepted": true,
+    "output": "WwogIDFFKzIKXQ=="
+  },
+  {
+    "input": "MWUtMA==",
+    "accepted": true,
+    "output": "WwogIDFlLTAKXQ=="
+  },
+  {
+    "input": "MDE=",
+    "accepted": false,
+    "error": "error: Error parsing JSON: 01"
+  },
+  {
+    "input": "LTAx",
+    "accepted": false,
+    "error": "error: Error parsing JSON: -01"
+  },
+  {
+    "input": "MS4=",
+    "accepted": false,
+    "error": "error: Error parsing JSON: 1."
+  },
+  {
+    "input": "LjU=",
+    "accepted": false,
+    "error": "error: Error parsing JSON: .5"
+  },
+  {
+    "input": "LQ==",
+    "accepted": false,
+    "error": "error code: -32700\nerror message:\nParse error"
+  },
+  {
+    "input": "KzE=",
+    "accepted": false,
+    "error": "error: Error parsing JSON: +1"
+  },
+  {
+    "input": "MWU=",
+    "accepted": false,
+    "error": "error: Error parsing JSON: 1e"
+  },
+  {
+    "input": "MC4wZTAw",
+    "accepted": true,
+    "output": "WwogIDAuMGUwMApd"
+  },
+  {
+    "input": "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkw",
+    "accepted": true,
+    "output": "WwogIDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MApd"
+  },
+  {
+    "input": "dHJ1ZQ==",
+    "accepted": true,
+    "output": "WwogIHRydWUKXQ=="
+  },
+  {
+    "input": "bnVs",
+    "accepted": false,
+    "error": "error: Error parsing JSON: nul"
+  },
+  {
+    "input": "bnVsbA==",
+    "accepted": true,
+    "output": "WwogIG51bGwKXQ=="
+  },
+  {
+    "input": "eyJhIjoxLCJhIjoyfQ==",
+    "accepted": true,
+    "output": "WwogIHsKICAgICJhIjogMSwKICAgICJhIjogMgogIH0KXQ=="
+  },
+  {
+    "input": "eyJiIjp7fSwiYSI6W119",
+    "accepted": true,
+    "output": "WwogIHsKICAgICJiIjogewogICAgfSwKICAgICJhIjogWwogICAgXQogIH0KXQ=="
+  },
+  {
+    "input": "eyJcdTAwMDBrIjoiXHUwMDFmIn0=",
+    "accepted": true,
+    "output": "WwogIHsKICAgICJcdTAwMDBrIjogIlx1MDAxZiIKICB9Cl0="
+  },
+  {
+    "input": "WzEsXQ==",
+    "accepted": false,
+    "error": "error: Error parsing JSON: [1,]"
+  },
+  {
+    "input": "eyJhIjoxLH0=",
+    "accepted": false,
+    "error": "error: Error parsing JSON: {\"a\":1,}"
+  },
+  {
+    "input": "eyIxIjowLCIwIjoxfQ==",
+    "accepted": true,
+    "output": "WwogIHsKICAgICIxIjogMCwKICAgICIwIjogMQogIH0KXQ=="
+  },
+  {
+    "input": "ICB7IngiIDogWyAxICwyIF0gfSAg",
+    "accepted": true,
+    "output": "WwogIHsKICAgICJ4IjogWwogICAgICAxLAogICAgICAyCiAgICBdCiAgfQpd"
+  },
+  {
+    "input": "CzE=",
+    "accepted": false,
+    "error": "error: Error parsing JSON: \u000b1"
+  },
+  {
+    "input": "WyJcdUQ4M0QiXQ==",
+    "accepted": false,
+    "error": "error: Error parsing JSON: [\"\\uD83D\"]"
+  }
+]
