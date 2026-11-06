@@ -485,48 +485,6 @@
   font-weight: 600;
   cursor: default;
 }
-.form-status {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 var(--s-6);
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: var(--s-2) var(--s-4);
-}
-.form-status li {
-  display: flex;
-  gap: var(--s-2);
-  align-items: baseline;
-  padding: var(--s-3) var(--s-4);
-  border-radius: var(--radius-m);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  font-weight: 500;
-}
-.st-mark {
-  display: inline-grid;
-  place-items: center;
-  width: 1.4rem;
-  height: 1.25rem;
-  border-radius: 48% 52% 45% 55% / 55% 50% 50% 45%;
-  font-size: var(--t-xs);
-  font-weight: 800;
-  flex: none;
-  background: var(--sunk);
-  color: var(--ink-3);
-}
-.st-ok .st-mark {
-  background: var(--pass-fill);
-  color: var(--on-accent);
-}
-.st-no .st-mark {
-  background: var(--fail-fill);
-  color: #fff;
-}
-.st-wait .st-mark {
-  background: var(--ochre-wash);
-  color: var(--ochre-ink);
-}
 .not-ready ul {
   margin-bottom: var(--s-4);
 }
@@ -1195,6 +1153,7 @@
 }
 .mn-no-service {
   color: var(--warn);
+}
 /* ---- live page reading column: below the status, everything reads in one 45rem column with body-size text -------------------- */
 .live-page .form-section {
   max-width: 45rem;

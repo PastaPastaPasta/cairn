@@ -378,6 +378,7 @@ input[inputmode='numeric'] {
   border: 1px solid var(--line);
   border-radius: var(--radius-l);
   background: var(--surface);
+  margin-bottom: var(--s-4);
 }
 .filters .unit-input {
   max-width: none;
@@ -992,9 +993,6 @@ input[inputmode='numeric'] {
 .looking-mine p,
 .listing-mine p {
   margin-bottom: var(--s-2);
-}
-.filters {
-  margin-bottom: var(--s-4);
 }
 .side-card > .btn + p {
   margin-top: var(--s-4);
