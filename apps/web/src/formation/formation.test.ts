@@ -4,7 +4,7 @@ import { COIN, decodeSharedProRegTx, termsHash, validateTermSheet, type TermShee
 import { describe, expect, it } from 'vitest';
 import { agreementOf } from '../matching/agreement.ts';
 import { linkedProTx } from '../matching/group.ts';
-import { checkMessage } from './checker.ts';
+import { checkMessage, outsiderOf } from './checker.ts';
 import { cliPlan, fillArgs, percentString, renderPlan, shareTokens } from './cli.ts';
 import { earlyView, labelChainShares, rewardSplit } from './live.ts';
 import { setupSheet } from './setup.ts';
@@ -202,6 +202,15 @@ describe('message checker, against the approved terms', () => {
     expect(checkMessage(env('frozen'), { terms: { ...termsA, rewardBps: 400 }, outsider: 'not-member' }).verdict).toBe('stop');
     // without terms there is nothing to downgrade
     expect(checkMessage(env('frozen'), { outsider: 'not-member' }).findings.map((f) => f.code)).not.toContain('not-on-roster');
+  });
+
+  it('counts the roster and the group’s operator as parties to its terms, everyone else as an outsider', () => {
+    const g = { roster: [{ id: 'id-alice' }, { id: 'id-bob' }], operatorId: 'id-op' };
+    expect(outsiderOf(g, 'id-bob')).toBeUndefined();
+    expect(outsiderOf(g, 'id-op')).toBeUndefined();
+    expect(outsiderOf(g, 'id-eve')).toBe('not-member');
+    expect(outsiderOf(g, null)).toBe('signed-out');
+    expect(outsiderOf({ roster: g.roster }, undefined)).toBe('signed-out');
   });
 
   it('stops when a row’s addresses changed since an earlier message of the session', () => {

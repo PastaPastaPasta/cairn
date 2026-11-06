@@ -5,7 +5,7 @@ import { PROFILES } from '../config/registry.ts';
 import { A, GID, ORG, id } from '../matching/fixtures.ts';
 import { readDoc, readStored, remember } from './cairn.ts';
 import * as platform from './platform.ts';
-import { holdsData, StaleWrite, UnconfirmedWrite, writeConfirmed, type WriteDeps } from './write.ts';
+import { CATCHING_UP_TEXT, holdsData, STALE_TEXT, StaleWrite, UnconfirmedWrite, writeConfirmed, type WriteDeps } from './write.ts';
 
 vi.mock('./platform.ts', () => ({ getCairnDoc: vi.fn(async () => null), queryCairn: vi.fn() }));
 
@@ -62,6 +62,19 @@ describe('confirmed writes', () => {
     await expect(writeConfirmed(r, write, replaceOp(CID, 'seat', SEAT_ID, 1, data), gone)).rejects.toBeInstanceOf(StaleWrite);
     expect(gone.calls).toBe(2);
     expect(write).toHaveBeenCalledOnce();
+  });
+
+  it('waits before asking again, and says Platform is catching up when the node lacks this tab’s own write', async () => {
+    const DOC = id(82);
+    const sleep = vi.fn(async () => {});
+    const write = vi.fn(async () => ({ id: DOC, revision: 2 }));
+    const gone = { ...deps([null, null]), sleep };
+    await expect(writeConfirmed(r, write, replaceOp(CID, 'seat', DOC, 1, seat(400e8)), gone)).rejects.toThrow(STALE_TEXT);
+    expect(sleep).toHaveBeenCalledOnce();
+    remember(r, 'seat', DOC, stored(seat(300e8), 1, DOC));
+    const lagging = deps([null, null]);
+    await expect(writeConfirmed(r, write, replaceOp(CID, 'seat', DOC, 1, seat(400e8)), lagging)).rejects.toThrow(CATCHING_UP_TEXT);
+    expect(write).not.toHaveBeenCalled();
   });
 
   it('does not take this tab’s copy for a document Platform no longer has (deleted elsewhere)', async () => {

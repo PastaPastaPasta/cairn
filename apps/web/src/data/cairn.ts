@@ -105,9 +105,12 @@ export async function readDoc(r: Registry, type: DocType, id: string): Promise<R
   return raw;
 }
 
+/** This tab's copy of a document it wrote: undefined when it wrote none, null when it deleted it. */
+export const remembered = (r: Registry, type: DocType, id: string): RawDoc | null | undefined => known.get(knownKey(r, type, id));
+
 /** What Platform holds (proved), never this tab's copy: a document deleted elsewhere reads as gone. Only a delete this tab confirmed is known. */
 export async function readStored(r: Registry, type: DocType, id: string): Promise<RawDoc | null> {
-  if (known.get(knownKey(r, type, id)) === null) return null;
+  if (remembered(r, type, id) === null) return null;
   return getCairnDoc(r, type, id);
 }
 

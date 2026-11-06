@@ -16,7 +16,7 @@ import { stageOf } from '../matching/stage.ts';
 import { RefillPanel } from '../pages/group/Organizer.tsx';
 import { PageHead } from '../ui/states.tsx';
 import { Checker } from './Checker.tsx';
-import { dash } from './checker.ts';
+import { dash, outsiderOf } from './checker.ts';
 import { percentString } from './cli.ts';
 import { earlyView, labelChainShares, rewardSplit } from './live.ts';
 import { GroupGate, GroupTabs, RegistrationCard, RegProgress } from './parts.tsx';
@@ -169,6 +169,7 @@ function LiveRegistration({ j, view, agreement }: { j: RegistrationJudgement; vi
               network={coreNetwork(registry.network)}
               terms={terms}
               myLabel={mine}
+              outsider={outsiderOf(g, me)}
               chainShares={shares}
               proTxHash={j.proTxHash}
               title="Check a maintenance message"

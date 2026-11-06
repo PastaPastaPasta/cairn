@@ -7,7 +7,7 @@ import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
 import type { Registry } from '../config/registry.ts';
 import type { DocumentOp, DocumentResult } from '../session/session.ts';
-import { forget, readDoc, readStored, remember } from './cairn.ts';
+import { forget, readDoc, readStored, remember, remembered } from './cairn.ts';
 
 type Readable = Exclude<DocType, 'vault'>;
 const readerFor = (type: DocType, network: Network) => (raw: RawDoc) => (type === 'group' ? toGroup(raw, network) : READERS[type as Readable](raw));
@@ -48,6 +48,9 @@ export class UnconfirmedWrite extends Error {
 
 export const STALE_TEXT = 'This changed since the page loaded, so nothing was sent and nothing was charged. The page now shows the latest version: check it, then try again.';
 
+export const CATCHING_UP_TEXT =
+  'Dash Platform does not show your last change to this yet, or it was removed elsewhere, so nothing was sent and nothing was charged. Wait a few seconds and try again; reload if this persists.';
+
 /** The page acted on a version that is no longer the stored one. Nothing was signed or sent: Platform would refuse it after charging. */
 export class StaleWrite extends Error {
   constructor(message = STALE_TEXT) {
@@ -59,10 +62,15 @@ export class StaleWrite extends Error {
 /** A replace or delete of a document that is gone, or that someone replaced after the page read it. */
 async function preflight(r: Registry, op: DocOp, deps: WriteDeps): Promise<void> {
   if (op.action === 'create') return;
-  // a node without the document may only be behind: ask once more (the SDK picks a node per request) before refusing
-  const stored = (await deps.stored(r, op.type, op.id)) ?? (await deps.stored(r, op.type, op.id));
+  let stored = await deps.stored(r, op.type, op.id);
+  if (!stored) {
+    // a node without the document may only be behind: ask once more (the SDK picks a node per request) before refusing
+    await deps.sleep(1500);
+    stored = await deps.stored(r, op.type, op.id);
+  }
+  if (!stored) throw new StaleWrite(remembered(r, op.type, op.id) ? CATCHING_UP_TEXT : STALE_TEXT);
   // a stored revision below the page's is a node lagging behind, not a newer version: Platform decides
-  if (!stored || (op.action === 'replace' && Number(stored.$revision ?? 1) > op.revision)) throw new StaleWrite();
+  if (op.action === 'replace' && Number(stored.$revision ?? 1) > op.revision) throw new StaleWrite();
 }
 
 export interface WriteOptions {

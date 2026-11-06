@@ -8,6 +8,7 @@ import { useGroupBundle } from '../data/cairn.ts';
 import { agreementOf } from '../matching/agreement.ts';
 import { PageHead } from '../ui/states.tsx';
 import { Checker } from './Checker.tsx';
+import { outsiderOf } from './checker.ts';
 import { GroupTabs } from './parts.tsx';
 
 export function CheckPage() {
@@ -71,8 +72,8 @@ function GroupChecker({ groupId }: { groupId: string }) {
   }
   const { group } = bundle;
   const mine = group.roster.find((r) => r.id === session?.identityId)?.label;
-  // a link can name any group: only a reader on its roster knows these are the terms they approved themselves
-  const outsider = mine ? undefined : session ? 'not-member' : 'signed-out';
+  // a link can name any group: only its co-owners and operator know these are the terms they agreed to themselves
+  const outsider = outsiderOf(group, session?.identityId);
   return (
     <>
       {outsider && (

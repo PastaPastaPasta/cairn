@@ -20,7 +20,7 @@ import { PageHead } from '../ui/states.tsx';
 import { useAction } from '../ui/useAction.ts';
 import { useScrollToHash } from '../ui/useScrollToHash.ts';
 import { Checker } from './Checker.tsx';
-import { dashPlain as dash } from './checker.ts';
+import { dashPlain as dash, outsiderOf } from './checker.ts';
 import { cliPlan, renderCommand } from './cli.ts';
 import { GroupGate, GroupTabs, LinkRegistration, RegistrationCard } from './parts.tsx';
 import { setupSheet, type SetupPage } from './setup.ts';
@@ -271,7 +271,7 @@ function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void })
               network={coreNetwork(registry.network)}
               terms={agreement.terms}
               myLabel={mine?.label}
-              outsider={mine ? undefined : session ? 'not-member' : 'signed-out'}
+              outsider={outsiderOf(g, me)}
               title="Check a message against your approval"
               intro={`Compared with the terms all ${g.roster.length} members approved (revision ${g.termsRevision}). Pick your row and paste your owner address so a moved row stops you.`}
             />

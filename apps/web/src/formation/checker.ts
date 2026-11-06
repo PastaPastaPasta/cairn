@@ -151,6 +151,12 @@ const empty = (kind: CheckView['kind'], title: string, summary: string): CheckVi
 
 const f = (level: Level, code: string, title: string, detail = ''): Finding => ({ level, code, title, detail });
 
+/** Whether `me` reads a group's terms as an outsider: neither on its roster nor its operator (the operator accepted or wrote them). */
+export function outsiderOf(g: { roster: readonly { id: string }[]; operatorId?: string | null }, me: string | null | undefined): CheckContext['outsider'] {
+  if (!me) return 'signed-out';
+  return g.roster.some((r) => r.id === me) || g.operatorId === me ? undefined : 'not-member';
+}
+
 const notOnRoster = (outsider: NonNullable<CheckContext['outsider']>): Finding =>
   f(
     'warn',
