@@ -18,6 +18,7 @@ import { CairnStack } from '../ui/CairnStack.tsx';
 import { DashField, PercentField } from '../ui/fields.tsx';
 import { Loaded } from '../ui/Loaded.tsx';
 import { useMyLooking } from '../ui/LookingEditor.tsx';
+import { HiddenNote, useHidden } from '../ui/hidden.tsx';
 import { PersonName } from '../ui/Person.tsx';
 import { NotOpenHere, PageHead } from '../ui/states.tsx';
 import '../styles/matching.css';
@@ -140,7 +141,9 @@ export function GroupsPage() {
 
   const amountDuffs = amount.trim() ? parseDashInput(amount) : null;
   const rewardBps = maxReward.trim() ? parsePercentInput(maxReward) : null;
-  const items = list.status === 'ready' ? list.data.items : [];
+  const hidden = useHidden();
+  const all = list.status === 'ready' ? list.data.items : [];
+  const items = useMemo(() => all.filter((g) => g.ownerId === session?.identityId || !hidden.has(g.ownerId)), [all, hidden, session]);
   const operatorIds = useMemo(() => [...new Set(items.flatMap((g) => (g.operatorId ? [g.operatorId] : [])))], [items]);
   const people = usePeople(operatorIds);
   const exitBlocks = exit === 'any' ? null : (EXIT_PRESETS.find((p) => p.id === exit)?.blocks ?? null);
@@ -238,6 +241,7 @@ export function GroupsPage() {
                         : undefined
                     }
                   />
+                  <HiddenNote count={d.items.length - items.length} />
                   {d.more && (
                     <button type="button" className="btn btn-s" onClick={list.showOlder}>
                       Show older groups

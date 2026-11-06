@@ -6,7 +6,9 @@ import { useAuth } from '../auth/context.tsx';
 import { RecoverFunds } from '../auth/Recover.tsx';
 import { PROFILES, type ProfileId } from '../config/registry.ts';
 import { ThemeSwitch, openSignIn } from '../ui/Account.tsx';
+import { HiddenProfiles } from '../ui/hidden.tsx';
 import { PageHead } from '../ui/states.tsx';
+import { useScrollToHash } from '../ui/useScrollToHash.ts';
 
 const NET_TEXT: Record<ProfileId, string> = {
   testnet: 'Test DASH with no value. Everything works end to end here, including forming a shared masternode.',
@@ -19,6 +21,7 @@ export function SettingsPage() {
   const auth = useAuth();
   const { hash } = useLocation();
   const recover = useRef<HTMLDetailsElement>(null);
+  useScrollToHash(null);
   useEffect(() => {
     if (hash !== '#recover' || !recover.current) return;
     recover.current.open = true;
@@ -81,6 +84,7 @@ export function SettingsPage() {
           </p>
         )}
       </section>
+      <HiddenProfiles />
       <section className="settings-block" aria-label="Recover funds">
         <details id="recover" className="settings-disclosure" ref={recover}>
           <summary>Paid for an account and it didn't finish?</summary>

@@ -17,6 +17,7 @@ import { bpsInput, dash, dashNum, parseDashInput, parsePercentInput, pct } from 
 import { operatorName } from '../../matching/words.ts';
 import { ExitTermsField, Field, PercentField } from '../../ui/fields.tsx';
 import { WriteStatus } from '../../ui/Loaded.tsx';
+import { HideButton, useHidden } from '../../ui/hidden.tsx';
 import { PersonName } from '../../ui/Person.tsx';
 import { useAction } from '../../ui/useAction.ts';
 import { BlsField, ServiceField, useBlsProblem } from './NextStep.tsx';
@@ -33,7 +34,8 @@ export function InviteSection({ view, people, ops, done }: Props) {
   const g = view.group;
   const posts = useStatusList(LOOKING, OPEN_LOOKING);
   const { busy, error, run } = useAction();
-  const exclude = useMemo(() => new Set([...view.requests.map((r) => r.seat.ownerId), ...view.openInvites.map((i) => i.toId), ...view.declined.map((s) => s.ownerId)]), [view]);
+  const hidden = useHidden();
+  const exclude = useMemo(() => new Set([...view.requests.map((r) => r.seat.ownerId), ...view.openInvites.map((i) => i.toId), ...view.declined.map((s) => s.ownerId), ...hidden.ids]), [view, hidden.ids]);
   const fits = posts.status === 'ready' ? lookingThatFits(g, posts.data.items, exclude) : [];
   const combos = completions(g, fits);
   const again = invitableAgain(view);
@@ -96,9 +98,12 @@ export function InviteSection({ view, people, ops, done }: Props) {
                   {f.looking.canCoordinate && <li className="pref-ok">Can coordinate</li>}
                 </ul>
               </div>
-              <button type="button" className="btn btn-s" disabled={busy} onClick={() => invite([f.looking])} data-testid="invite-person">
-                Invite
-              </button>
+              <div className="form-actions">
+                <button type="button" className="btn btn-s" disabled={busy} onClick={() => invite([f.looking])} data-testid="invite-person">
+                  Invite
+                </button>
+                <HideButton id={f.looking.ownerId} name={name(f.looking.ownerId)?.name} hidden={hidden} />
+              </div>
             </li>
           ))}
         </ul>
