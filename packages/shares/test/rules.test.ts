@@ -8,6 +8,7 @@ import {
   areEarlyTermsValid,
   areShareAmountsValid,
   canAddShare,
+  minNextShare,
   isCompletable,
   isShareListTriviallyValid,
   remainingDuffs,
@@ -144,6 +145,21 @@ describe("matching helpers", () => {
     expect(canAddShare(six, D(100))).toEqual({ ok: true, remainingAfter: D(300) });
     expect(canAddShare([...six, D(100)], D(100))).toMatchObject({ ok: false, reason: "no-seat-for-remainder" });
     expect(canAddShare(Array.from({ length: 8 }, () => D(100)), D(100))).toMatchObject({ reason: "roster-full" });
+  });
+
+  test("the early penalty raises the smallest share still to come (penalty < smallest share)", () => {
+    expect(minNextShare(0n)).toBe(D(100));
+    expect(minNextShare(D(99))).toBe(D(100));
+    expect(minNextShare(D(200))).toBe(D(200) + 1n);
+    // [500, 350] with a 200 penalty: the only completion, 150, would be below the penalty
+    expect(isCompletable(2, D(150), D(200))).toBe(false);
+    expect(canAddShare([D(500)], D(350), undefined, D(200))).toMatchObject({ ok: false, reason: "remainder-too-small" });
+    expect(canAddShare([D(500)], D(150), undefined, D(200))).toMatchObject({ ok: false, reason: "not-above-penalty" });
+    expect(canAddShare([D(500)], D(250), undefined, D(200))).toEqual({ ok: true, remainingAfter: D(250) });
+    // an empty roster can take any penalty two shares can stay above: 500/500 allows 499.99999999
+    expect(isCompletable(0, D(1000), D(500) - 1n)).toBe(true);
+    expect(isCompletable(0, D(1000), D(500))).toBe(false);
+    expect(suggestCombos(D(500), [D(150), D(350), D(250), D(250)], 3, { earlyPenalty: D(200) })).toEqual([[2, 3]]);
   });
 
   test("isCompletable", () => {

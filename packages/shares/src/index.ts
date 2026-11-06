@@ -22,6 +22,7 @@ export {
   areShareAmountsValid,
   canAddShare,
   isCompletable,
+  minNextShare,
   isEarlyPenaltyValid,
   isEarlyPeriodValid,
   isOperatorRewardValid,

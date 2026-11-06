@@ -284,8 +284,9 @@ export type CoreServiceCheck =
 /**
  * Whether "a.b.c.d:port" can be a shared masternode's (ProTx v3) primary Core P2P service, as
  * Core checks it: ExtNetInfo::ValidateService for CORE_P2P (valid, routable unless regtest,
- * port neither 0 nor IsBadPort), CheckIPv4Primaries (the first entry must be IPv4) and
- * ValidateMainnetPrimaryPort (port 9999 on mainnet). The port is never assumed.
+ * port neither 0 nor IsBadPort) and ValidateMainnetPrimaryPort (port 9999 on mainnet). The port is
+ * never assumed. IPv4 only on every network: CheckIPv4Primaries requires it on mainnet until
+ * IPV4_OPTIONAL activates (testnet and devnets already allow other primaries); Cairn keeps it.
  */
 export function validateCoreService(text: string, network: Network): CoreServiceCheck {
   const e = /^[0-9.]+:\d{1,5}$/.test(text) ? parseServiceEntry(text) : undefined;
