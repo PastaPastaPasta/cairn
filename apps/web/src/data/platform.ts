@@ -59,6 +59,7 @@ export class PlatformTimeout extends Error {
 
 /** One read's deadline. The SDK's own timeout does not end a request a node accepted and never answers. */
 export const READ_DEADLINE_MS = 20_000;
+const READ_ATTEMPTS = 2;
 const CONNECT_DEADLINE_MS = 20_000;
 
 function deadline<T>(p: Promise<T>, ms: number): Promise<T> {
@@ -70,8 +71,7 @@ function deadline<T>(p: Promise<T>, ms: number): Promise<T> {
  * A read under a deadline, tried a second time when the first attempt times out: the SDK picks a node per request, so the retry
  * usually reaches another one. A connection that never comes up is dropped, so the next read starts a fresh one.
  */
-export async function withSdk<T>(r: Registry, read: (sdk: Sdk) => Promise<T>, o: { deadlineMs?: number; attempts?: number } = {}): Promise<T> {
-  const attempts = o.attempts ?? 2;
+export async function withSdk<T>(r: Registry, read: (sdk: Sdk) => Promise<T>): Promise<T> {
   await loadEvo();
   for (let i = 1; ; i++) {
     const sdk = getSdk(r);
@@ -80,9 +80,9 @@ export async function withSdk<T>(r: Registry, read: (sdk: Sdk) => Promise<T>, o:
         if (e instanceof PlatformTimeout && current?.sdk === sdk) current = null;
         throw e;
       });
-      return await deadline(read(ready), o.deadlineMs ?? READ_DEADLINE_MS);
+      return await deadline(read(ready), READ_DEADLINE_MS);
     } catch (e) {
-      if (!(e instanceof PlatformTimeout) || i >= attempts) throw e;
+      if (!(e instanceof PlatformTimeout) || i >= READ_ATTEMPTS) throw e;
     }
   }
 }
