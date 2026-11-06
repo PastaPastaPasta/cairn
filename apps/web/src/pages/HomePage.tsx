@@ -26,8 +26,8 @@ const STEPS = [
     text: 'One member starts a shared masternode in Dash Core’s own wizard; everyone else confirms and signs from their own wallet. Cairn checks every message against what you approved.',
   },
   {
-    title: 'Earn together',
-    text: 'Once the masternode is registered, every payout block splits the owner reward by share, straight to each member’s own address. Nobody passes coins around.',
+    title: 'Share the rewards',
+    text: 'Once the masternode is registered, every block that pays it splits the owner reward by share, straight to each member’s own address. Nobody passes coins around.',
   },
 ];
 
@@ -40,7 +40,7 @@ export function HomePage() {
           <h1 id="hero-title">Build a masternode together.</h1>
           <p className="hero-lede">
             A Dash masternode needs 1000 DASH. With Dash Core v24, two to eight people can bring it between them, at least 100 DASH each, and every share stays
-            in its owner’s wallet. Cairn helps you find the others, agree on an operator and terms, and walk through Dash Core’s own steps.
+            in its owner’s control. Cairn helps you find the others, agree on an operator and terms, and walk through Dash Core’s own steps.
           </p>
           <div className="hero-actions">
             <Link className="btn btn-primary btn-l" to="/groups">
@@ -50,7 +50,7 @@ export function HomePage() {
               How it works
             </Link>
           </div>
-          <p className="hero-promise">Cairn never holds your coins or keys. Your DASH moves only inside your own Dash Core wallet.</p>
+          <p className="hero-promise">Cairn never holds your coins or keys. Your DASH moves only in transactions Dash Core checks, never through anyone’s hands.</p>
         </div>
         <div className="hero-cairn">
           <CairnStack stones={SAMPLE_STONES} animate />
@@ -83,7 +83,7 @@ export function HomePage() {
               <b>100 DASH or more</b> for your share. Shares can be any amount from 100 DASH, as long as the group’s shares add up to exactly 1000.
             </li>
             <li>
-              <b>Dash Core on a computer</b> (Dash-Qt, version 24 or later). Your share, its owner key and your reward address live in that wallet.
+              <b>Dash Core on a computer</b> (Dash-Qt, version 24 or later). Your share’s owner key, refund address and reward address live in that wallet.
             </li>
             <li>
               <b>A Cairn account</b> to make a profile and join a group. It costs about 0.005 DASH, paid from any Dash wallet, and you can browse without one.
@@ -93,9 +93,15 @@ export function HomePage() {
         <div className="needs-col needs-keep">
           <h2>What you never hand over</h2>
           <ul className="crosses">
-            <li>Your coins. They stay in your wallet, locked by the network itself, until you or another member leaves.</li>
+            <li>
+              Your coins. Your share goes into a collateral only a dissolution can spend, and a dissolution sends it back to your refund address, minus any
+              agreed early penalty if you leave early.
+            </li>
             <li>Your wallet’s keys or recovery phrase. Nobody in a group, and nothing on Cairn, ever needs them.</li>
-            <li>Control of leaving. Any member can leave alone at any time, and every member gets their full share back.</li>
+            <li>
+              Control of leaving. Any member can leave alone at any time. Everyone gets their share back; whoever leaves before the agreed early period ends pays
+              the agreed penalty to the others.
+            </li>
           </ul>
         </div>
       </section>
