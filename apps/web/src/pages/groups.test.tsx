@@ -21,6 +21,11 @@ vi.mock('../data/lists.ts', async (orig) => ({
     return { status: 'ready', data: { items: list.items, more: false }, refreshing: false, reload: () => {}, showOlder: () => {} };
   },
 }));
+const chain = vi.hoisted(() => ({ primary: null as null | { state: string; mnState: string } }));
+vi.mock('../formation/useRegistration.ts', async (orig) => ({
+  ...(await orig<typeof import('../formation/useRegistration.ts')>()),
+  useGroupRegistrations: (v: { linked: unknown[] }) => ({ state: { status: 'idle' }, recheck: () => {}, primary: v.linked.length ? chain.primary : null }),
+}));
 const { GroupsPage } = await import('./GroupsPage.tsx');
 
 const show = () =>
@@ -86,7 +91,7 @@ describe('signed-in Home', () => {
     const view = groupView({ group: g, seats: [seat(A, D(600))], opAccepts: [opAccept()], invites: [], approvals: [], voided: [] }, 'testnet');
     const r = await render(
       <MemoryRouter>
-        <NextStepList groups={[{ view, steps: nextSteps(view, { id: B }), formByPassed: true }]} />
+        <NextStepList groups={[{ view, steps: nextSteps(view, { id: B }), formByPassed: true }]} me={B} />
       </MemoryRouter>,
     );
     const band = r.el.querySelector('[data-testid="next-band"]')!;
@@ -98,10 +103,33 @@ describe('signed-in Home', () => {
     await r.unmount();
     const none = await render(
       <MemoryRouter>
-        <NextStepList groups={[{ view: { ...view, closed: true }, steps: nextSteps(view, { id: ORG }), formByPassed: false }]} />
+        <NextStepList groups={[{ view: { ...view, closed: true }, steps: nextSteps(view, { id: ORG }), formByPassed: false }]} me={ORG} />
       </MemoryRouter>,
     );
     expect(none.el.querySelector('[data-testid="next-band"]')).toBeNull();
     await none.unmount();
+  });
+
+  it('takes a linked group’s step from the chain check, as /me does', async () => {
+    const g = group({ roster: [{ id: A, amount: D(600) }, { id: B, amount: D(400) }], status: GROUP_STATUS.live, proTxHash: 'ab'.repeat(32), title: 'Porto node' });
+    const view = groupView({ group: g, seats: [seat(A, D(600)), seat(B, D(400))], opAccepts: [opAccept()], invites: [], approvals: [], voided: [] }, 'testnet');
+    expect(view.linked.length).toBe(1);
+    chain.primary = { state: 'recorded-after', mnState: 'valid' };
+    const r = await render(
+      <MemoryRouter>
+        <NextStepList groups={[{ view, steps: nextSteps(view, { id: B }), formByPassed: false }]} me={B} />
+      </MemoryRouter>,
+    );
+    expect(r.el.querySelector('[data-testid="next-band"]')!.textContent).toContain('Registered, but not verified');
+    await r.unmount();
+    chain.primary = { state: 'mismatch', mnState: 'valid' };
+    const bad = await render(
+      <MemoryRouter>
+        <NextStepList groups={[{ view, steps: nextSteps(view, { id: B }), formByPassed: false }]} me={B} />
+      </MemoryRouter>,
+    );
+    expect(bad.el.querySelector('[data-testid="next-band"]')!.textContent).toContain('The linked registration does not match');
+    await bad.unmount();
+    chain.primary = null;
   });
 });

@@ -93,10 +93,15 @@ export function MyGroups({ me, isOperator, onGroups }: { me: string; isOperator:
   );
 }
 
-/** One group; a linked registration is checked on chain, so its steps say registered or earning as the group page does. */
-function MyGroupItem({ group: { view, steps: fromDocs, formByPassed }, me, isOperator }: { group: MyGroup; me: string; isOperator: boolean }) {
+/** A group's steps, with a linked registration checked on chain, so they say registered or earning as the group page does. */
+function useCheckedSteps({ view, steps: fromDocs }: MyGroup, me: string, isOperator: boolean): Step[] {
   const reg = useGroupRegistrations(view);
-  const steps = reg.primary ? nextSteps(view, { id: me, isOperator }, stageOf(view, reg.primary)).filter((s) => s.role !== 'visitor') : fromDocs;
+  return reg.primary ? nextSteps(view, { id: me, isOperator }, stageOf(view, reg.primary)).filter((s) => s.role !== 'visitor') : fromDocs;
+}
+
+function MyGroupItem({ group, me, isOperator }: { group: MyGroup; me: string; isOperator: boolean }) {
+  const { view, steps: fromDocs, formByPassed } = group;
+  const steps = useCheckedSteps(group, me, isOperator);
   return (
     <li className={`my-group${view.closed ? ' closed' : ''}`}>
       <div className="my-group-head">
@@ -128,10 +133,10 @@ export function NextStepBand({ me }: { me: string }) {
   // the operator flag only decides a visitor's offer step, which /me never shows
   const load = useLoad(`my-groups:${me}:false`, (r) => loadMyGroups(r, me, false));
   if (load.status !== 'ready') return null;
-  return <NextStepList groups={load.data} />;
+  return <NextStepList groups={load.data} me={me} />;
 }
 
-export function NextStepList({ groups }: { groups: MyGroup[] }) {
+export function NextStepList({ groups, me }: { groups: MyGroup[]; me: string }) {
   const open = groups.filter((g) => !g.view.closed);
   if (!open.length) return null;
   return (
@@ -140,24 +145,9 @@ export function NextStepList({ groups }: { groups: MyGroup[] }) {
         Your next step
       </h2>
       <ul className="my-groups">
-        {open.slice(0, 3).map(({ view, steps, formByPassed }) => {
-          const s = steps.find((x) => x.tone === 'todo' || x.tone === 'warn') ?? steps[0]!;
-          return (
-            <li key={view.group.id} className="my-group">
-              <div className="my-group-head">
-                <Link to={`/g/${view.group.id}`} className="fit-title">
-                  {view.group.title}
-                </Link>
-              </div>
-              <p className={`my-step next-${s.tone}`}>
-                <span className="small muted">{ROLE_WORDS[s.role]}:</span> <b>{s.title}</b>
-                <span className="small block">{s.text}</span>
-                {formByPassed && <span className="small block">{FORM_BY_PASSED}</span>}
-              </p>
-              <StepLink groupId={view.group.id} steps={steps} />
-            </li>
-          );
-        })}
+        {open.slice(0, 3).map((g) => (
+          <NextStepItem key={g.view.group.id} group={g} me={me} />
+        ))}
       </ul>
       {open.length > 3 && (
         <p className="small">
@@ -165,6 +155,28 @@ export function NextStepList({ groups }: { groups: MyGroup[] }) {
         </p>
       )}
     </section>
+  );
+}
+
+function NextStepItem({ group, me }: { group: MyGroup; me: string }) {
+  const { view, steps: fromDocs, formByPassed } = group;
+  const checked = useCheckedSteps(group, me, false);
+  const steps = checked.length ? checked : fromDocs;
+  const s = steps.find((x) => x.tone === 'todo' || x.tone === 'warn') ?? steps[0]!;
+  return (
+    <li className="my-group">
+      <div className="my-group-head">
+        <Link to={`/g/${view.group.id}`} className="fit-title">
+          {view.group.title}
+        </Link>
+      </div>
+      <p className={`my-step next-${s.tone}`}>
+        <span className="small muted">{ROLE_WORDS[s.role]}:</span> <b>{s.title}</b>
+        <span className="small block">{s.text}</span>
+        {formByPassed && <span className="small block">{FORM_BY_PASSED}</span>}
+      </p>
+      <StepLink groupId={view.group.id} steps={steps} />
+    </li>
   );
 }
 
