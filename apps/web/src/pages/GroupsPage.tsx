@@ -57,14 +57,17 @@ export function GroupRows({ groups, note }: { groups: Group[]; note?(g: Group): 
   );
 }
 
+const STAGE_ROW_WORDS: Partial<Record<Stage, string>> = { ready: 'Ready to form', 'session-started': 'Forming in Dash Core' };
+
 /**
  * A locked group's list tag from its approvals: the stored status says only "locked", while its own page says "Ready to form" once
  * everyone has approved. Other statuses need no extra read.
  */
 function RowStatus({ g }: { g: Group }) {
   const stage = useLockedStage(g);
-  const words = stage === 'ready' ? 'Ready to form' : stage === 'session-started' ? 'Forming in Dash Core' : (GROUP_STATUS_WORDS[g.status] ?? 'Group');
-  return <span className={`state state-${g.status === GROUP_STATUS.forming || stage === 'ready' || stage === 'session-started' ? 'ok' : 'muted'}`}>{words}</span>;
+  const stageWords = stage ? STAGE_ROW_WORDS[stage] : undefined;
+  const ok = g.status === GROUP_STATUS.forming || !!stageWords;
+  return <span className={`state state-${ok ? 'ok' : 'muted'}`}>{stageWords ?? GROUP_STATUS_WORDS[g.status] ?? 'Group'}</span>;
 }
 
 // a locked group's stage, shared by every list that shows it; approvals change without the group document changing, hence the expiry
@@ -148,9 +151,10 @@ function RecentlyFormed({ recent, label }: { recent: ReturnType<typeof useStatus
   );
 }
 
+const ALL_GROUP_STATUSES = [...LISTED_GROUP_STATUSES, ...CLOSED_GROUP_STATUSES];
 type StatusFilter = 'all' | 'forming' | 'agreeing' | 'formed';
 const STATUS_FILTER: Record<StatusFilter, readonly number[]> = {
-  all: [...LISTED_GROUP_STATUSES, ...CLOSED_GROUP_STATUSES],
+  all: ALL_GROUP_STATUSES,
   forming: [GROUP_STATUS.forming],
   agreeing: [GROUP_STATUS.full, GROUP_STATUS.locked, GROUP_STATUS.formingOnchain],
   formed: [GROUP_STATUS.live, ...CLOSED_GROUP_STATUSES],
@@ -161,7 +165,7 @@ export function GroupsPage() {
   const { registry } = useApp();
   const { session } = useAccount();
   const [showClosed, setShowClosed] = useState(false);
-  const list = useStatusList(GROUPS, showClosed ? [...LISTED_GROUP_STATUSES, ...CLOSED_GROUP_STATUSES] : LISTED_GROUP_STATUSES, !!registry.contractId);
+  const list = useStatusList(GROUPS, showClosed ? ALL_GROUP_STATUSES : LISTED_GROUP_STATUSES, !!registry.contractId);
   const mine = useMyLooking(session && registry.contractId ? session.identityId : null);
   const [amount, setAmount] = useState(DEFAULT_FILTERS.amount);
   const [operator, setOperator] = useState(DEFAULT_FILTERS.operator);
