@@ -26,6 +26,7 @@ export {
   isEarlyPeriodValid,
   isOperatorRewardValid,
   isShareListTriviallyValid,
+  minAmount,
   remainingDuffs,
   suggestCombos,
   type CanAddReason,

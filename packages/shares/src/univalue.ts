@@ -4,7 +4,7 @@
  * order, duplicate keys, raw number tokens and string bytes must survive exactly as UniValue
  * keeps them. JSON.parse cannot do that (it reorders integer-like keys and normalizes numbers).
  */
-import { type Bytes, utf8 } from "./bytes.ts";
+import { type Bytes, equalBytes, utf8 } from "./bytes.ts";
 
 export type UniValue =
   | { type: "null" }
@@ -439,7 +439,7 @@ export function withoutKey(obj: UniValue, key: string): UniValue {
   const values: UniValue[] = [];
   obj.keys.forEach((k, i) => {
     if (bytesEqualString(k, key)) return;
-    const existing = keys.findIndex((x) => x.length === k.length && x.every((b, j) => b === k[j]));
+    const existing = keys.findIndex((x) => equalBytes(x, k));
     if (existing >= 0) values[existing] = obj.values[i]!;
     else {
       keys.push(k);

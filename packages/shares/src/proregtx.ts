@@ -9,7 +9,7 @@ export const MnType = { Regular: 0, Evo: 1 } as const;
 
 /** SharedCollateralScript(): 0x04 "DSHC" OP_DROP OP_TRUE (src/evo/sharedcollateral.h) */
 export const SHARED_COLLATERAL_SCRIPT = Uint8Array.of(0x04, 0x44, 0x53, 0x48, 0x43, 0x75, 0x51);
-export const SHARED_COLLATERAL_SCRIPT_HEX = "04445348437551";
+export const SHARED_COLLATERAL_SCRIPT_HEX = bytesToHex(SHARED_COLLATERAL_SCRIPT);
 
 export function isSharedCollateralScript(script: Bytes): boolean {
   return equalBytes(script, SHARED_COLLATERAL_SCRIPT);

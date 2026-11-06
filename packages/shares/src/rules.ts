@@ -82,7 +82,8 @@ export function areEarlyTermsValid(amounts: readonly bigint[], earlyPeriodBlocks
   return isEarlyPenaltyValid(earlyPeriodBlocks, earlyPenalty, minAmount(amounts));
 }
 
-function minAmount(amounts: readonly bigint[]): bigint {
+/** Smallest amount (0 for an empty list) */
+export function minAmount(amounts: readonly bigint[]): bigint {
   let m: bigint | undefined;
   for (const a of amounts) if (m === undefined || a < m) m = a;
   return m ?? 0n;
@@ -94,11 +95,6 @@ export interface ShareForRules {
   /** empty = rewards to the refund script */
   scriptReward: Bytes;
   keyIDOwner: Bytes;
-}
-
-function p2pkhHashOf(script: Bytes): Bytes | undefined {
-  const s = parseStandardScript(script);
-  return s?.type === "p2pkh" ? s.hash : undefined;
 }
 
 /**
@@ -138,10 +134,11 @@ export function isShareListTriviallyValid(
       [share.scriptReward, true],
     ] as const) {
       if (isReward && script.length === 0) continue;
-      if (!parseStandardScript(script)) {
+      const standard = parseStandardScript(script);
+      if (!standard) {
         return fail("bad-protx-shares-payee", "Every refund and reward address must be a P2PKH or P2SH address.");
       }
-      const pkh = p2pkhHashOf(script);
+      const pkh = standard.type === "p2pkh" ? standard.hash : undefined;
       if (pkh && (equalBytes(pkh, keyIDVoting) || shares.some((o) => equalBytes(pkh, o.keyIDOwner)))) {
         return fail(
           "bad-protx-shares-payee-reuse",

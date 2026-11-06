@@ -9,6 +9,7 @@ import {
   isEarlyPenaltyValid,
   isEarlyPeriodValid,
   isOperatorRewardValid,
+  minAmount,
 } from "./rules.ts";
 
 export const TERMS_DOMAIN = "cairn-terms-v1\n";
@@ -161,7 +162,7 @@ export function validateTermSheet(t: TermSheet): TermIssue[] {
   if (typeof t.earlyPenalty !== "bigint") {
     add("earlyPenalty", "amount-type", "The early-exit penalty must be a bigint of duffs.");
   } else if (Array.isArray(t.shares) && t.shares.length > 0 && period.ok) {
-    const min = t.shares.reduce((m, s) => (s.amount < m ? s.amount : m), t.shares[0]!.amount);
+    const min = minAmount(t.shares.map((s) => s.amount));
     const pen = isEarlyPenaltyValid(t.earlyPeriodBlocks, t.earlyPenalty, min);
     if (!pen.ok) add("earlyPenalty", pen.reason, pen.message);
     else if (t.earlyPeriodBlocks > 0 && t.earlyPenalty === 0n) {

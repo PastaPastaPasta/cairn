@@ -72,7 +72,7 @@ export function writeTxOut(w: Writer, o: TxOut): void {
   w.i64(o.value).varBytes(o.script);
 }
 
-export function hasExtraPayload(version: number, type: number): boolean {
+function hasExtraPayload(version: number, type: number): boolean {
   return version >= SPECIAL_VERSION && type !== TxType.Normal;
 }
 
