@@ -41,6 +41,12 @@ describe('Platform reads under a deadline', () => {
     expect(getWithProof).toHaveBeenCalledTimes(2);
   });
 
+  it('tries once more after a node drops the connection', async () => {
+    getWithProof.mockImplementationOnce(() => Promise.reject(new Error('Failed to fetch')));
+    await expect(getCairnDoc(r, 'group', GID)).resolves.toEqual({ $id: GID });
+    expect(getWithProof).toHaveBeenCalledTimes(2);
+  });
+
   it('gives up with a plain timeout when every attempt hangs', async () => {
     vi.useFakeTimers();
     answers.push('hang', 'hang');

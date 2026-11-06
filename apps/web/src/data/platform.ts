@@ -2,6 +2,7 @@
 // asset): preloadSdk() runs after first paint. getSdk is govhub's (apps/web/src/data/platform.ts); the reads are Cairn's.
 import { CAIRN_SCHEMAS, assertQuery, type CairnQuery, type DocType, type RawDoc } from '@cairn/contract';
 import { base58 } from '@scure/base';
+import { isTransientError } from '../auth/runtime.ts';
 import type { Registry } from '../config/registry.ts';
 
 type EvoModule = typeof import('@dashevo/evo-sdk');
@@ -82,7 +83,7 @@ export async function withSdk<T>(r: Registry, read: (sdk: Sdk) => Promise<T>): P
       });
       return await deadline(read(ready), READ_DEADLINE_MS);
     } catch (e) {
-      if (!(e instanceof PlatformTimeout) || i >= READ_ATTEMPTS) throw e;
+      if (!(e instanceof PlatformTimeout || isTransientError(e)) || i >= READ_ATTEMPTS) throw e;
     }
   }
 }
