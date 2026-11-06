@@ -249,7 +249,8 @@ export function suggestCombos(
   maxPicks: number,
   opts: SuggestOptions = {},
 ): number[][] {
-  const minPicks = Math.max(1, opts.minPicks ?? 1);
+  // A table needs two shares, so one pick can never fill an empty roster
+  const minPicks = Math.max(remaining >= REGULAR_COLLATERAL ? 2 : 1, opts.minPicks ?? 1);
   const maxResults = opts.maxResults ?? 20;
   let steps = opts.maxSteps ?? 200_000;
   const picks = Math.min(maxPicks, MAX_SHARES);

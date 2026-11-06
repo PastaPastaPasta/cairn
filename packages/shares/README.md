@@ -91,17 +91,23 @@ Prefixes: mainnet P2PKH 76 (`X…`), P2SH 16 (`7…`); test/devnet/regtest 140 (
 - `parseTermSheet(json)`: back from canonical JSON.
 
 ### check
-- `checkEnvelopeAgainstTerms(envelope, terms, { myLabel? })` →
+- `checkEnvelopeAgainstTerms(envelope, terms, { myLabel?, myOwnerAddress?, rowAddresses? })` →
   `{ verdict: "ok" | "warn" | "stop", stage, findings: [{ level, code, title, detail }] }`.
   Titles are plain language; `detail` holds the technical part. Shares are matched by label and
   amount (a different order is `info`). Any difference in amounts, operator key, service, voting
   address, operator reward, early terms or network is a `stop`, as is anything Dash Core itself
   would refuse. A zero early period warns "Anyone can leave at any time"; a fingerprint mismatch
   warns. Past the draft it also checks the prepared transaction's consent hash and that its
-  share table and terms equal both the message and the term sheet.
-- `checkRegistrationAgainstTerms(proRegTxHex, terms)`: the on-chain check after broadcast
-  (amounts order-insensitive, operator key, voting key ID, reward, early terms, service,
-  share-table rules, and every joinSig).
+  share table and terms equal both the message and the term sheet. A BIP68 relative lock on any
+  funding input is a `stop` (Core's `shared_sign` refuses those), and so is an invalid term sheet.
+  Labels are free text the coordinator types, so a row is only tied to a person by its owner
+  address: pass `myOwnerAddress` (and `rowAddresses` recorded from members' replies) to turn
+  "my share" from `info` into a verified `ok`, and to stop when a member's addresses move to
+  another row or change.
+- `checkRegistrationAgainstTerms(proRegTxHex, terms, { proTxHash?, owners? })`: the on-chain
+  check after broadcast (amounts order-insensitive, operator key, voting key ID, reward, early
+  terms, service, share-table rules, fields consensus would reject, every joinSig; with `owners`,
+  each member's owner key must hold their agreed amount).
 
 ### rewards
 `splitOwnerReward(total, shares)` (`SplitAmountByShares`: floor per share, remainder to the

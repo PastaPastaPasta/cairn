@@ -202,11 +202,15 @@ export function parseTermSheet(input: string | Record<string, unknown>): TermShe
     network,
     groupId: s(o["groupId"], "groupId"),
     revision: n(o["revision"], "revision"),
-    shares: (o["shares"] as Array<Record<string, unknown>>).map((x, i) => ({
-      memberId: s(x["memberId"], `shares[${i}].memberId`),
-      label: s(x["label"], `shares[${i}].label`),
-      amount: duffs(x["amount"], `shares[${i}].amount`),
-    })),
+    shares: (o["shares"] as unknown[]).map((entry, i) => {
+      if (typeof entry !== "object" || entry === null) throw new TermSheetError(`shares[${i}] must be an object`);
+      const x = entry as Record<string, unknown>;
+      return {
+        memberId: s(x["memberId"], `shares[${i}].memberId`),
+        label: s(x["label"], `shares[${i}].label`),
+        amount: duffs(x["amount"], `shares[${i}].amount`),
+      };
+    }),
     operatorPubKey: s(o["operatorPubKey"], "operatorPubKey"),
     service: s(o["service"], "service"),
     votingAddress: s(o["votingAddress"], "votingAddress"),

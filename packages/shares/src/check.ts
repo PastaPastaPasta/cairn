@@ -5,8 +5,9 @@ import { verifyJoinSigs } from "./consent.ts";
 import { type SessionReport, parseSessionEnvelope, stageIndex } from "./envelope.ts";
 import { type NetInfo, encodeNetInfo, isNetInfoEmpty, netInfoFromServiceList } from "./netinfo.ts";
 import { MnType, type ProRegTxPayload, ProTxVersion, decodeSharedProRegTx } from "./proregtx.ts";
+import { calcTxInputsHash } from "./tx.ts";
 import { isShareListTriviallyValid } from "./rules.ts";
-import type { TermSheet } from "./terms.ts";
+import { type TermSheet, validateTermSheet } from "./terms.ts";
 
 export type Level = "ok" | "info" | "warn" | "stop";
 export type Verdict = "ok" | "warn" | "stop";
@@ -62,6 +63,13 @@ function netInfoMatchesTerms(ni: NetInfo, service: string): boolean {
   return ni.kind === "ext" && expected !== undefined && equalBytes(encodeNetInfo(expected), encodeNetInfo(ni));
 }
 
+function termSheetFindings(f: Findings, terms: TermSheet): void {
+  const issues = validateTermSheet(terms);
+  if (issues.length) {
+    f.add("stop", "terms-invalid", "The agreed terms themselves are not valid", issues.map((i) => `${i.field}: ${i.message}`).join("; "));
+  }
+}
+
 function earlyTermsFindings(f: Findings, terms: TermSheet): void {
   if (terms.earlyPeriodBlocks === 0) {
     f.add(
@@ -77,18 +85,46 @@ function amountsMultiset(xs: readonly bigint[]): string {
   return [...xs].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)).join(",");
 }
 
+/** Addresses a member reported for their row (e.g. from their Dash-Qt draft reply) */
+export interface RowAddresses {
+  ownerAddress: string;
+  refundAddress?: string;
+  /** "" = rewards to the refund address */
+  rewardAddress?: string;
+}
+
+export interface EnvelopeCheckOptions {
+  /** the checking member's row label */
+  myLabel?: string;
+  /**
+   * The checking member's owner address. Labels are free text the coordinator writes, so only the
+   * owner key ties a row to a person (Dash-Qt finds "my share" the same way); without it the
+   * amount of "my row" is reported as info, not as verified.
+   */
+  myOwnerAddress?: string;
+  /** Addresses recorded per label; a row whose recorded owner moved or changed is a stop */
+  rowAddresses?: Record<string, RowAddresses>;
+}
+
+/** BIP68: a sequence without the disable flag carries a relative lock (Core's HasTimeLock refuses to sign it) */
+function hasRelativeLock(sequence: number): boolean {
+  return (sequence & 0x80000000) === 0;
+}
+
 /**
  * Check a pasted `dash-shared-mn-session` message against the term sheet everyone approved.
  * Any difference in amounts, operator, service, voting address, operator reward, early-exit
  * terms or network is a stop; for stages past the draft the prepared transaction itself is
  * decoded and must match both the message and the term sheet, with a valid consent hash.
+ * Rows are matched to the term sheet by label; pass owner addresses to bind them to people.
  */
 export function checkEnvelopeAgainstTerms(
   envelope: string | SessionReport,
   terms: TermSheet,
-  opts: { myLabel?: string } = {},
+  opts: EnvelopeCheckOptions = {},
 ): CheckResult {
   const f = new Findings();
+  termSheetFindings(f, terms);
   const report = typeof envelope === "string" ? parseSessionEnvelope(envelope) : envelope;
   const env = report.envelope;
   if (!env) {
@@ -164,7 +200,12 @@ export function checkEnvelopeAgainstTerms(
     }
   });
   if (sharesOk) {
-    f.add("ok", "shares", "Every share matches what was agreed", env.shares.map((s) => `${s.label}: ${dash(s.amount)}`).join("; "));
+    f.add(
+      "ok",
+      "shares",
+      "Every share matches what was agreed",
+      `${env.shares.map((s) => `${s.label}: ${dash(s.amount)}`).join("; ")}. Rows are matched by name; each member confirms in Dash-Qt that the row with their owner address is theirs.`,
+    );
     if (!inOrder) {
       f.add("info", "share-order", "The rows are in a different order than agreed", "Order does not change anyone's share; rewards are split by amount.");
     }
@@ -209,10 +250,37 @@ export function checkEnvelopeAgainstTerms(
     f.add("info", "rows-unfilled", `Waiting for ${unfilled.map((r) => r.label || `row ${r.index + 1}`).join(", ")} to fill in their row`, "");
   }
 
+  // Recorded addresses: a row's owner key is what ties it to a person
+  for (const [label, rec] of Object.entries(opts.rowAddresses ?? {})) {
+    const agreed = terms.shares.find((s) => s.label.trim() === label.trim());
+    const byOwner = env.shares.findIndex((r) => r.ownerAddress === rec.ownerAddress);
+    const byLabel = envLabels.indexOf(label.trim());
+    if (byOwner < 0) {
+      if (byLabel >= 0 && env.shares[byLabel]!.ownerAddress !== "") {
+        f.add("stop", "row-owner-changed", `${label}'s owner address was changed`, `row "${label}" has owner ${env.shares[byLabel]!.ownerAddress}, recorded ${rec.ownerAddress}`);
+      }
+      continue;
+    }
+    const row = env.shares[byOwner]!;
+    if (row.label.trim() !== label.trim() || (agreed && row.amount !== agreed.amount)) {
+      f.add(
+        "stop",
+        "row-moved",
+        `${label}'s addresses are on a different share`,
+        `owner ${rec.ownerAddress} is on row ${byOwner + 1} "${row.label}" with ${dash(row.amount)}${agreed ? `; ${label} agreed ${dash(agreed.amount)}` : ""}`,
+      );
+    }
+    if ((rec.refundAddress !== undefined && row.refundAddress !== rec.refundAddress) || (rec.rewardAddress !== undefined && row.rewardAddress !== rec.rewardAddress)) {
+      f.add("stop", "row-address-changed", `${label}'s refund or reward address was changed`, `refund ${row.refundAddress}, reward ${row.rewardAddress || "(refund)"}`);
+    }
+  }
+
   // My row
   if (opts.myLabel !== undefined) {
-    const mine = terms.shares.find((s) => s.label.trim() === opts.myLabel!.trim());
-    const myIdx = envLabels.findIndex((l) => l === opts.myLabel!.trim());
+    const myLabel = opts.myLabel.trim();
+    const mine = terms.shares.find((s) => s.label.trim() === myLabel);
+    const myIdx = envLabels.indexOf(myLabel);
+    const ownerIdx = opts.myOwnerAddress ? env.shares.findIndex((r) => r.ownerAddress === opts.myOwnerAddress) : -1;
     if (!mine) {
       f.add("stop", "my-terms-missing", "Your share is not in the agreed terms", `label "${opts.myLabel}"`);
     } else if (myIdx < 0) {
@@ -221,8 +289,25 @@ export function checkEnvelopeAgainstTerms(
       const row = env.shares[myIdx]!;
       if (row.amount !== mine.amount) {
         f.add("stop", "my-amount", "Your share amount is not what you agreed", `message ${dash(row.amount)}, agreed ${dash(mine.amount)}`);
+      } else if (opts.myOwnerAddress && ownerIdx >= 0 && ownerIdx !== myIdx) {
+        const other = env.shares[ownerIdx]!;
+        f.add(
+          "stop",
+          "my-row-moved",
+          "Your owner address is on someone else's share",
+          `owner ${opts.myOwnerAddress} is on row ${ownerIdx + 1} "${other.label}" with ${dash(other.amount)}; you agreed ${dash(mine.amount)} as "${mine.label}"`,
+        );
+      } else if (opts.myOwnerAddress && ownerIdx < 0 && row.ownerAddress !== "") {
+        f.add("stop", "my-owner-changed", "Your row has someone else's owner address", `row "${row.label}" has owner ${row.ownerAddress}, yours is ${opts.myOwnerAddress}`);
+      } else if (opts.myOwnerAddress && ownerIdx === myIdx) {
+        f.add("ok", "my-row", `Your share: ${dash(row.amount)}`, `row ${myIdx + 1}, found by your owner address`);
       } else {
-        f.add("ok", "my-row", `Your share: ${dash(row.amount)}`, `row ${myIdx + 1}`);
+        f.add(
+          "info",
+          "my-row",
+          `Your share: ${dash(row.amount)}`,
+          `row ${myIdx + 1} "${row.label}". Matched by name only: confirm in Dash-Qt that this row has your owner address.`,
+        );
       }
       if (row.ownerAddress || row.refundAddress) {
         f.add(
@@ -232,7 +317,7 @@ export function checkEnvelopeAgainstTerms(
           `owner ${row.ownerAddress || "-"}, refund ${row.refundAddress || "-"}, reward ${row.rewardAddress || "(refund address)"}. Cairn cannot see your wallet; Dash-Qt checks they are yours.`,
         );
       }
-      const contribution = env.contributions.find((c) => c.label.trim() === opts.myLabel!.trim());
+      const contribution = env.contributions.find((c) => c.label.trim() === myLabel);
       if (contribution) {
         f.add(
           "info",
@@ -250,6 +335,20 @@ export function checkEnvelopeAgainstTerms(
     }
   }
 
+  // Time locks: Core's shared_sign refuses them (HasTimeLock); a co-signer could miss a months-long lock
+  const locked = [
+    ...env.contributions.flatMap((c) => c.inputs.map((i) => ({ who: c.label, ...i }))),
+    ...(report.frozen?.tx.vin.map((i) => ({ who: "transaction", txid: i.prevout.txid, vout: i.prevout.vout, sequence: i.sequence })) ?? []),
+  ].filter((i) => hasRelativeLock(i.sequence));
+  if (locked.length) {
+    f.add(
+      "stop",
+      "time-lock",
+      "Some coins would be time-locked",
+      locked.map((i) => `${i.who} ${i.txid.slice(0, 8)}:${i.vout} sequence 0x${i.sequence.toString(16)} (BIP68 relative lock)`).join("; "),
+    );
+  }
+
   // Past the draft: the prepared transaction itself
   if (stageIndex(stage) > 0 && report.frozen) {
     const p = report.frozen.payload;
@@ -259,7 +358,12 @@ export function checkEnvelopeAgainstTerms(
       f.add("stop", "consent-hash", "The prepared transaction does not match what people approve", `computed ${report.frozen.consentHash.hex}, message ${env.consentHash}`);
     }
     if (report.payloadMatches) {
-      f.add("ok", "payload-matches", "The prepared transaction registers exactly what this message shows", "");
+      f.add(
+        "ok",
+        "payload-matches",
+        "The prepared transaction registers exactly what this message shows",
+        "Cairn does not check whose coins fund it or where change goes: each member's Dash-Qt checks its own inputs and change before signing.",
+      );
     } else {
       f.add("stop", "payload-mismatch", "The prepared transaction does not match this message", report.payloadMismatch ?? "");
     }
@@ -307,13 +411,16 @@ function payloadVsTerms(f: Findings, p: ProRegTxPayload, terms: TermSheet): void
  * Check a broadcast shared ProRegTx (e.g. fetched by its proTxHash) against the term sheet:
  * share amounts (order-insensitive), operator key, voting key, operator reward, early-exit terms
  * and service, that consensus share-table rules hold, and that every joinSig verifies.
+ * Pass `proTxHash` (the linked hash the hex was fetched by) and, when known, each member's
+ * `owners` (owner address and agreed amount) to bind shares to people.
  */
 export function checkRegistrationAgainstTerms(
   proRegTxHex: string,
   terms: TermSheet,
-  opts: { proTxHash?: string } = {},
+  opts: { proTxHash?: string; owners?: ReadonlyArray<{ ownerAddress: string; amount: bigint; label?: string }> } = {},
 ): CheckResult {
   const f = new Findings();
+  termSheetFindings(f, terms);
   let d: ReturnType<typeof decodeSharedProRegTx>;
   try {
     d = decodeSharedProRegTx(proRegTxHex.trim());
@@ -327,6 +434,24 @@ export function checkRegistrationAgainstTerms(
     f.add("stop", "protx-hash", "This is not the registration that was linked", `expected ${opts.proTxHash}, got ${d.txid}`);
   }
   if (p.version !== ProTxVersion.ExtAddr) f.add("stop", "version", "Unexpected registration version", `nVersion ${p.version}`);
+  // Fields the consent hash does not cover; consensus (IsTriviallyValid, CheckInputsHash) rejects
+  // a registration that sets them, so they only appear in hex that was never mined
+  const malformed: string[] = [];
+  if (p.mode !== 0) malformed.push(`nMode ${p.mode}`);
+  if (!p.keyIDOwner.every((b) => b === 0)) malformed.push("keyIDOwner set");
+  if (p.payouts.length) malformed.push("payouts set");
+  if (p.vchSig.length) malformed.push("vchSig set");
+  if (!equalBytes(p.inputsHash, calcTxInputsHash(d.tx))) malformed.push("inputsHash mismatch");
+  if (malformed.length) f.add("stop", "invalid-protx", "Dash Core would reject this registration", malformed.join(", "));
+  for (const o of opts.owners ?? []) {
+    const keyId = decodeAddress(o.ownerAddress, terms.network);
+    const share = keyId?.type === "p2pkh" ? p.shares.find((s) => equalBytes(s.keyIDOwner, keyId.hash)) : undefined;
+    const who = o.label ?? o.ownerAddress;
+    if (!share) f.add("stop", "owner-missing", `${who}'s share is not in the registration`, `owner ${o.ownerAddress}`);
+    else if (share.amount !== o.amount) {
+      f.add("stop", "owner-amount", `${who}'s share amount is not what was agreed`, `registered ${dash(share.amount)}, agreed ${dash(o.amount)}`);
+    }
+  }
 
   payloadVsTerms(f, p, terms);
   if (amountsMultiset(p.shares.map((s) => s.amount)) === amountsMultiset(terms.shares.map((s) => s.amount))) {

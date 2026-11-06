@@ -138,13 +138,21 @@ export function checkFingerprint(json: UniValue): FingerprintCheck {
   return {
     stamped: stamped.value,
     computed,
-    status: stamped.value.toUpperCase() === computed.toUpperCase() ? "ok" : "mismatch",
+    status: asciiUpper(stamped.value) === computed ? "ok" : "mismatch",
   };
 }
 
-/** QString::trimmed(): strips leading/trailing Unicode whitespace */
+// QChar::isSpace: \t-\r, U+0085 and the Unicode separators (Zs, Zl, Zp); unlike JS \s, not U+FEFF
+const QT_SPACE = "[\\t\\n\\v\\f\\r\\u0085\\p{Zs}\\u2028\\u2029]";
+const QT_TRIM = new RegExp(`^${QT_SPACE}+|${QT_SPACE}+$`, "gu");
+
+/** QString::trimmed() */
 export function qtTrim(text: string): string {
-  return text.replace(/^[\s\u0085]+|[\s\u0085]+$/g, "");
+  return text.replace(QT_TRIM, "");
+}
+
+function asciiUpper(s: string): string {
+  return s.replace(/[a-z]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 32));
 }
 
 export type MessageKind = "session" | "sigs" | "standbyHex" | "unknown";

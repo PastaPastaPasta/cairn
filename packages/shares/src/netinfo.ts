@@ -34,8 +34,9 @@ function hasPrefix(a: Bytes, p: Bytes): boolean {
 
 /**
  * Read one NetInfoEntry. Core silently turns malformed or unknown entries into an "invalid"
- * marker and re-serializes them differently, which would change the consent digest; such
- * entries never come out of Core's own RPCs, so they are refused here instead.
+ * marker and re-serializes them differently; such entries never come out of Core's own RPCs, so
+ * service entries of unknown type or size are refused here. Domain entries are kept verbatim
+ * (Core may clear invalid ones), which can only make a digest check fail, never pass.
  */
 function readEntry(r: Reader): NetEntry {
   const type = r.u8();
@@ -258,7 +259,7 @@ export function parseServiceEntry(text: string): NetEntry | undefined {
 
 /** Split like the Qt wizard (`[,\s]+`, empty parts skipped) */
 export function splitServiceList(text: string): string[] {
-  return text.split(/[,\s]+/).filter((s) => s.length > 0);
+  return text.split(/[,\t\n\v\f\r ]+/).filter((s) => s.length > 0);
 }
 
 /** The ExtNetInfo a comma/space separated Core P2P list produces, or undefined if any entry is unsupported or duplicated */
