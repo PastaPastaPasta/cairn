@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { PROFILES } from '../config/registry.ts';
 import { A, GID, ORG, id } from '../matching/fixtures.ts';
 import { readDoc, remember } from './cairn.ts';
-import { holdsData, UnconfirmedWrite, writeConfirmed, type WriteDeps } from './write.ts';
+import { holdsData, StaleWrite, UnconfirmedWrite, writeConfirmed, type WriteDeps } from './write.ts';
 
 vi.mock('./platform.ts', () => ({ getCairnDoc: vi.fn(async () => null), queryCairn: vi.fn() }));
 
@@ -37,10 +37,30 @@ describe('confirmed writes', () => {
     const data = seat(400e8);
     const lagging = deps([stored(seat(300e8), 1), stored(data, 2)]);
     await expect(writeConfirmed(r, async () => ({ id: SEAT_ID, revision: 2 }), replaceOp(CID, 'seat', SEAT_ID, 1, data), lagging)).resolves.toBeTruthy();
-    const other = deps([stored(seat(500e8), 2)]);
+    const other = deps([stored(seat(300e8), 1), stored(seat(500e8), 2)]);
     await expect(writeConfirmed(r, async () => ({ id: SEAT_ID, revision: 2 }), replaceOp(CID, 'seat', SEAT_ID, 1, data), other)).rejects.toThrow(/different version/);
     const never = deps([stored(seat(300e8), 1)]);
     await expect(writeConfirmed(r, async () => ({ id: SEAT_ID, revision: 2 }), replaceOp(CID, 'seat', SEAT_ID, 1, data), never)).rejects.toThrow(/does not show it yet/);
+  });
+
+  it('sends nothing when the document changed after the page read it (F-001)', async () => {
+    const write = vi.fn(async () => ({ id: SEAT_ID, revision: 2 }));
+    const newer = deps([stored(seat(500e8), 2)]);
+    await expect(writeConfirmed(r, write, replaceOp(CID, 'seat', SEAT_ID, 1, seat(400e8)), newer)).rejects.toBeInstanceOf(StaleWrite);
+    const gone = deps([null]);
+    await expect(writeConfirmed(r, write, replaceOp(CID, 'seat', SEAT_ID, 1, seat(400e8)), gone)).rejects.toBeInstanceOf(StaleWrite);
+    await expect(writeConfirmed(r, write, deleteOp(CID, 'seat', SEAT_ID), deps([null]))).rejects.toBeInstanceOf(StaleWrite);
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it('runs the caller’s check before signing, and sends nothing when it throws', async () => {
+    const write = vi.fn(async () => ({ id: SEAT_ID, revision: 1 }));
+    const check = vi.fn(async () => {
+      throw new StaleWrite('the terms changed');
+    });
+    await expect(writeConfirmed(r, write, createOp(CID, 'seat', seat(300e8)), deps([null]), { check })).rejects.toThrow('the terms changed');
+    expect(check).toHaveBeenCalledOnce();
+    expect(write).not.toHaveBeenCalled();
   });
 
   it('confirms a delete only once the document is gone', async () => {

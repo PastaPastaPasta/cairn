@@ -6,19 +6,57 @@ import {
 } from '@cairn/contract';
 import { useMemo } from 'react';
 import { useApp } from '../../app/context.tsx';
-import { useWrite } from '../../data/write.ts';
-import { change, type GroupBundle } from '../../matching/group.ts';
+import { loadGroupBundle } from '../../data/cairn.ts';
+import { StaleWrite, useWrite, type WriteOptions } from '../../data/write.ts';
+import { change, isLockedStatus, type GroupBundle } from '../../matching/group.ts';
 
 /** A seat's own fields, to change one and write it back. */
 export const seatFieldsOf = (s: Seat): Omit<SeatFields, 'groupId'> => ({ amount: s.amount, message: s.message, status: s.status, flags: s.flags, votingAddress: s.votingAddress, proTxHash: s.proTxHash });
 
-export function useGroupOps(b: GroupBundle, me: string | null) {
+/**
+ * Why a write this page is about to make no longer fits the group as Platform now stores it (`fresh`), or null. Replaces of a
+ * stale document revision are caught by the writer itself; these are the creates Platform would refuse (a second seat, answer or
+ * approval of one person) and approvals of terms that are no longer the locked ones.
+ */
+export function staleBefore(page: GroupBundle, fresh: GroupBundle | null, me: string, kind: 'seat' | 'answer' | 'approve' | 'invite', toId?: string): string | null {
+  if (!fresh) return 'This group no longer exists, so nothing was sent.';
+  const g = page.group;
+  const f = fresh.group;
+  switch (kind) {
+    case 'seat':
+      return !page.seats.some((s) => s.ownerId === me) && fresh.seats.some((s) => s.ownerId === me) ? 'You already have a seat in this group (from another tab or device), so nothing was sent. The page now shows it.' : null;
+    case 'answer':
+      return !page.opAccepts.some((o) => o.ownerId === me) && fresh.opAccepts.some((o) => o.ownerId === me) ? 'You already answered this group (from another tab or device), so nothing was sent. The page now shows your answer.' : null;
+    case 'invite': {
+      const had = (b: GroupBundle) => b.invites.some((i) => i.ownerId === me && i.toId === toId);
+      return !had(page) && had(fresh) ? 'You already invited this person (from another tab or device), so nothing was sent. The page now shows the invitation.' : null;
+    }
+    case 'approve':
+      if (!isLockedStatus(f.status) || f.termsRevision !== g.termsRevision || (f.lockedHash ?? '').toLowerCase() !== (g.lockedHash ?? '').toLowerCase())
+        return `The terms changed since this page loaded (they are now terms version ${f.termsRevision}${isLockedStatus(f.status) ? '' : ', not locked yet'}), so your approval was not sent. Read them again before you approve.`;
+      return fresh.approvals.some((a) => a.ownerId === me) ? 'You already approved these terms (from another tab or device), so nothing was sent.' : null;
+  }
+}
+
+/** `onStale` runs when a write is refused before signing because the page is out of date: re-read the group. */
+export function useGroupOps(b: GroupBundle, me: string | null, onStale?: () => void) {
   const { registry } = useApp();
-  const write = useWrite();
+  const signed = useWrite();
   return useMemo(() => {
     const cid = registry.contractId!;
     const net = registry.network;
     const g = b.group;
+    const write: typeof signed = (op, o) =>
+      signed(op, o).catch((e: unknown) => {
+        if (e instanceof StaleWrite) onStale?.();
+        throw e;
+      });
+    const fresh = (kind: Parameters<typeof staleBefore>[3], toId?: string): WriteOptions => ({
+      check: async () => {
+        const why = me ? staleBefore(b, await loadGroupBundle(registry, g.id), me, kind, toId) : null;
+        if (why) throw new StaleWrite(why);
+      },
+    });
     const mySeat = me ? b.seats.find((s) => s.ownerId === me) : undefined;
     const myAnswer = me ? b.opAccepts.find((o) => o.ownerId === me) : undefined;
     const myApproval = me ? b.approvals.find((a) => a.ownerId === me) : undefined;
@@ -28,7 +66,7 @@ export function useGroupOps(b: GroupBundle, me: string | null) {
     const group = (f: GroupFields) => write(() => replaceOp(cid, 'group', g.id, g.docRevision, groupData(f, net)));
     const seat = (f: Omit<SeatFields, 'groupId'>) => {
       const data = () => seatData({ ...f, groupId: g.id }, net);
-      return write(() => (mySeat ? replaceOp(cid, 'seat', mySeat.id, mySeat.docRevision, data()) : createOp(cid, 'seat', data())));
+      return mySeat ? write(() => replaceOp(cid, 'seat', mySeat.id, mySeat.docRevision, data())) : write(() => createOp(cid, 'seat', data()), fresh('seat'));
     };
     const coordinatorSeat = me === g.coordinatorId ? coOwnerSeat : undefined;
     return {
@@ -42,15 +80,16 @@ export function useGroupOps(b: GroupBundle, me: string | null) {
       /** The operator's answer to this group. */
       answer: (f: Omit<OpAcceptFields, 'groupId'>) => {
         const data = () => opAcceptData({ ...f, groupId: g.id }, net);
-        return write(() => (myAnswer ? replaceOp(cid, 'opAccept', myAnswer.id, myAnswer.docRevision, data()) : createOp(cid, 'opAccept', data())));
+        return myAnswer ? write(() => replaceOp(cid, 'opAccept', myAnswer.id, myAnswer.docRevision, data())) : write(() => createOp(cid, 'opAccept', data()), fresh('answer'));
       },
       /** The organizer's stance on one person: an open invite, or withdrawn (no longer invited, or a request declined). */
       invite: (toId: string, amount: number, status: number, message?: string) => {
         const existing = b.invites.find((i) => i.ownerId === g.ownerId && i.toId === toId);
         const data = () => inviteData({ groupId: g.id, toId, amount, status, message });
-        return write(() => (existing ? replaceOp(cid, 'invite', existing.id, existing.docRevision, data()) : createOp(cid, 'invite', data())));
+        return existing ? write(() => replaceOp(cid, 'invite', existing.id, existing.docRevision, data())) : write(() => createOp(cid, 'invite', data()), fresh('invite', toId));
       },
-      approve: (termsHash: string, shareAmount: number) => write(() => createOp(cid, 'approval', approvalData({ groupId: g.id, termsRevision: g.termsRevision, termsHash, shareAmount }))),
+      /** F-002: approving terms that are no longer the locked ones would be charged and void at once, so they are re-read first. */
+      approve: (termsHash: string, shareAmount: number) => write(() => createOp(cid, 'approval', approvalData({ groupId: g.id, termsRevision: g.termsRevision, termsHash, shareAmount })), fresh('approve')),
       withdrawApproval: () => (myApproval ? write(deleteOp(cid, 'approval', myApproval.id)) : Promise.resolve(null)),
       /** M10: the organizer links the registration in the group (claiming live; the chain decides on read), a co-owner in their own seat. */
       canLink: organizer || !!coOwnerSeat,
@@ -65,7 +104,7 @@ export function useGroupOps(b: GroupBundle, me: string | null) {
             ? seat({ ...seatFieldsOf(coordinatorSeat), flags: (coordinatorSeat.flags ?? 0) | SEAT_FLAG.sessionStarted })
             : Promise.reject(new Error('Only the organizer or the coordinator can mark the session as started.')),
     };
-  }, [registry, write, b, me]);
+  }, [registry, signed, b, me, onStale]);
 }
 
 export type GroupOps = ReturnType<typeof useGroupOps>;

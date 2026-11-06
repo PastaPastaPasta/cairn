@@ -43,8 +43,33 @@ export class UnconfirmedWrite extends Error {
   }
 }
 
+export const STALE_TEXT = 'This changed since the page loaded, so nothing was sent and nothing was charged. The page now shows the latest version: check it, then try again.';
+
+/** The page acted on a version that is no longer the stored one. Nothing was signed or sent: Platform would refuse it after charging. */
+export class StaleWrite extends Error {
+  constructor(message = STALE_TEXT) {
+    super(message);
+    this.name = 'StaleWrite';
+  }
+}
+
+/** A replace or delete of a document that is gone, or that someone replaced after the page read it. */
+async function preflight(r: Registry, op: DocOp, deps: WriteDeps): Promise<void> {
+  if (op.action === 'create') return;
+  const stored = await deps.read(r, op.type, op.id);
+  // a stored revision below the page's is a node lagging behind, not a newer version: Platform decides
+  if (!stored || (op.action === 'replace' && Number(stored.$revision ?? 1) > op.revision)) throw new StaleWrite();
+}
+
+export interface WriteOptions {
+  /** Runs right before signing; throws (a StaleWrite) when the write would be refused or no longer means what the page showed. */
+  check?(): Promise<void>;
+}
+
 /** Writes `op` and proves the result: the stored document (null after a delete). Throws with a message fit to show. */
-export async function writeConfirmed(r: Registry, write: (op: DocumentOp) => Promise<DocumentResult>, op: DocOp, deps: WriteDeps = DEFAULT_DEPS): Promise<RawDoc | null> {
+export async function writeConfirmed(r: Registry, write: (op: DocumentOp) => Promise<DocumentResult>, op: DocOp, deps: WriteDeps = DEFAULT_DEPS, o: WriteOptions = {}): Promise<RawDoc | null> {
+  await preflight(r, op, deps);
+  await o.check?.();
   const done = await write(op);
   try {
     return await confirm(r, op, done, deps);
@@ -81,18 +106,18 @@ async function confirm(r: Registry, op: DocOp, done: DocumentResult, deps: Write
 }
 
 /** The signed-in identity's confirmed writer. A model's DocError (a limit the page should have caught) reads as plain text. */
-export function useWrite(): (op: DocOp | (() => DocOp)) => Promise<RawDoc | null> {
+export function useWrite(): (op: DocOp | (() => DocOp), o?: WriteOptions) => Promise<RawDoc | null> {
   const { registry } = useApp();
   const { write } = useAccount();
   return useCallback(
-    async (op) => {
+    async (op, o) => {
       let built: DocOp;
       try {
         built = typeof op === 'function' ? op() : op;
       } catch (e) {
         throw e instanceof DocError ? new Error(e.message) : e;
       }
-      return writeConfirmed(registry, write, built);
+      return writeConfirmed(registry, write, built, DEFAULT_DEPS, o);
     },
     [registry, write],
   );

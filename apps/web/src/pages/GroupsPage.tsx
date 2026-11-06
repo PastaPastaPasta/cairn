@@ -11,9 +11,9 @@ import { EXIT_PRESETS, exitShort } from '../matching/exit.ts';
 import { fitsRoster } from '../matching/group.ts';
 import { filterGroups } from '../matching/match.ts';
 import { DUFFS, dashNum, parseDashInput, parsePercentInput, pct } from '../matching/money.ts';
-import { GROUP_STATUS_WORDS } from '../matching/words.ts';
 import { CairnStack } from '../ui/CairnStack.tsx';
 import { DashField, PercentField } from '../ui/fields.tsx';
+import { GroupStatusTag } from '../ui/GroupStatusTag.tsx';
 import { Loaded } from '../ui/Loaded.tsx';
 import { useMyLooking } from '../ui/LookingEditor.tsx';
 import { PersonName } from '../ui/Person.tsx';
@@ -41,7 +41,7 @@ export function GroupRows({ groups, note }: { groups: Group[]; note?(g: Group): 
               , {pct(g.rewardBps)} of rewards. {exitShort(g.earlyPeriodBlocks, g.earlyPenalty)}.
             </p>
             <p className="row-tags">
-              <span className={`state state-${g.status === GROUP_STATUS.forming ? 'ok' : 'muted'}`}>{GROUP_STATUS_WORDS[g.status] ?? 'Group'}</span>
+              <GroupStatusTag g={g} />
               {g.status === GROUP_STATUS.forming && !((g.flags ?? 0) & GROUP_FLAG.openAmounts) && <span className="state state-muted">By invitation</span>}
               {g.refillOf && <span className="state state-muted">Refill</span>}
             </p>

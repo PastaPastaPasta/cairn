@@ -6,6 +6,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
 import { rawId, readAll, readOwn, useLoad } from '../data/cairn.ts';
+import { isIdentifier } from '../data/platform.ts';
 import { LISTED_OPERATORS, OPERATORS, useStatusList } from '../data/lists.ts';
 import { usePeople } from '../data/people.ts';
 import { RADAR, radarMnUrl } from '../lib/radar.ts';
@@ -152,6 +153,7 @@ export function OperatorPage() {
   const { registry } = useApp();
   const { session } = useAccount();
   const load = useLoad(id, async (r) => {
+    if (!isIdentifier(id)) return { op: null, groups: [] };
     const [op, groups] = await Promise.all([
       readOwn(r, 'operator', operatorOf(id), id, (d) => toOperator(d)),
       readAll(r, 'group', (a) => groupsOfOperator(id, undefined, a), (d, n) => toGroup(d, n), (raw) => rawId(raw, 'operatorId') === id),
