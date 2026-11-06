@@ -1,7 +1,7 @@
 // Chain facts for a linked registration, over DAPI (@cairn/dapi): the ProRegTx proven into a block of a chain this browser verified
 // itself (anchored on ChainLocks from the pinned quorum checkpoint where a proof source exists), and the masternode's entry in the
 // masternode list proven against that chain. Nothing here trusts a Cairn document: callers judge these facts against the approvals.
-import { AllNodesFailedError, GrpcError, createDapi, quorumListProofSource, type AnchoredChain, type Dapi, type ProofSource, type Verifiers } from '@cairn/dapi';
+import { AllNodesFailedError, GrpcError, createDapi, hashHex, quorumListProofSource, type AnchoredChain, type Dapi, type ProofSource, type Verifiers } from '@cairn/dapi';
 import type { Network } from '@cairn/contract';
 import type { Registry } from '../config/registry.ts';
 import type { ChainFacts } from './verify.ts';
@@ -61,19 +61,22 @@ export async function lookupRegistration(r: Registry, proTxHash: string, onProgr
   }
   const hex = toHex(first.raw);
   if (first.height === 0) {
-    return { proTxHash: hash, hex, height: 0, mined: false, chainLocked: 'no', trust: 'node', weak: null, tip: 0, mn: undefined, listTrust: null, notes: ['The registration is not in a block yet.'] };
+    return { proTxHash: hash, hex, height: 0, blockTime: null, mined: false, chainLocked: 'no', trust: 'node', weak: null, tip: 0, mn: undefined, listTrust: null, notes: ['The registration is not in a block yet.'] };
   }
   if (sources.length) {
     try {
       say('Verifying the chain from the pinned checkpoint');
       const anchor: AnchoredChain = await dapi.anchorChain({ from: first.height, proofSources: sources, onProgress: say });
       say('Proving the registration against the verified chain');
-      const v = await dapi.getVerifiedTransaction(hash, { anchor });
+      const timeAt = (height: number) => dapi.getAnchoredBlock(anchor, height).then((b) => b.block.header.time, () => null);
+      const [v, early] = await Promise.all([dapi.getVerifiedTransaction(hash, { anchor }), timeAt(first.height)]);
+      const blockTime = v.height === first.height ? early : await timeAt(v.height);
       const entry = anchor.sml.masternodes.find((m) => m.proTxHash === hash);
       return {
         proTxHash: hash,
         hex,
         height: v.height,
+        blockTime,
         mined: v.proof.merkle,
         chainLocked: v.chainLocked,
         trust: anchor.trust.kind,
@@ -89,12 +92,13 @@ export async function lookupRegistration(r: Registry, proTxHash: string, onProgr
   }
   const v = await dapi.getVerifiedTransaction(hash, { maxHeaderSpan: 30_000, headerTimeoutMs: 60_000 });
   say('Reading the masternode list from several nodes');
-  const sml = await dapi.getSml().catch(() => null);
+  const [sml, blockTime] = await Promise.all([dapi.getSml().catch(() => null), v.proof.blockHash === 'verified' ? headerTime(dapi, v.blockHash) : Promise.resolve(null)]);
   const entry = sml?.masternodes.find((m) => m.proTxHash === hash);
   return {
     proTxHash: hash,
     hex,
     height: v.height,
+    blockTime,
     mined: v.proof.merkle,
     chainLocked: v.chainLocked,
     trust: 'node',
@@ -104,6 +108,17 @@ export async function lookupRegistration(r: Registry, proTxHash: string, onProgr
     listTrust: sml ? 'agreed' : null,
     notes: v.proof.notes,
   };
+}
+
+/** The time in a block's header, once the header hashes (X11) to the block hash already proven; null when it cannot be had. */
+async function headerTime(dapi: Dapi, blockHash: string | null): Promise<number | null> {
+  if (!blockHash) return null;
+  try {
+    const [{ x11 }, b] = await Promise.all([import('@cairn/dapi/x11'), dapi.getBlock({ hash: blockHash })]);
+    return hashHex(x11(b.block.header.raw)) === blockHash ? b.block.header.time : null;
+  } catch {
+    return null;
+  }
 }
 
 /** A list from before the registration's block cannot say it is gone: that reads as unknown, not dissolved. */

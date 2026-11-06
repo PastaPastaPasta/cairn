@@ -40,7 +40,7 @@ function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void })
   const view = useMemo(() => groupView(bundle, registry.network), [bundle, registry.network]);
   const { group: g, agreement } = view;
   const me = session?.identityId ?? null;
-  const ops = useGroupOps(bundle, me);
+  const ops = useGroupOps(bundle, me, refresh);
   const mine = g.roster.find((r) => r.id === me);
   const coordinator = g.roster.find((r) => r.id === g.coordinatorId);
   const iCoordinate = !!me && me === g.coordinatorId;
@@ -69,7 +69,7 @@ function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void })
           </>
         }
       />
-      <GroupTabs id={g.id} />
+      <GroupTabs id={g.id} linked={view.linked.length > 0} />
 
       <ul className="form-status" aria-label="Where this group is" data-testid="form-status">
         <StatusItem ok={agreement.lockedHashOk} label={agreement.lockedHashOk ? `Terms locked, revision ${g.termsRevision}` : 'Terms not locked'} />
