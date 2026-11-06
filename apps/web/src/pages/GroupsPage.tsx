@@ -8,11 +8,11 @@ import { useApp } from '../app/context.tsx';
 import { GROUPS, OPEN_GROUP_STATUSES, useStatusList } from '../data/lists.ts';
 import { usePeople } from '../data/people.ts';
 import { EXIT_PRESETS, exitShort } from '../matching/exit.ts';
-import { fitsRoster } from '../matching/group.ts';
+import { CLOSED, fitsRoster } from '../matching/group.ts';
 import { filterGroups } from '../matching/match.ts';
 import { DUFFS, dashNum, parseDashInput, parsePercentInput, pct } from '../matching/money.ts';
 import { GROUP_STATUS_WORDS } from '../matching/words.ts';
-import { CairnStack } from '../ui/CairnStack.tsx';
+import { CairnStack, StoneKey } from '../ui/CairnStack.tsx';
 import { DashField, PercentField } from '../ui/fields.tsx';
 import { Loaded } from '../ui/Loaded.tsx';
 import { useMyLooking } from '../ui/LookingEditor.tsx';
@@ -47,7 +47,11 @@ export function GroupRows({ groups, note }: { groups: Group[]; note?(g: Group): 
             </p>
             {note?.(g)}
           </div>
-          <CairnStack variant="row" stones={g.roster.map((r) => ({ id: r.id, label: people.get(r.id)?.name ?? 'A co-owner', amount: r.amount / DUFFS, state: 'in' as const }))} />
+          <CairnStack
+            variant="row"
+            closed={CLOSED.includes(g.status)}
+            stones={g.roster.map((r) => ({ id: r.id, label: people.get(r.id)?.name ?? 'A co-owner', amount: r.amount / DUFFS, state: 'in' as const }))}
+          />
         </li>
       ))}
     </ul>
@@ -202,6 +206,7 @@ export function GroupsPage() {
                         : undefined
                     }
                   />
+                  <StoneKey />
                   {d.more && (
                     <button type="button" className="btn btn-s" onClick={list.showOlder}>
                       Show older groups

@@ -325,19 +325,14 @@ input[inputmode='numeric'] {
   line-height: 1.5;
 }
 .warning::before {
-  content: '!';
+  content: '';
   position: absolute;
   left: var(--s-3);
-  top: var(--s-3);
-  width: 1.3rem;
-  height: 1.3rem;
-  border-radius: 50%;
-  background: var(--ochre);
-  color: var(--paper);
-  font-weight: 700;
-  font-size: var(--t-xs);
-  display: grid;
-  place-items: center;
+  top: calc(var(--s-3) + 0.1rem);
+  width: 1.15rem;
+  height: 1.15rem;
+  background: var(--ochre-ink);
+  mask: var(--icon-alert) center / contain no-repeat;
 }
 .new-group {
   max-width: 44rem;
@@ -486,15 +481,25 @@ input[inputmode='numeric'] {
   background: var(--accent-wash);
   color: var(--accent-ink);
 }
-.pref-ok::before {
-  content: '✓ ';
+.pref-ok::before,
+.pref-miss::before,
+.hash-check.ok::before,
+.hash-check.bad::before {
+  content: '';
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.25em;
+  vertical-align: -0.15em;
+  background: currentColor;
+  mask: var(--icon-check) center / contain no-repeat;
 }
 .pref-miss {
   background: var(--sunk);
   color: var(--ink-2);
 }
 .pref-miss::before {
-  content: '≠ ';
+  mask-image: var(--icon-not-equal);
 }
 .combo-sum {
   font-size: var(--t-m);
@@ -557,9 +562,29 @@ input[inputmode='numeric'] {
     grid-template-columns: 1fr;
     gap: var(--s-5);
   }
+  /* beside its words, so the roster and terms stay near the top on a phone */
   .group-cairn {
-    justify-self: start;
-    width: min(100%, 260px);
+    justify-self: stretch;
+    width: 100%;
+  }
+  .group-cairn .cairn-stack {
+    display: grid;
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+    gap: var(--s-2) var(--s-4);
+    align-items: end;
+  }
+  .group-cairn .cairn-svg {
+    grid-row: span 2;
+  }
+  .group-cairn .cairn-cap {
+    margin-top: 0;
+  }
+  .group-cairn .cairn-key {
+    grid-template-columns: 0.9rem minmax(0, 1fr) auto;
+    row-gap: 0;
+  }
+  .group-cairn .cairn-key-state {
+    grid-column: 2 / -1;
   }
 }
 .next-steps {
@@ -741,16 +766,13 @@ input[inputmode='numeric'] {
   background: var(--accent-wash);
   color: var(--accent-ink);
 }
-.hash-check.ok::before {
-  content: '✓ ';
-}
 .hash-check.bad {
   background: color-mix(in srgb, var(--fail-fill) 14%, var(--surface));
   color: var(--fail);
   border: 1px solid var(--fail);
 }
 .hash-check.bad::before {
-  content: '✗ ';
+  mask-image: var(--icon-x);
 }
 .sheet-table {
   width: 100%;

@@ -63,11 +63,13 @@
 
   /* stones of the cairn, by share state */
   --stone-requested: transparent;
-  --stone-in: #8d8a80;
+  --stone-in: #cfe0d5;
   --stone-approved: #5f8f7b;
   --stone-signed: #2f6b57;
   --stone-edge: #1e2226;
-  --stone-open: #bfb6a6;
+  --stone-open: #a39d92;
+  --stone-closed: #e4ded2;
+  --stone-closed-line: #a39d92;
 
   --pass: #2f6b57;
   --pass-fill: #3f8a6f;
@@ -106,11 +108,13 @@
   --ochre-wash: #3a2e1c;
   --dash: #3aa9f0;
   --dash-ink: #6cc0f5;
-  --stone-in: #77756d;
+  --stone-in: #2c463d;
   --stone-approved: #4f8a73;
   --stone-signed: #7cc2a6;
   --stone-edge: #ebe7df;
-  --stone-open: #46535a;
+  --stone-open: #6b7a80;
+  --stone-closed: #222b30;
+  --stone-closed-line: #5d6a70;
   --pass: #7cc2a6;
   --pass-fill: #4f9a7e;
   --warn: #e9b968;
@@ -147,11 +151,13 @@
     --ochre-wash: #3a2e1c;
     --dash: #3aa9f0;
     --dash-ink: #6cc0f5;
-    --stone-in: #77756d;
+    --stone-in: #2c463d;
     --stone-approved: #4f8a73;
     --stone-signed: #7cc2a6;
     --stone-edge: #ebe7df;
-    --stone-open: #46535a;
+    --stone-open: #6b7a80;
+    --stone-closed: #222b30;
+    --stone-closed-line: #5d6a70;
     --pass: #7cc2a6;
     --pass-fill: #4f9a7e;
     --warn: #e9b968;

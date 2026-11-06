@@ -159,7 +159,7 @@ function GroupBody({ bundle, reload, refreshing }: { bundle: GroupBundle; reload
       <div className="group-top">
         <NextSteps view={view} steps={steps} ops={ops} me={me} done={reload} />
         <div className="group-cairn">
-          <CairnStack stones={stonesOf(view, me, nameOf)} />
+          <CairnStack stones={stonesOf(view, me, nameOf)} closed={view.closed} />
         </div>
       </div>
       <div className="group-main">
