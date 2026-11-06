@@ -12,6 +12,7 @@ import { usePeople } from '../../data/people.ts';
 import { GroupTabs } from '../../formation/parts.tsx';
 import { useGroupRegistrations, type GroupRegistrations } from '../../formation/useRegistration.ts';
 import { groupView, type GroupBundle, type GroupView } from '../../matching/group.ts';
+import { FORM_BY_PASSED, formByNoteFor } from '../../matching/deadline.ts';
 import { DUFFS, dash, shortId } from '../../matching/money.ts';
 import { nextSteps } from '../../matching/nextstep.ts';
 import { isFormed, isUnderway, stageOf, type Stage } from '../../matching/stage.ts';
@@ -121,6 +122,7 @@ function GroupBody({ bundle, reload, refreshing }: { bundle: GroupBundle; reload
   const steps = nextSteps(view, { id: me, isOperator: myListing.status === 'ready' && !!myListing.data }, stage);
   const ops = useGroupOps(bundle, me);
   const organizer = me === g.ownerId;
+  const inGroup = !!me && (organizer || me === g.operatorId || g.roster.some((r) => r.id === me));
   const status = statusLine(view, stage, reg);
   const forming = isUnderway(stage);
   const formed = isFormed(stage);
@@ -156,6 +158,11 @@ function GroupBody({ bundle, reload, refreshing }: { bundle: GroupBundle; reload
           {view.voided.length === 1 ? ' it' : ' them'}. {view.locked ? 'Members approve revision ' + g.termsRevision + ' again.' : 'Members approve again once the organizer locks the new terms.'}
         </p>
       )}
+      {formByNoteFor(view, me, stage) && (
+        <p className="notice-box" role="note" data-testid="form-by-passed">
+          {FORM_BY_PASSED}
+        </p>
+      )}
       <div className="group-top">
         <NextSteps view={view} steps={steps} ops={ops} me={me} done={reload} />
         <div className="group-cairn">
@@ -174,9 +181,9 @@ function GroupBody({ bundle, reload, refreshing }: { bundle: GroupBundle; reload
           </>
         )}
         {me && stage === 'dissolved' && g.roster.some((r) => r.id === me) && <RefillPanel view={view} people={people} me={me} />}
-        {view.locked && !view.ready && !forming && (
-          <p className="small muted form-link">
-            Formation opens here once everyone has approved: <Link to={`/g/${g.id}/form`}>Next: form it in Dash Core →</Link>
+        {view.locked && !view.ready && !forming && inGroup && (
+          <p className="small muted form-link" data-testid="form-blocker">
+            Not ready to form yet. {view.waitingFor[0] ?? ''} <Link to={`/g/${g.id}/form`}>How forming works →</Link>
           </p>
         )}
       </div>

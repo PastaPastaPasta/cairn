@@ -9,7 +9,7 @@ import { LISTED_OPERATORS, LOOKING, OPEN_LOOKING, OPERATORS, useStatusList } fro
 import { usePeople, type Person } from '../../data/people.ts';
 import { useWrite } from '../../data/write.ts';
 import { exitProblem } from '../../matching/exit.ts';
-import { change, holderVotingAddress, lockPlan, refillFields, saveChoices, type GroupView } from '../../matching/group.ts';
+import { change, holderVotingAddress, invitableAgain, lockPlan, refillFields, saveChoices, type GroupView } from '../../matching/group.ts';
 import { serviceProblem, votingAddressProblem } from '../../matching/keys.ts';
 import { deriveLabels, labelProblem } from '../../matching/labels.ts';
 import { completions, lookingThatFits } from '../../matching/match.ts';
@@ -36,7 +36,8 @@ export function InviteSection({ view, people, ops, done }: Props) {
   const exclude = useMemo(() => new Set([...view.requests.map((r) => r.seat.ownerId), ...view.openInvites.map((i) => i.toId), ...view.declined.map((s) => s.ownerId)]), [view]);
   const fits = posts.status === 'ready' ? lookingThatFits(g, posts.data.items, exclude) : [];
   const combos = completions(g, fits);
-  const morePeople = usePeople(fits.map((f) => f.looking.ownerId));
+  const again = invitableAgain(view);
+  const morePeople = usePeople([...fits.map((f) => f.looking.ownerId), ...again.map((a) => a.seat.ownerId)]);
   const name = (id: string) => morePeople.get(id) ?? people.get(id);
   const invite = (xs: Array<{ ownerId: string; amount: number }>) =>
     run(async () => {
@@ -101,6 +102,24 @@ export function InviteSection({ view, people, ops, done }: Props) {
             </li>
           ))}
         </ul>
+      )}
+      {again.length > 0 && (
+        <>
+          <h3 className="h4">Declined or withdrew</h3>
+          <ul className="fit-people">
+            {again.map(({ seat, fit }) => (
+              <li key={seat.ownerId} className="fit-person" data-testid="declined-person">
+                <span>
+                  <PersonName id={seat.ownerId} person={name(seat.ownerId)} /> <span className="num">{dash(seat.amount)}</span>
+                  {!fit.ok && <span className="small muted block">{fit.message}</span>}
+                </span>
+                <button type="button" className="btn btn-s" disabled={busy || !fit.ok} onClick={() => invite([{ ownerId: seat.ownerId, amount: seat.amount }])} data-testid="invite-again">
+                  Invite again
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       {view.openInvites.length > 0 && (
         <>

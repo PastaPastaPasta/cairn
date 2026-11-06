@@ -59,6 +59,17 @@ function StepAction({ step, view, ops, me, done }: { step: Step; view: GroupView
           Post that I’m looking
         </Link>
       );
+    case 'find-another':
+      return (
+        <div className="form-actions">
+          <Link className="btn btn-s" to="/groups">
+            Browse open groups
+          </Link>
+          <Link className="btn btn-s btn-quiet" to="/looking">
+            Post that I’m looking
+          </Link>
+        </div>
+      );
     case 'request-seat':
       return <SeatForm view={view} ops={ops} me={me!} done={done} mode="request" />;
     case 'manage-request':

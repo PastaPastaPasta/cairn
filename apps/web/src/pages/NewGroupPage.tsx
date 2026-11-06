@@ -309,7 +309,7 @@ function NewGroupForm({ identityId }: { identityId: string }) {
             <Field label="Group chat link" optional problem={problems.chat} hint="Discord, Yappr, Telegram or Matrix. Cairn has no chat of its own.">
               {({ id, describedBy, invalid }) => <input id={id} value={chat} onChange={(e) => setChat(e.target.value)} inputMode="url" placeholder="https://…" aria-describedby={describedBy} aria-invalid={invalid || undefined} />}
             </Field>
-            <Field label="Form by" optional hint="A date to aim for. Afterwards, members are reminded to release coins they reserved in Dash-Qt.">
+            <Field label="Aim to form by" optional hint="A date to aim for. Once it has passed, the group page reminds members to release coins they reserved in Dash-Qt.">
               {({ id, describedBy }) => <input id={id} type="date" value={formBy} onChange={(e) => setFormBy(e.target.value)} aria-describedby={describedBy} />}
             </Field>
             <Field label="How the voting key is used" optional hint="For example: “votes as the majority of shares decides in the group chat”.">

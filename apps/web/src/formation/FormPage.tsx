@@ -12,6 +12,7 @@ import type { Agreement } from '../matching/agreement.ts';
 import { groupView, type GroupBundle, type GroupView } from '../matching/group.ts';
 import { isFormed, isUnderway, stageOf } from '../matching/stage.ts';
 import { useGroupOps, type GroupOps } from '../pages/group/ops.ts';
+import { openSignIn } from '../ui/Account.tsx';
 import { ActivationCard } from '../ui/Activation.tsx';
 import { PageHead } from '../ui/states.tsx';
 import { useAction } from '../ui/useAction.ts';
@@ -128,6 +129,13 @@ function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void })
                   You bring {dash(BigInt(mine.amount))} as “{mine.label}”.
                 </b>{' '}
                 {coordinator ? `${coordinator.label} coordinates` : 'The coordinator runs the wizard'}; you check each message here and approve it in your own Dash-Qt.
+              </p>
+            ) : !session ? (
+              <p data-testid="form-signed-out">
+                <b>Are you in this group?</b> Sign in to see your row and what to do next.{' '}
+                <button type="button" className="btn btn-s btn-primary" onClick={openSignIn}>
+                  Sign in
+                </button>
               </p>
             ) : (
               <p className="muted">You are not a co-owner of this group. You can follow along and check messages, but there is nothing for you to sign.</p>

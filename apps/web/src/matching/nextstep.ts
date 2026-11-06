@@ -11,6 +11,7 @@ export type StepAction =
   | 'sign-in'
   | 'request-seat'
   | 'post-looking'
+  | 'find-another'
   | 'manage-request'
   | 'answer-invite'
   | 'confirm-seat'
@@ -40,7 +41,7 @@ export interface Step {
 }
 
 export const ROLE_WORDS: Record<Role, string> = {
-  visitor: 'You',
+  visitor: 'Next step',
   requester: 'Your request',
   invitee: 'Your invitation',
   member: 'As a co-owner',
@@ -104,8 +105,10 @@ function stepFor(role: Role, v: GroupView, viewer: Viewer, stage: Stage): Step |
   switch (role) {
     case 'visitor': {
       if (me && viewer.isOperator && !g.operatorId && !v.locked) return step('todo', 'This group needs an operator', 'Offer to run its masternode, with the reward you accept. The organizer chooses.', 'offer');
-      if (!v.open) return step('wait', v.locked ? 'Terms are locked' : 'This group is full', 'It is not taking more co-owners. Post that you are looking, and groups that fit can invite you.', 'post-looking');
-      if (!me) return step('todo', 'Sign in to ask for a seat', `This group still needs ${dash(v.remaining)}. Browsing needs no account; asking for a seat does.`, 'sign-in');
+      // a co-owner who opened the group-chat link before signing in is not told they are outside their own group
+      if (!me)
+        return step('todo', 'Are you in this group?', `Sign in to see your row and what to do next.${v.open ? ` Not in it yet? It still needs ${dash(v.remaining)}; signing in also lets you ask for a seat.` : ''}`, 'sign-in');
+      if (!v.open) return step('wait', v.locked ? 'Terms are locked' : 'This group is full', `This group is full${v.locked ? ' and its terms are locked' : ''}. Browse open groups or post that you’re looking.`, 'find-another');
       if (!v.openAmounts) return step('todo', 'This group fills by invitation', 'The organizer invites people who are looking. Post that you are looking, with your amount and the terms you accept.', 'post-looking');
       return step('todo', 'Ask for a seat', `Say how much you would bring. ${dash(v.remaining)} is still open. The organizer adds you to the roster.`, 'request-seat');
     }

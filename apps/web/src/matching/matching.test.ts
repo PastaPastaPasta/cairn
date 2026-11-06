@@ -3,11 +3,12 @@ import { termsHash } from '@cairn/shares';
 import { describe, expect, it } from 'vitest';
 import { EXIT_PRESETS, exitProblem, exitShort, exitWords, termWarnings } from './exit.ts';
 import { A, B, BLS, C, D, GID, OPR, ORG, SERVICE, VOTING, approval, group, id, looking, opAccept, seat } from './fixtures.ts';
-import { acceptSeat, change, groupView, lockPlan, refillFields, removeShare, saveChoices, type GroupBundle } from './group.ts';
+import { acceptSeat, change, groupView, invitableAgain, lockPlan, refillFields, removeShare, saveChoices, type GroupBundle } from './group.ts';
 import { asciiLabel, deriveLabels, labelProblem } from './labels.ts';
 import { combosWith, completions, filterGroups, lookingThatFits, rankGroups } from './match.ts';
 import { parseDashInput, parsePercentInput } from './money.ts';
-import { nextSteps, rolesOf, seatFlags, stepHref } from './nextstep.ts';
+import { FORM_BY_PASSED, formByNoteFor } from './deadline.ts';
+import { ROLE_WORDS, nextSteps, rolesOf, seatFlags, stepHref } from './nextstep.ts';
 import { stageOf } from './stage.ts';
 
 const bundle = (over: Partial<GroupBundle> = {}): GroupBundle => ({ group: group(), seats: [], opAccepts: [], invites: [], approvals: [], voided: [], ...over });
@@ -239,6 +240,18 @@ describe('next steps per role', () => {
     expect(rolesOf(again, C)).toEqual(['invitee']);
   });
 
+  it('let the organizer invite again someone who declined (F-012)', () => {
+    const declined = { ...seat(C, D(300), { status: SEAT_STATUS.withdrawn }), updatedAt: 10 };
+    const inv = { ...invite(C, D(300)), updatedAt: 5 };
+    const g = group({ roster: [{ id: A, amount: D(500) }] });
+    const v = groupView(bundle({ group: g, seats: [seat(A, D(500)), declined], invites: [inv] }), 'testnet');
+    expect(invitableAgain(v)).toEqual([{ seat: declined, fit: expect.objectContaining({ ok: true }) }]);
+    const reinvited = groupView(bundle({ group: g, seats: [seat(A, D(500)), declined], invites: [{ ...inv, updatedAt: 20 }] }), 'testnet');
+    expect(invitableAgain(reinvited)).toEqual([]);
+    const tooBig = groupView(bundle({ group: group({ roster: [{ id: A, amount: D(800) }] }), seats: [seat(A, D(800)), declined], invites: [inv] }), 'testnet');
+    expect(invitableAgain(tooBig)[0]!.fit.ok).toBe(false);
+  });
+
   it('send the operator of a member-led group to accept, and an invitation-only visitor to post', () => {
     const v = groupView(bundle({ group: group({ flags: 0 }) }), 'testnet');
     expect(nextSteps(v, { id: OPR })[0]!.action).toBe('operator-answer');
@@ -246,6 +259,32 @@ describe('next steps per role', () => {
     const noOp = groupView(bundle({ group: group({ operatorId: null }) }), 'testnet');
     expect(nextSteps(noOp, { id: id(77), isOperator: true })[0]!.action).toBe('offer');
     expect(nextSteps(noOp, { id: ORG })[0]!.action).toBe('choose-operator');
+  });
+
+  it('ask a signed-out visitor whether they are in the group, and send others elsewhere once it is full (D-003)', () => {
+    const b = readyToLock();
+    const full = groupView(b, 'testnet');
+    expect(nextSteps(full, { id: null })[0]).toMatchObject({ role: 'visitor', title: 'Are you in this group?', text: 'Sign in to see your row and what to do next.', action: 'sign-in' });
+    expect(nextSteps(full, { id: id(77) })[0]).toMatchObject({ title: 'This group is full', text: 'This group is full. Browse open groups or post that you’re looking.', action: 'find-another' });
+    const open = groupView(bundle({ group: group({ roster: [{ id: A, amount: D(500) }] }), seats: [seat(A, D(500))] }), 'testnet');
+    expect(nextSteps(open, { id: null })[0]!.text).toBe('Sign in to see your row and what to do next. Not in it yet? It still needs 500 DASH; signing in also lets you ask for a seat.');
+    expect(ROLE_WORDS.visitor).toBe('Next step');
+  });
+
+  it('remind the roster to release reserved coins once the form-by date has passed, until the group forms (S6)', () => {
+    const b = readyToLock();
+    const at = (formBy: number | undefined, over: Partial<GroupBundle> = {}) => groupView({ ...b, ...over, group: { ...b.group, formBy, ...over.group } }, 'testnet');
+    const now = 1_800_000_000_000;
+    const past = now / 1000 - 1;
+    expect(formByNoteFor(at(past), A, 'full', now)).toBe(true);
+    expect(formByNoteFor(at(past), B, 'locked', now)).toBe(true);
+    expect(formByNoteFor(at(now / 1000 + 60), A, 'full', now)).toBe(false);
+    expect(formByNoteFor(at(undefined), A, 'full', now)).toBe(false);
+    expect(formByNoteFor(at(past), id(77), 'full', now)).toBe(false);
+    expect(formByNoteFor(at(past), null, 'full', now)).toBe(false);
+    expect(formByNoteFor(at(past), A, 'live', now)).toBe(false);
+    expect(formByNoteFor(at(past), A, 'closed', now)).toBe(true);
+    expect(FORM_BY_PASSED).toBe('The form-by date has passed. If you reserved coins in Dash-Qt, release them.');
   });
 
   it('ask the chosen voting key holder for the address', () => {

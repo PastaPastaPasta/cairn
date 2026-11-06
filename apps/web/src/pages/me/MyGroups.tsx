@@ -8,7 +8,9 @@ import { Link } from 'react-router-dom';
 import type { Registry } from '../../config/registry.ts';
 import { loadGroupBundle, rawId, readAll, readNewest, useLoad } from '../../data/cairn.ts';
 import { groupView, type GroupView } from '../../matching/group.ts';
+import { FORM_BY_PASSED, formByNoteFor } from '../../matching/deadline.ts';
 import { DUFFS } from '../../matching/money.ts';
+import { stageOf } from '../../matching/stage.ts';
 import { ROLE_WORDS, nextSteps, stepHref, type Step } from '../../matching/nextstep.ts';
 import { CairnStack } from '../../ui/CairnStack.tsx';
 import { Loaded } from '../../ui/Loaded.tsx';
@@ -19,6 +21,8 @@ const MAX_GROUPS = 24;
 export interface MyGroup {
   view: GroupView;
   steps: Step[];
+  /** The form-by date passed before the group formed, and I am on its roster. */
+  formByPassed: boolean;
 }
 
 export async function loadMyGroups(r: Registry, me: string, isOperator: boolean): Promise<MyGroup[]> {
@@ -44,7 +48,7 @@ export async function loadMyGroups(r: Registry, me: string, isOperator: boolean)
     .flatMap((b) => (b ? [b] : []))
     .map((b) => {
       const view = groupView(b, r.network);
-      return { view, steps: nextSteps(view, { id: me, isOperator }).filter((s) => s.role !== 'visitor') };
+      return { view, steps: nextSteps(view, { id: me, isOperator }).filter((s) => s.role !== 'visitor'), formByPassed: formByNoteFor(view, me, stageOf(view, null)) };
     })
     .filter((g) => g.steps.length > 0)
     .sort((a, b) => Number(a.view.closed) - Number(b.view.closed) || Math.min(...a.steps.map((s) => order[s.tone])) - Math.min(...b.steps.map((s) => order[s.tone])) || (b.view.group.updatedAt ?? 0) - (a.view.group.updatedAt ?? 0));
@@ -71,7 +75,7 @@ export function MyGroups({ me, isOperator }: { me: string; isOperator: boolean }
     >
       {(groups) => (
         <ul className="my-groups" data-testid="my-groups">
-          {groups.map(({ view, steps }) => (
+          {groups.map(({ view, steps, formByPassed }) => (
             <li key={view.group.id} className={`my-group${view.closed ? ' closed' : ''}`}>
               <div className="my-group-head">
                 <Link to={`/g/${view.group.id}`} className="fit-title">
@@ -87,6 +91,11 @@ export function MyGroups({ me, isOperator }: { me: string; isOperator: boolean }
                   </li>
                 ))}
               </ul>
+              {formByPassed && (
+                <p className="small notice-box" role="note" data-testid="form-by-passed">
+                  {FORM_BY_PASSED}
+                </p>
+              )}
               <StepLink groupId={view.group.id} steps={steps} />
             </li>
           ))}
