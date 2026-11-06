@@ -207,35 +207,35 @@
   margin: var(--s-1) 0 0;
   color: var(--ink-2);
 }
-.facts {
+.fact-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
   gap: var(--s-3) var(--s-5);
   margin: 0 0 var(--s-5);
 }
-.fact dt {
+.fact-grid .fact dt {
   font-size: var(--t-xs);
   color: var(--ink-3);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: 600;
 }
-.fact dd {
+.fact-grid .fact dd {
   margin: 0.1rem 0 0;
   font-weight: 500;
 }
-.fact-warn dd {
+.fact-grid .fact-warn dd {
   color: var(--warn);
 }
-.fact-stop dd {
+.fact-grid .fact-stop dd {
   color: var(--fail);
   font-weight: 700;
 }
-.facts-tech {
+.fact-grid.facts-tech {
   grid-template-columns: 1fr;
   gap: var(--s-2);
 }
-.facts-tech .fact dd {
+.fact-grid.facts-tech .fact dd {
   font-family: var(--font-mono);
   font-size: var(--t-s);
   font-weight: 400;
@@ -416,7 +416,7 @@
   color: var(--fail);
   font-weight: 700;
 }
-.next-steps li {
+.checker-next li {
   margin-bottom: var(--s-2);
 }
 .check-layout {
@@ -899,14 +899,14 @@
 }
 
 /* ---- track record -------------------------------------------------------------------------------------------------------------- */
-.track {
+.track-record {
   padding: var(--s-5);
   border-radius: var(--radius-l);
   background: var(--surface);
   border: 1px solid var(--line);
   max-width: 46rem;
 }
-.track h2 {
+.track-record h2 {
   font-size: var(--t-xl);
 }
 .track-n {

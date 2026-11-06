@@ -212,7 +212,7 @@ function CheckResultView({ view, hasTerms }: { view: CheckView; hasTerms: boolea
       {view.next.length > 0 && (
         <>
           <h3 className="check-h">What to do next</h3>
-          <ol className="next-steps">
+          <ol className="checker-next">
             {view.next.map((n) => (
               <li key={n}>{n}</li>
             ))}

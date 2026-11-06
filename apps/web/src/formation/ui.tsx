@@ -86,7 +86,7 @@ export function FindingList({ findings }: { findings: readonly Finding[] }) {
 
 export function FactList({ facts, className = '' }: { facts: readonly Fact[]; className?: string }) {
   return (
-    <dl className={`facts ${className}`}>
+    <dl className={`fact-grid ${className}`}>
       {facts.map((f) => (
         <div key={f.label} className={`fact${f.tone ? ` fact-${f.tone}` : ''}`}>
           <dt>{f.label}</dt>

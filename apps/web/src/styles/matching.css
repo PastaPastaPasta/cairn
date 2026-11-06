@@ -856,7 +856,7 @@ input[inputmode='numeric'] {
   margin-bottom: var(--s-3);
 }
 /* the operator page's side card holds the chain-verified track record (formation/TrackRecord.tsx) as one of its sections */
-.side-card > .track {
+.side-card > .track-record {
   padding: 0 0 var(--s-4);
   margin-bottom: var(--s-4);
   background: none;
@@ -864,7 +864,7 @@ input[inputmode='numeric'] {
   border-bottom: 1px solid var(--line);
   border-radius: 0;
 }
-.side-card > .track h2 {
+.side-card > .track-record h2 {
   font-size: var(--t-l);
 }
 
