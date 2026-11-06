@@ -711,6 +711,12 @@
         "minLength": 1,
         "maxLength": 280,
         "position": 5
+      },
+      "votingAddress": {
+        "type": "string",
+        "minLength": 26,
+        "maxLength": 35,
+        "position": 6
       }
     },
     "required": [

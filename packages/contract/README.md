@@ -23,7 +23,7 @@ writer's identity. Amounts are **duffs**. JSON-string fields carry compact JSON 
 | `seat` | yes | **groupId**, **amount**, message ≤280, **status**, flags (bit 0 can coordinate / has Dash-Qt v24 on a desktop, bit 1 willing to hold the voting key), votingAddress 26..35, proTxHash 32 B | `byGroupOwner` unique `[groupId, $ownerId]`; `byOwner [$ownerId]` |
 | `invite` | yes | **groupId**, **toId**, **amount**, message ≤280, **status** | `byTo [toId]`; `byGroup [groupId]` |
 | `approval` | no (deletable: withdraw consent) | **groupId**, **revision**, **termsHash** 32 B, **shareAmount** | `byGroupRevisionOwner` unique `[groupId, revision, $ownerId]` |
-| `opAccept` | yes | **groupId**, **status** (1 accepted, 2 declined, 3 withdrawn), operatorPubKey 48 B, service ≤64, rewardBps, message ≤280 | `byGroupOwner` unique `[groupId, $ownerId]`; `byOwner [$ownerId]` |
+| `opAccept` | yes | **groupId**, **status** (1 accepted, 2 declined, 3 withdrawn), operatorPubKey 48 B, service ≤64, rewardBps, message ≤280, votingAddress 26..35 | `byGroupOwner` unique `[groupId, $ownerId]`; `byOwner [$ownerId]` |
 | `vault` | yes | identical to govhub's `forum.vault` (passkey vault of the vendored `@cairn/auth`) | `byCredential` unique `[$ownerId, credentialId]` |
 
 Mutable types require `$createdAt` and `$updatedAt`, `approval` requires `$createdAt`; `createOp` / `replaceOp` stamp them
@@ -32,23 +32,31 @@ Mutable types require `$createdAt` and `$updatedAt`, `approval` requires `$creat
 Decisions:
 - `group.operatorId` is optional: a member-led group whose operator is still to be chosen leaves it out, and `toGroup` reads that
   as `null`. Platform enters a document without the value under null in the non-unique `byOperator` index (`nullSearchable`
-  defaults to true since PV1, and DPNS indexes its optional `records.identity` the same way), so `groupsOfOperator` is unaffected.
+  defaults to true since PV1; a document with only some index properties missing is always entered, and `status` is
+  required), so `groupsOfOperator` is unaffected.
   Every other indexed property is required (govhub's convention, which keeps unique indexes unique); `test/contract.test.ts`
   allows only this one exception, and only in a non-unique index.
 - `opAccept` is the operator's side of a member-led group: the operator cannot write the organizer's group, so they accept,
   decline or withdraw in their own document, with their BLS key, service and the reward they accept. Accepting a group with no
   operator yet is an offer. The organizer copies key, service and reward into the group before locking; in an operator-led
   group the operator is the organizer and the group carries them directly.
-- `seat.votingAddress` comes from the member the group chose to hold the voting key; the organizer copies it into
+- `seat.votingAddress` (or `opAccept.votingAddress` when the operator holds the key; locked terms allow only a co-owner or
+  the operator as holder) comes from whoever the group chose to hold the voting key; the organizer copies it into
   `group.votingAddress` (term sheet field `votingAddress`), required from lock on. `seat.proTxHash` lets the coordinator, who
   is a co-owner but rarely the organizer, link the registration; Cairn checks it against the chain and the approvals.
 - Roster labels are the row labels typed into Dash-Qt; they live in the roster so every member computes the same term sheet.
 - Statuses are small integers (`schema.ts`): indexed strings would cost more and invite typos. `group.status` is the organizer's
   claim; live/dissolved/banned are recomputed from the chain on read.
-- Schema bounds are caps that hold for every Dash Core version Cairn targets: amounts ≤ 4000 DASH (room for shared EvoNodes), the
+- Schema bounds are caps that hold for every Dash Core version Cairn targets: amounts ≤ 4000 DASH, the
   early period ≤ 420,480 blocks and the operator reward ≤ 10,000 bps, exactly Core's limits. The rules that depend on the rest of a
   document (≥ 100 DASH per share, sum 1000, ≤ 8 shares, penalty below the smallest share and only with a period, services Core
-  accepts, P2PKH voting addresses) are enforced by the models through `@cairn/shares`, on write and on read.
+  accepts, P2PKH voting addresses) are enforced by the models through `@cairn/shares`, on write and on read. Dash Core v24
+  shares regular masternodes only, so the models refuse any other `mnType`; shared EvoNodes (`evo_shares`) would also need
+  Platform node fields this schema does not have, and would come as a new type.
+- Not indexed on purpose (a user has a handful of seats, so these are a few queries each): my approvals (my seats' groups,
+  then `approvalsOf`), a dissolved group's refill (`groupsOrganizedBy` each remaining member, filter `refillOf`), a group by
+  its ProTx hash (`groupsByStatus(live)`), and groups still needing an operator (`groupsByStatus(forming)` without
+  `operatorId`: the PV13 lint has no null values). A later type can add an index if volume needs one.
 - Everything stored is public. A contact handle the user keeps private is simply not stored.
 
 ## Queries

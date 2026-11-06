@@ -140,9 +140,15 @@ describe('group', () => {
     expect(g({ earlyPeriodBlocks: 4_000_000 })).toThrow(/420480/);
     expect(g({ earlyPeriodBlocks: 420_481 })).toThrow(/420480/);
     expect(g({ earlyPeriodBlocks: 420_480 })).not.toThrow();
-    expect(g({ earlyPenalty: 3000 * DASH })).toThrow(/below the smallest share/);
-    expect(g({ earlyPenalty: 250 * DASH })).toThrow(/below the smallest share/);
-    expect(g({ roster: [], earlyPenalty: 100 * DASH })).toThrow(/below the smallest share/);
+    expect(g({ earlyPenalty: 3000 * DASH })).toThrow(/larger than the early-exit penalty|below the smallest share/);
+    expect(g({ roster: [{ id: A, amount: 400 * DASH }, { id: B, amount: 150 * DASH }], earlyPenalty: 200 * DASH })).toThrow(/below the smallest share/);
+    // shares still to come must be larger than the penalty: [500, 350] with 200 could only finish with a 150 share
+    expect(g({ roster: [{ id: A, amount: 500 * DASH }, { id: B, amount: 350 * DASH }], earlyPenalty: 200 * DASH })).toThrow(/larger than the early-exit penalty/);
+    expect(g({ roster: [{ id: A, amount: 500 * DASH }, { id: B, amount: 250 * DASH }], earlyPenalty: 200 * DASH })).not.toThrow();
+    // an operator-led group starts empty: any penalty two shares can stay above
+    expect(g({ roster: [], earlyPenalty: 150 * DASH })).not.toThrow();
+    expect(g({ roster: [], earlyPenalty: 499 * DASH })).not.toThrow();
+    expect(g({ roster: [], earlyPenalty: 500 * DASH })).toThrow(/larger than the early-exit penalty/);
     expect(g({ earlyPeriodBlocks: 0, earlyPenalty: DASH })).toThrow(/penalty to 0/);
     expect(g({ earlyPeriodBlocks: 1000, earlyPenalty: 0 })).toThrow(/Set an early-exit penalty/);
     expect(g({ earlyPeriodBlocks: 0, earlyPenalty: 0 })).not.toThrow();
@@ -154,6 +160,8 @@ describe('group', () => {
     expect(g({ roster: Array.from({ length: 8 }, (_, i) => ({ id: id(i), amount: 100 * DASH })) })).toThrow(/can no longer add up/);
     // a status that claims a whole table needs one
     expect(g({ status: GROUP_STATUS.full })).toThrow(/add up to exactly/);
+    // Dash Core v24 shares regular masternodes only
+    expect(g({ mnType: 2, roster: [{ id: A, amount: 2000 * DASH }] })).toThrow(/only regular masternodes/);
     expect(g({ status: GROUP_STATUS.full, roster: [{ id: A, amount: 600 * DASH }, { id: B, amount: 400 * DASH }] })).not.toThrow();
   });
 
@@ -162,6 +170,16 @@ describe('group', () => {
     expect(() => toGroup({ ...raw, roster: JSON.stringify([{ id: A, amount: 9e15 }]) })).toThrow(DocError);
     expect(() => toGroup({ ...raw, earlyPenalty: 3000 * DASH })).toThrow(DocError);
     expect(() => toGroup({ ...raw, earlyPeriodBlocks: 4_000_000 })).toThrow(DocError);
+    expect(() => toGroup({ ...raw, mnType: 2 })).toThrow(DocError);
+  });
+
+  it('a stored status that claims more than the document holds reads as forming', () => {
+    const raw = stored('group', groupData(base, 'testnet'));
+    expect(toGroup({ ...raw, status: GROUP_STATUS.full }).status).toBe(GROUP_STATUS.forming);
+    expect(toGroup({ ...raw, status: GROUP_STATUS.live }).status).toBe(GROUP_STATUS.forming);
+    expect(toGroup({ ...raw, status: GROUP_STATUS.cancelled }).status).toBe(GROUP_STATUS.cancelled);
+    const full = stored('group', groupData({ ...base, status: GROUP_STATUS.full, roster: [{ id: A, amount: 600 * DASH }, { id: B, amount: 400 * DASH }] }, 'testnet'));
+    expect(toGroup(full).status).toBe(GROUP_STATUS.full);
   });
 
   it('services follow Dash Core: public IPv4, allowed port, 9999 on mainnet; stored canonical', () => {
@@ -207,6 +225,8 @@ describe('group', () => {
     expect(g({ ...locked, votingAddress: undefined })).toThrow(/votingAddress/);
     expect(g({ ...locked, roster: [{ id: A, amount: 600 * DASH }, { id: B, amount: 400 * DASH }] })).toThrow(/label on every share/);
     expect(g({ ...locked, coordinatorId: C })).toThrow(/coordinator must be one of the co-owners/);
+    expect(g({ ...locked, votingHolderId: C })).toThrow(/voting key holder must be a co-owner or the operator/);
+    expect(g({ ...locked, operatorId: C, votingHolderId: C })).not.toThrow();
     expect(g({ ...locked, status: GROUP_STATUS.forming, operatorId: null, votingAddress: undefined })).not.toThrow();
   });
 
@@ -228,7 +248,7 @@ describe('seat, invite, approval, opAccept', () => {
   });
 
   it('opAccept: the operator\'s answer, with the key, service and reward the organizer copies into the group', () => {
-    const f = { groupId: C, status: OP_ACCEPT_STATUS.accepted, operatorPubKey: 'ab'.repeat(48), service: '34.212.1.7:9999', rewardBps: 750, message: 'Happy to run it' };
+    const f = { groupId: C, status: OP_ACCEPT_STATUS.accepted, operatorPubKey: 'ab'.repeat(48), service: '34.212.1.7:9999', rewardBps: 750, message: 'Happy to run it', votingAddress: VOTE_MAIN };
     expect(toOpAccept(stored('opAccept', opAcceptData(f, 'mainnet')), 'mainnet')).toMatchObject(f);
     expect(toOpAccept(stored('opAccept', opAcceptData({ groupId: C, status: OP_ACCEPT_STATUS.declined }, 'testnet')))).toMatchObject({ status: 2, rewardBps: undefined });
     expect(() => opAcceptData({ groupId: C, status: OP_ACCEPT_STATUS.accepted }, 'testnet')).toThrow(/reward/);
@@ -236,6 +256,7 @@ describe('seat, invite, approval, opAccept', () => {
     expect(() => opAcceptData({ ...f, service: '34.212.1.7:19999' }, 'mainnet')).toThrow(/9999/);
     expect(() => opAcceptData({ ...f, operatorPubKey: 'ab' }, 'mainnet')).toThrow(/96 hex/);
     expect(() => opAcceptData({ ...f, rewardBps: 10_001 }, 'mainnet')).toThrow(DocError);
+    expect(() => opAcceptData({ ...f, votingAddress: VOTE_TEST }, 'mainnet')).toThrow(/P2PKH/);
     expect(toOpAccept({ ...stored('opAccept', opAcceptData(f, 'mainnet')), service: 'javascript:alert(1)' }).service).toBeUndefined();
   });
 });

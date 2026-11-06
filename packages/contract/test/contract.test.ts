@@ -19,8 +19,8 @@ beforeAll(async () => {
 
 /**
  * Indexed properties left optional on purpose. Platform stores a document without the value under null in a non-unique index
- * (nullSearchable defaults to true since PV1; DPNS indexes its optional records.identity); govhub's convention requires them only
- * to keep unique indexes unique, which a missing value would bypass.
+ * (nullSearchable defaults to true since PV1, and a document missing only some index properties is always entered); govhub's
+ * convention requires them only to keep unique indexes unique, which a missing value would bypass.
  */
 const OPTIONAL_INDEXED = new Set(['group.byOperator.operatorId']);
 

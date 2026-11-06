@@ -7,7 +7,7 @@
 //   createOp / replaceOp / deleteOp stamp the system times the schema requires.
 import { base58, base64, hex } from '@scure/base';
 import {
-  EVO_COLLATERAL, MAX_EARLY_PERIOD_BLOCKS, MIN_SHARE_AMOUNT, REGULAR_COLLATERAL, areShareAmountsValid, isCompletable, isEarlyPenaltyValid, isEarlyPeriodValid, minAmount,
+  MAX_EARLY_PERIOD_BLOCKS, MIN_SHARE_AMOUNT, REGULAR_COLLATERAL, areShareAmountsValid, isCompletable, isEarlyPenaltyValid, isEarlyPeriodValid, minAmount,
   decodeAddress, remainingDuffs, validateCoreService, type Network as CoreNetwork,
 } from '@cairn/shares';
 import { CAIRN_SCHEMAS, GROUP_STATUS, MAX_AMOUNT_DUFFS, MN_TYPE, OP_ACCEPT_STATUS, prop, type DocType, type Network } from './schema.ts';
@@ -240,9 +240,12 @@ export interface RosterEntry {
 }
 const MAX_LABEL = 32;
 const labelOk = (v: unknown): v is string => typeof v === 'string' && v === cleanName(v) && v.length > 0 && chars(v) <= MAX_LABEL;
-export const collateralOf = (mnType: number): bigint => (mnType === MN_TYPE.evo ? EVO_COLLATERAL : REGULAR_COLLATERAL);
-/** A roster Dash Core could still accept: distinct members, each share 100 DASH up to the collateral, and a remainder that can be filled. */
-export function parseRoster(v: unknown, collateral: bigint = REGULAR_COLLATERAL): RosterEntry[] {
+/**
+ * A roster Dash Core could still accept for a regular masternode: distinct members, each share 100 DASH up to the collateral, and a
+ * remainder that shares larger than the early penalty can still fill.
+ */
+export function parseRoster(v: unknown, earlyPenalty = 0): RosterEntry[] {
+  const collateral = REGULAR_COLLATERAL;
   if (!Array.isArray(v) || v.length > 8) throw new DocError('roster is not a list of up to 8 shares');
   const seen = new Set<string>();
   const labels = new Set<string>();
@@ -256,7 +259,8 @@ export function parseRoster(v: unknown, collateral: bigint = REGULAR_COLLATERAL)
     labels.add(o.label);
     return { id: o.id as string, amount: o.amount as number, label: o.label };
   });
-  if (!isCompletable(roster.length, remainingDuffs(roster.map((r) => BigInt(r.amount)), collateral))) throw new DocError('the roster can no longer add up to the collateral with valid shares');
+  if (!isCompletable(roster.length, remainingDuffs(roster.map((r) => BigInt(r.amount)), collateral), BigInt(earlyPenalty)))
+    throw new DocError('the roster can no longer add up to the collateral with valid shares larger than the early-exit penalty');
   return roster;
 }
 
@@ -280,19 +284,32 @@ const serviceOrUndefined = (v: string | undefined, network?: Network): string | 
   }
 };
 
-/** The early-exit terms and share table rules of @cairn/shares, for a roster that may still be forming; null when they hold. */
-function groupTermsProblem(roster: RosterEntry[], collateral: bigint, earlyPeriodBlocks: number, earlyPenalty: number, complete: boolean): string | null {
-  const amounts = roster.map((r) => BigInt(r.amount));
+/**
+ * The early-exit rules of @cairn/shares against the shares so far; null when they hold. Shares still to come are covered by
+ * parseRoster, which needs room for shares larger than the penalty.
+ */
+function earlyTermsProblem(roster: RosterEntry[], earlyPeriodBlocks: number, earlyPenalty: number): string | null {
   const period = isEarlyPeriodValid(earlyPeriodBlocks);
   if (!period.ok) return period.message;
-  // shares still to come are at least 100 DASH, so that bounds the penalty while the roster is empty
-  const pen = isEarlyPenaltyValid(earlyPeriodBlocks, BigInt(earlyPenalty), amounts.length ? minAmount(amounts) : MIN_SHARE_AMOUNT);
+  const pen = isEarlyPenaltyValid(earlyPeriodBlocks, BigInt(earlyPenalty), roster.length ? minAmount(roster.map((r) => BigInt(r.amount))) : REGULAR_COLLATERAL);
   if (!pen.ok) return pen.message;
   if (earlyPeriodBlocks > 0 && earlyPenalty === 0) return 'Set an early-exit penalty, or set the early period to 0 (a zero penalty makes the period meaningless).';
-  if (complete) {
-    const table = areShareAmountsValid(amounts, collateral);
+  return null;
+}
+
+/** Why a group's status claims more than it holds (a whole table, or frozen terms with everything the term sheet needs), or null. */
+function statusClaimProblem(f: Omit<GroupFields, 'roster'>, roster: RosterEntry[]): string | null {
+  if (COMPLETE_STATUSES.includes(f.status)) {
+    const table = areShareAmountsValid(roster.map((r) => BigInt(r.amount)));
     if (!table.ok) return table.message;
   }
+  if (!LOCKED_STATUSES.includes(f.status)) return null;
+  const missing: string[] = (['operatorId', 'operatorPubKey', 'votingAddress', 'coordinatorId', 'votingHolderId', 'lockedHash'] as const).filter((k) => !f[k]);
+  if (roster.some((r) => !r.label)) missing.push('a label on every share');
+  if (missing.length) return `locked terms need ${missing.join(', ')}`;
+  if (!roster.some((r) => r.id === f.coordinatorId)) return 'the coordinator must be one of the co-owners';
+  // the holder supplies the voting address in their own document: a seat, or the operator's opAccept
+  if (f.votingHolderId !== f.operatorId && !roster.some((r) => r.id === f.votingHolderId)) return 'the voting key holder must be a co-owner or the operator';
   return null;
 }
 /** Statuses that claim the roster is a whole share table. */
@@ -478,18 +495,13 @@ export type Group = DocMeta & GroupFields;
 /** The group document for a write on `network`: schema limits plus Dash Core's share-table, early-exit and service rules. */
 export function groupData(f: GroupFields, network: Network): DocData {
   const mnType = checkInt('group', 'mnType', f.mnType);
-  const collateral = collateralOf(mnType);
-  const roster = parseRoster(f.roster, collateral);
+  // Dash Core v24 shares regular masternodes only (shared EvoNodes need evo_shares); the schema leaves room for them
+  if (mnType !== MN_TYPE.regular) throw new DocError('only regular masternodes can be shared with Dash Core v24');
   checkInt('group', 'earlyPeriodBlocks', f.earlyPeriodBlocks);
   checkInt('group', 'earlyPenalty', f.earlyPenalty);
-  const problem = groupTermsProblem(roster, collateral, f.earlyPeriodBlocks, f.earlyPenalty, COMPLETE_STATUSES.includes(f.status));
+  const roster = parseRoster(f.roster, f.earlyPenalty);
+  const problem = earlyTermsProblem(roster, f.earlyPeriodBlocks, f.earlyPenalty) ?? statusClaimProblem(f, roster);
   if (problem) throw new DocError(problem);
-  if (LOCKED_STATUSES.includes(f.status)) {
-    const missing: string[] = (['operatorId', 'operatorPubKey', 'votingAddress', 'coordinatorId', 'votingHolderId', 'lockedHash'] as const).filter((k) => !f[k]);
-    if (roster.some((r) => !r.label)) missing.push('a label on every share');
-    if (missing.length) throw new DocError(`locked terms need ${missing.join(', ')}`);
-    if (!roster.some((r) => r.id === f.coordinatorId)) throw new DocError('the coordinator must be one of the co-owners');
-  }
   return defined({
     title: checkStr('group', 'title', f.title.trim()),
     about: opt(f.about?.trim(), (v) => checkStr('group', 'about', v)),
@@ -520,17 +532,19 @@ export function groupData(f: GroupFields, network: Network): DocData {
   });
 }
 /**
- * A stored group. Throws when its roster or early-exit terms break Dash Core's rules (no front end may show them as terms);
- * drops a service or voting address Core would refuse, judged by `network`'s rules when given.
+ * A stored group. Throws when it is not a regular masternode or its roster or early-exit terms break Dash Core's rules (no front end
+ * may show them as terms); drops a service or voting address Core would refuse, judged by `network`'s rules when given; reads a
+ * status that claims more than the document holds (a whole table, complete locked terms) as forming.
  */
 export function toGroup(d: RawDoc, network?: Network): Group {
   const chat = optStr(d, 'chatUrl');
   const mnType = num(d, 'mnType');
-  const roster = json(d, 'roster', (v) => parseRoster(v, collateralOf(mnType)));
+  if (mnType !== MN_TYPE.regular) fail('mnType');
   const earlyPeriodBlocks = num(d, 'earlyPeriodBlocks');
   const earlyPenalty = num(d, 'earlyPenalty');
-  if (groupTermsProblem(roster, collateralOf(mnType), earlyPeriodBlocks, earlyPenalty, false)) fail('earlyPenalty');
-  return {
+  const roster = json(d, 'roster', (v) => parseRoster(v, earlyPenalty));
+  if (earlyTermsProblem(roster, earlyPeriodBlocks, earlyPenalty)) fail('earlyPenalty');
+  const g: Group = {
     ...meta(d),
     title: str(d, 'title'),
     about: optStr(d, 'about'),
@@ -556,6 +570,7 @@ export function toGroup(d: RawDoc, network?: Network): Group {
     votingAddress: votingAddressOrUndefined(optStr(d, 'votingAddress'), network),
     flags: optNum(d, 'flags'),
   };
+  return statusClaimProblem(g, roster) ? { ...g, status: GROUP_STATUS.forming } : g;
 }
 
 // ---- seat, invite, approval ------------------------------------------------------------------------------------------------
@@ -654,6 +669,8 @@ export interface OpAcceptFields {
   /** The operator reward they accept, in basis points; required when accepting. */
   rewardBps?: number;
   message?: string;
+  /** P2PKH address of the voting key, when the group chose the operator to hold it. */
+  votingAddress?: string;
 }
 export type OpAccept = DocMeta & OpAcceptFields;
 export function opAcceptData(f: OpAcceptFields, network: Network): DocData {
@@ -665,6 +682,7 @@ export function opAcceptData(f: OpAcceptFields, network: Network): DocData {
     service: opt(f.service?.trim(), (v) => checkStr('opAccept', 'service', parseService(v, network).canonical)),
     rewardBps: opt(f.rewardBps, (v) => checkInt('opAccept', 'rewardBps', v)),
     message: opt(f.message?.trim(), (v) => checkStr('opAccept', 'message', v)),
+    votingAddress: opt(f.votingAddress?.trim(), (v) => checkVotingAddress('opAccept', v, network)),
   });
 }
 export const toOpAccept = (d: RawDoc, network?: Network): OpAccept => ({
@@ -675,6 +693,7 @@ export const toOpAccept = (d: RawDoc, network?: Network): OpAccept => ({
   service: serviceOrUndefined(optStr(d, 'service'), network),
   rewardBps: optNum(d, 'rewardBps'),
   message: optStr(d, 'message'),
+  votingAddress: votingAddressOrUndefined(optStr(d, 'votingAddress'), network),
 });
 
 /** Every reader by type, for generic list code. */

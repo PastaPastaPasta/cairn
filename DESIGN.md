@@ -253,7 +253,7 @@ Rules:
 - The canonical **term sheet** is deterministic JSON. Its fields are:
   - `network`, `groupId`, `revision`
   - shares: ordered `[{memberId, label, amount}]`
-  - `operatorPubKey`, `service`, `votingHolderId`, `rewardBps`, `earlyPeriodBlocks`,
+  - `operatorPubKey`, `service`, `votingAddress`, `votingHolderId`, `rewardBps`, `earlyPeriodBlocks`,
     `earlyPenalty`, `coordinatorId`
 
   `termsHash = sha256("cairn-terms-v1\n" + canonicalJson)`. Approvals and `group.lockedHash` must
