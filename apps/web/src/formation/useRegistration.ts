@@ -3,20 +3,25 @@ import { fetchActivation } from '../data/activation.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../app/context.tsx';
 import type { Registry } from '../config/registry.ts';
-import { errText } from '../lib/format.ts';
+import { plainError } from '../data/errors.ts';
 import type { Agreement } from '../matching/agreement.ts';
 import type { GroupView } from '../matching/group.ts';
 import { lookupRegistration } from './chain.ts';
-import { judgeRegistration, type RegistrationJudgement } from './verify.ts';
+import { judgeRegistration, operatorKeyPublishedAt, type RegistrationJudgement } from './verify.ts';
 
 export type RegState =
   | { status: 'idle' }
   | { status: 'checking'; progress: string }
   | { status: 'done'; results: RegistrationJudgement[] }
-  | { status: 'error'; error: string };
+  | { status: 'error'; error: string; detail: string | null };
+
+const chainError = (e: unknown): RegState => {
+  const p = plainError(e, 'the Dash network');
+  return { status: 'error', error: p.text, detail: p.detail };
+};
 
 /** The verified one if any, else the first: what a page shows as "the" registration. */
-export const primaryOf = (results: readonly RegistrationJudgement[]): RegistrationJudgement | null => results.find((r) => r.state === 'verified') ?? results[0] ?? null;
+export const primaryOf = (results: readonly RegistrationJudgement[]): RegistrationJudgement | null => results.find((r) => r.state === 'verified') ?? results.find((r) => r.state === 'recorded-after') ?? results[0] ?? null;
 
 type Lookup = Awaited<ReturnType<typeof lookupRegistration>>;
 const RECENT_MS = 120_000;
@@ -37,19 +42,23 @@ function lookupShared(registry: Registry, hash: string, onProgress: (m: string) 
 }
 
 /** What judging a registration reads from an agreement: a reload that leaves these as they were need not check again. */
-const agreementKey = (a: Agreement | null) => (a ? `${a.hash}|${a.anchored}|${a.problems.join('\n')}` : '');
+const agreementKey = (a: Agreement | null, keyAt: number | null) =>
+  a ? `${a.hash}|${a.anchored}|${a.problems.join('\n')}|${a.members.map((m) => m.approval?.createdAt ?? '').join(',')}|${keyAt}` : '';
 
-export function useRegistrations(hashes: readonly string[], agreement: Agreement | null): { state: RegState; recheck(): void } {
+/** When the group's operator key was on Cairn: what "agreed before registered" compares with the block time. */
+export const keyPublishedAtOf = (view: GroupView): number | null => operatorKeyPublishedAt(view.group, view.operatorAnswer ? [view.operatorAnswer] : [], view.agreement.members.flatMap((m) => (m.approval ? [m.approval] : [])));
+
+export function useRegistrations(hashes: readonly string[], agreement: Agreement | null, keyAt: number | null = null): { state: RegState; recheck(): void } {
   const { registry } = useApp();
   const [state, setState] = useState<RegState>({ status: 'idle' });
   const [tick, setTick] = useState(0);
   const recheck = useCallback(() => setTick((n) => n + 1), []);
   const key = hashes.join(',');
-  const agreed = agreementKey(agreement);
-  const latest = useRef(agreement);
-  latest.current = agreement;
+  const agreed = agreementKey(agreement, keyAt);
+  const latest = useRef({ agreement, keyAt });
+  latest.current = { agreement, keyAt };
   useEffect(() => {
-    const a = latest.current;
+    const { agreement: a, keyAt: k } = latest.current;
     if (!hashes.length || !a) return setState({ status: 'idle' });
     let live = true;
     setState((s) => (s.status === 'done' ? s : { status: 'checking', progress: 'Looking for the registration' }));
@@ -57,9 +66,9 @@ export function useRegistrations(hashes: readonly string[], agreement: Agreement
     const progress = (p: string) => live && setState((s) => (s.status === 'done' ? s : { status: 'checking', progress: p }));
     (async () => {
       const results: RegistrationJudgement[] = [];
-      for (const h of hashes) results.push(judgeRegistration(a, await lookupShared(registry, h, progress, tick > 0)));
+      for (const h of hashes) results.push(judgeRegistration(a, await lookupShared(registry, h, progress, tick > 0), k));
       if (live) setState({ status: 'done', results });
-    })().catch((e: unknown) => live && setState({ status: 'error', error: errText(e) }));
+    })().catch((e: unknown) => live && setState(chainError(e)));
     return () => {
       live = false;
     };
@@ -77,12 +86,12 @@ export interface GroupRegistrations {
 /** Every registration linked to a group, checked on chain against the group's approvals: what its pages show as its chain status. */
 export function useGroupRegistrations(view: GroupView): GroupRegistrations {
   const hashes = useMemo(() => view.linked.map((x) => x.hash), [view.linked]);
-  const { state, recheck } = useRegistrations(hashes, view.agreement);
+  const { state, recheck } = useRegistrations(hashes, view.agreement, keyPublishedAtOf(view));
   return { state, recheck, primary: state.status === 'done' ? primaryOf(state.results) : null };
 }
 
 /** One registration on demand (the link form checks before it writes). */
-export function useRegistrationCheck(agreement: Agreement | null): { state: RegState; check(hash: string): void; reset(): void } {
+export function useRegistrationCheck(agreement: Agreement | null, keyAt: number | null = null): { state: RegState; check(hash: string): void; reset(): void } {
   const { registry } = useApp();
   const [state, setState] = useState<RegState>({ status: 'idle' });
   const [run, setRun] = useState<{ hash: string; n: number } | null>(null);
@@ -91,13 +100,13 @@ export function useRegistrationCheck(agreement: Agreement | null): { state: RegS
     let live = true;
     setState({ status: 'checking', progress: 'Looking for the registration' });
     lookupRegistration(registry, run.hash, (progress) => live && setState({ status: 'checking', progress })).then(
-      (lookup) => live && setState({ status: 'done', results: [judgeRegistration(agreement, lookup)] }),
-      (e: unknown) => live && setState({ status: 'error', error: errText(e) }),
+      (lookup) => live && setState({ status: 'done', results: [judgeRegistration(agreement, lookup, keyAt)] }),
+      (e: unknown) => live && setState(chainError(e)),
     );
     return () => {
       live = false;
     };
-  }, [registry, run, agreement]);
+  }, [registry, run, agreement, keyAt]);
   return {
     state,
     check: useCallback((hash: string) => setRun((r) => ({ hash, n: (r?.n ?? 0) + 1 })), []),

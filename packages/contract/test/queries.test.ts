@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { base58 } from '@scure/base';
 import {
-  CAIRN_SCHEMAS, approvalsOf, groupsByStatus, groupsOfOperator, groupsOrganizedBy, invitesOfGroup, invitesTo, lintQuery, lookingByStatus, lookingOf,
+  CAIRN_SCHEMAS, approvalsOf, approvalsOfGroup, groupsByStatus, groupsOfOperator, groupsOrganizedBy, invitesOfGroup, invitesTo, lintQuery, lookingByStatus, lookingOf,
   opAcceptOf, opAcceptsOf, opAcceptsOfGroup, operatorOf, operatorsByStatus, profileOf, profilesOf, seatOf, seatsOf, seatsOfGroup,
 } from '../src/index.ts';
 
@@ -28,6 +28,7 @@ describe('every cairn query passes the PV13 lint and lands on the intended index
     ['invitesTo', invitesTo(A), 'byTo'],
     ['invitesOfGroup', invitesOfGroup(A), 'byGroup'],
     ['approvalsOf', approvalsOf(A, 3), 'byGroupRevisionOwner'],
+    ['approvalsOfGroup', approvalsOfGroup(A), 'byGroupRevisionOwner'],
     ['opAcceptsOfGroup', opAcceptsOfGroup(A, B), 'byGroupOwner'],
     ['opAcceptOf', opAcceptOf(A, B), 'byGroupOwner'],
     ['opAcceptsOf', opAcceptsOf(A), 'byOwner'],

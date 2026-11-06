@@ -9,7 +9,7 @@ import { useAccount } from '../../app/account.tsx';
 import { useApp } from '../../app/context.tsx';
 import { useGroupBundle } from '../../data/cairn.ts';
 import { usePeople } from '../../data/people.ts';
-import { GroupTabs } from '../../formation/parts.tsx';
+import { GroupTabs, GroupUpdated } from '../../formation/parts.tsx';
 import { useGroupRegistrations, type GroupRegistrations } from '../../formation/useRegistration.ts';
 import { groupView, type GroupBundle, type GroupView } from '../../matching/group.ts';
 import { DUFFS, dash, shortId } from '../../matching/money.ts';
@@ -20,6 +20,7 @@ import { CairnStack, type Stone } from '../../ui/CairnStack.tsx';
 import { Loaded } from '../../ui/Loaded.tsx';
 import { useScrollToHash } from '../../ui/useScrollToHash.ts';
 import { NotOpenHere, PageHead } from '../../ui/states.tsx';
+import type { MnState } from '../../formation/verify.ts';
 import { NextSteps } from './NextStep.tsx';
 import { useGroupOps } from './ops.ts';
 import { EditTerms, InviteSection, LockSection, OperatorSection, RefillPanel } from './Organizer.tsx';
@@ -41,16 +42,17 @@ export function GroupPage() {
     );
   return (
     <div className="page group-page">
+      {load.status === 'error' && <PageHead title="Group" />}
       <Loaded load={load} retry={load.reload} what="Reading this group from Dash Platform…">
         {(b) =>
           b ? (
-            <GroupBody bundle={b} reload={load.reload} refreshing={load.status === 'ready' && load.refreshing} />
+            <GroupBody bundle={b} reload={load.reload} refreshing={load.status === 'ready' && load.refreshing} updated={load.updated} />
           ) : (
             <>
               <PageHead title={`Group ${shortId(id)}`} />
               <div className="empty-state">
                 <p>
-                  <b>No group with this id on {registry.label}.</b> It may have been deleted, or the link is for the other network.
+                  <b>No group with this link on {registry.label}.</b> It may have been deleted, the link may be cut off, or it is for the other network.
                 </p>
                 <p>
                   <Link to="/groups">See open groups</Link>
@@ -77,11 +79,17 @@ export function stonesOf(view: GroupView, me: string | null, nameOf: (id: string
   return stones;
 }
 
+const NOT_EARNING: Partial<Record<MnState, string>> = { 'no-service': 'not earning yet', banned: 'not earning: PoSe-banned' };
+
 function statusLine(v: GroupView, stage: Stage, reg: GroupRegistrations): { text: string; tone: string } {
   const chain = reg.primary;
   switch (stage) {
     case 'live':
-      return { text: chain!.headline, tone: 'ok' };
+      return { text: 'Earning · registration verified', tone: 'ok' };
+    case 'registered':
+      return { text: `Registration verified${NOT_EARNING[chain!.mnState] ? ` · ${NOT_EARNING[chain!.mnState]}` : ''}`, tone: 'wait' };
+    case 'recorded-after':
+      return { text: 'Registered · terms recorded after registration', tone: 'muted' };
     case 'mismatch':
       return { text: chain!.headline, tone: 'bad' };
     case 'linked':
@@ -104,7 +112,7 @@ function statusLine(v: GroupView, stage: Stage, reg: GroupRegistrations): { text
   }
 }
 
-function GroupBody({ bundle, reload, refreshing }: { bundle: GroupBundle; reload(): void; refreshing: boolean }) {
+function GroupBody({ bundle, reload, refreshing, updated }: { bundle: GroupBundle; reload(): void; refreshing: boolean; updated: boolean }) {
   const { registry } = useApp();
   const { session } = useAccount();
   const me = session?.identityId ?? null;
@@ -119,7 +127,7 @@ function GroupBody({ bundle, reload, refreshing }: { bundle: GroupBundle; reload
   const reg = useGroupRegistrations(view);
   const stage = stageOf(view, reg.primary);
   const steps = nextSteps(view, { id: me, isOperator: myListing.status === 'ready' && !!myListing.data }, stage);
-  const ops = useGroupOps(bundle, me);
+  const ops = useGroupOps(bundle, me, reload);
   const organizer = me === g.ownerId;
   const status = statusLine(view, stage, reg);
   const forming = isUnderway(stage);
@@ -149,7 +157,8 @@ function GroupBody({ bundle, reload, refreshing }: { bundle: GroupBundle; reload
           )}
         </p>
       </PageHead>
-      {(view.locked || view.linked.length > 0) && <GroupTabs id={g.id} />}
+      {(view.locked || view.linked.length > 0) && <GroupTabs id={g.id} linked={view.linked.length > 0} />}
+      {updated && <GroupUpdated />}
       {view.voided.length > 0 && !view.ready && (
         <p className="voided" role="note" data-testid="voided">
           {view.voided.length === 1 ? 'One approval' : `${view.voided.length} approvals`} of revision {g.termsRevision - 1} no longer count: the terms changed after

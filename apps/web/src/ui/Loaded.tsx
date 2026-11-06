@@ -3,6 +3,17 @@
 import type { ReactNode } from 'react';
 import type { Load } from '../data/cairn.ts';
 
+/** The technical side of an error, folded away (DESIGN principle 5). */
+export function ErrorDetail({ detail }: { detail?: string | null }) {
+  if (!detail) return null;
+  return (
+    <details className="error-detail small">
+      <summary>Technical details</summary>
+      <p className="break">{detail}</p>
+    </details>
+  );
+}
+
 export function Loaded<T>({ load, empty, isEmpty, children, what = 'Reading from Dash Platform…', retry }: { load: Load<T>; empty?: ReactNode; isEmpty?(d: T): boolean; children(d: T): ReactNode; what?: string; retry?(): void }) {
   if (load.status === 'loading')
     return (
@@ -14,6 +25,7 @@ export function Loaded<T>({ load, empty, isEmpty, children, what = 'Reading from
     return (
       <div className="list-status" role="alert">
         <p className="error">{load.error}</p>
+        <ErrorDetail detail={load.detail} />
         {retry && (
           <button type="button" className="btn btn-s" onClick={retry}>
             Try again
@@ -26,7 +38,7 @@ export function Loaded<T>({ load, empty, isEmpty, children, what = 'Reading from
 }
 
 /** A write's outcome under its button: busy, the error, or what was confirmed. */
-export function WriteStatus({ busy, error, done, busyText = 'Signing and sending to Dash Platform…' }: { busy: boolean; error: string | null; done?: ReactNode; busyText?: string }) {
+export function WriteStatus({ busy, error, detail, done, busyText = 'Signing and sending to Dash Platform…' }: { busy: boolean; error: string | null; detail?: string | null; done?: ReactNode; busyText?: string }) {
   if (busy)
     return (
       <p className="small muted write-status" role="status">
@@ -35,9 +47,10 @@ export function WriteStatus({ busy, error, done, busyText = 'Signing and sending
     );
   if (error)
     return (
-      <p className="error small write-status" role="alert">
-        {error}
-      </p>
+      <div className="write-status" role="alert">
+        <p className="error small">{error}</p>
+        <ErrorDetail detail={detail} />
+      </div>
     );
   if (done)
     return (

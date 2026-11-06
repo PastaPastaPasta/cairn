@@ -1,5 +1,6 @@
-// O6: an operator's track record from chain data only. Every Cairn group naming this operator whose linked registration proves to be
-// exactly what its members approved counts; groups' own status claims and the operator's profile never do.
+// O6: an operator's track record from chain data only. A Cairn group naming this operator counts when its linked registration proves
+// to be exactly what its members approved, agreed before it was registered (every approval and the operator's key on Cairn are
+// older than its block); groups' own status claims and the operator's profile never do.
 import { groupsOfOperator, toGroup, type Group } from '@cairn/contract';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -7,11 +8,12 @@ import { useApp } from '../app/context.tsx';
 import type { Registry } from '../config/registry.ts';
 import { loadGroupBundle } from '../data/cairn.ts';
 import { queryCairn } from '../data/platform.ts';
-import { errText } from '../lib/format.ts';
+import { plainError } from '../data/errors.ts';
 import { agreementOf } from '../matching/agreement.ts';
 import { linkedProTx } from '../matching/group.ts';
+import { ErrorDetail } from '../ui/Loaded.tsx';
 import { lookupRegistration } from './chain.ts';
-import { judgeRegistration, type MnState, type RegistrationJudgement } from './verify.ts';
+import { judgeRegistration, operatorKeyPublishedAt, type MnState, type RegistrationJudgement } from './verify.ts';
 import './formation.css';
 
 export interface TrackEntry {
@@ -22,14 +24,14 @@ export interface TrackEntry {
 export interface TrackSummary {
   /** Groups naming this operator that have a registration linked. */
   linked: number;
-  /** Live and verified: the registration is exactly what every member approved, proven on chain. */
+  /** Verified: the registration is exactly what every member approved before it was registered, proven on chain. */
   verified: TrackEntry[];
   byState: Record<MnState, number>;
 }
 
 export function summarizeTrack(entries: readonly TrackEntry[], linked: number): TrackSummary {
   const verified = entries.filter((e) => e.judgement.state === 'verified');
-  const byState: Record<MnState, number> = { valid: 0, banned: 0, dissolved: 0, unknown: 0 };
+  const byState: Record<MnState, number> = { valid: 0, 'no-service': 0, banned: 0, dissolved: 0, unknown: 0 };
   for (const e of verified) byState[e.judgement.mnState]++;
   return { linked, verified, byState };
 }
@@ -54,10 +56,11 @@ export async function readTrackRecord(r: Registry, operatorId: string, onProgres
     if (!hashes.length) continue;
     linked++;
     const agreement = agreementOf(bundle.group, bundle.approvals, r.network);
+    const keyAt = operatorKeyPublishedAt(bundle.group, bundle.opAccepts, bundle.approvals);
     for (const { hash } of hashes) {
       if (counted.has(hash)) continue;
       onProgress?.(`Checking “${bundle.group.title}” against the chain`);
-      const j = judgeRegistration(agreement, await lookupRegistration(r, hash));
+      const j = judgeRegistration(agreement, await lookupRegistration(r, hash), keyAt);
       entries.push({ group: { id: g.id, title: bundle.group.title }, judgement: j });
       if (j.state === 'verified') {
         counted.add(hash);
@@ -68,7 +71,7 @@ export async function readTrackRecord(r: Registry, operatorId: string, onProgres
   return summarizeTrack(entries, linked);
 }
 
-type TrackState = { status: 'loading'; progress: string } | { status: 'error'; error: string } | { status: 'ready'; summary: TrackSummary };
+type TrackState = { status: 'loading'; progress: string } | { status: 'error'; error: string; detail: string | null } | { status: 'ready'; summary: TrackSummary };
 
 export function useOperatorTrackRecord(operatorId: string | undefined): TrackState {
   const { registry } = useApp();
@@ -79,7 +82,11 @@ export function useOperatorTrackRecord(operatorId: string | undefined): TrackSta
     setState({ status: 'loading', progress: 'Reading this operator’s groups' });
     readTrackRecord(registry, operatorId, (progress) => live && setState({ status: 'loading', progress })).then(
       (summary) => live && setState({ status: 'ready', summary }),
-      (e: unknown) => live && setState({ status: 'error', error: errText(e) }),
+      (e: unknown) => {
+        if (!live) return;
+        const p = plainError(e, 'the Dash network');
+        setState({ status: 'error', error: p.text, detail: p.detail });
+      },
     );
     return () => {
       live = false;
@@ -88,22 +95,26 @@ export function useOperatorTrackRecord(operatorId: string | undefined): TrackSta
   return state;
 }
 
-const MN_WORD: Record<MnState, string> = { valid: 'valid', banned: 'PoSe-banned', dissolved: 'dissolved', unknown: 'list unavailable' };
+const MN_WORD: Record<MnState, string> = { valid: 'earning', 'no-service': 'not earning yet', banned: 'PoSe-banned', dissolved: 'dissolved', unknown: 'list unavailable' };
 
 export function OperatorTrackRecord({ operatorId }: { operatorId: string }) {
   const state = useOperatorTrackRecord(operatorId);
   return (
     <section className="track" aria-labelledby="track-title" data-testid="track-record">
       <h2 id="track-title">Track record</h2>
-      <p className="small muted">From the chain only: a group counts when its registration is proven on chain and is exactly what every member approved.</p>
+      <p className="small muted">
+        From the chain only: a group counts when its registration is proven on chain and is exactly what every member approved, with every approval and this
+        operator’s key recorded on Cairn before it was registered.
+      </p>
       {state.status === 'loading' ? (
         <p className="small muted" role="status">
           <span className="spinner" aria-hidden="true" /> {state.progress}
         </p>
       ) : state.status === 'error' ? (
-        <p className="small error" role="alert">
-          The track record could not be checked: {state.error}
-        </p>
+        <div role="alert">
+          <p className="small error">The track record could not be checked. {state.error}</p>
+          <ErrorDetail detail={state.detail} />
+        </div>
       ) : (
         <TrackBody summary={state.summary} />
       )}
@@ -114,13 +125,19 @@ export function OperatorTrackRecord({ operatorId }: { operatorId: string }) {
 function TrackBody({ summary }: { summary: TrackSummary }) {
   const v = summary.verified;
   if (!v.length) {
-    return <p data-testid="track-summary">{summary.linked ? `${summary.linked} Cairn ${summary.linked === 1 ? 'group has' : 'groups have'} a registration linked, but none is verified yet.` : 'No Cairn group with this operator is live yet.'}</p>;
+    return (
+      <p data-testid="track-summary">
+        {summary.linked
+          ? `${summary.linked} Cairn ${summary.linked === 1 ? 'group has' : 'groups have'} a registration linked, but none is verified as agreed before it was registered.`
+          : 'No Cairn group with this operator is registered yet.'}
+      </p>
+    );
   }
-  const parts = (['valid', 'banned', 'dissolved', 'unknown'] as const).filter((k) => summary.byState[k]).map((k) => `${summary.byState[k]} ${MN_WORD[k]}`);
+  const parts = (['valid', 'no-service', 'banned', 'dissolved', 'unknown'] as const).filter((k) => summary.byState[k]).map((k) => `${summary.byState[k]} ${MN_WORD[k]}`);
   return (
     <>
       <p className="track-summary" data-testid="track-summary">
-        <b className="track-n">{v.length}</b> Cairn {v.length === 1 ? 'group' : 'groups'} live and verified · {parts.join(', ')} in the masternode list now
+        <b className="track-n">{v.length}</b> Cairn {v.length === 1 ? 'group' : 'groups'} registered as agreed · {parts.join(', ')} now
       </p>
       <ul className="track-list">
         {v.map((e) => (
@@ -132,8 +149,8 @@ function TrackBody({ summary }: { summary: TrackSummary }) {
         ))}
       </ul>
       <p className="small muted">
-        The masternode list shows each node’s state now; Radar keeps its history of payments and uptime. A group links a registration by copying its terms, so the
-        chain proves each masternode runs with this operator’s key, not that the operator is who their profile says: ask them to show the key in your group chat.
+        The masternode list shows each node’s state now; Radar keeps its history of payments and uptime. The chain shows which key runs each masternode and that this
+        operator published it on Cairn before registration, not who holds the key’s secret: ask the operator to show it in your group chat.
       </p>
     </>
   );

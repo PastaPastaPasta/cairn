@@ -477,6 +477,12 @@
   color: var(--ink);
   border-bottom-color: var(--ochre);
 }
+.group-tabs .tab-later {
+  padding: var(--s-2) var(--s-4);
+  color: var(--ink-3);
+  font-weight: 600;
+  cursor: default;
+}
 .form-status {
   list-style: none;
   padding: 0;
@@ -769,9 +775,9 @@
 /* ---- live ---------------------------------------------------------------------------------------------------------------------- */
 .live-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(14rem, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--s-4);
-  align-items: stretch;
+  align-items: start;
   margin-bottom: var(--s-5);
 }
 .live-hero .reg-card {
@@ -940,4 +946,36 @@
 }
 .check-aside h2:not(:first-child) {
   margin-top: var(--s-5);
+}
+
+.page-toast {
+  position: fixed;
+  inset-inline: var(--s-4);
+  bottom: var(--s-4);
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.page-toast > * {
+  margin: 0;
+  max-width: 36rem;
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.12);
+  pointer-events: auto;
+}
+.page-toast > .notice-box {
+  background: var(--ochre-wash);
+}
+.reg-neutral .reg-dot {
+  background: var(--ink-3);
+}
+.reg-neutral .reg-headline {
+  font-size: clamp(1.25rem, 1.05rem + 0.8vw, var(--t-xl));
+}
+.mn-no-service {
+  color: var(--warn);
 }

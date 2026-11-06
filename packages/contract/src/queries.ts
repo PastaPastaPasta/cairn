@@ -72,6 +72,9 @@ export const invitesOfGroup = (groupId: string, startAfter?: string) =>
   checked(paged({ documentTypeName: 'invite', where: [['groupId', '==', groupId]], limit: PAGE }, startAfter));
 
 // approval
+/** Every approval of a group, all terms revisions: read alongside the group, before its current revision is known. */
+export const approvalsOfGroup = (groupId: string, startAfter?: string) =>
+  checked(paged({ documentTypeName: 'approval', where: [['groupId', '==', groupId]], orderBy: [['revision', 'asc'], ['$ownerId', 'asc']], limit: PAGE }, startAfter));
 export const approvalsOf = (groupId: string, revision: number, startAfter?: string) =>
   checked(
     paged(

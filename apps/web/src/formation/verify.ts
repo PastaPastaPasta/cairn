@@ -1,6 +1,9 @@
 // M10: is a linked registration the masternode the group approved? Computed from chain facts and the approvals on every read; the
-// group's own status field is never consulted.
-import { type CheckResult, checkRegistrationAgainstTerms } from '@cairn/shares';
+// group's own status field is never consulted. "Verified" means agreed before registered: anyone can copy a registered
+// masternode's public terms into a group afterwards, so a match counts only when every approval, and the operator's key on Cairn,
+// are older than the registration's block.
+import { OP_ACCEPT_STATUS, type Approval, type Group, type OpAccept } from '@cairn/contract';
+import { type CheckResult, checkRegistrationAgainstTerms, coreP2PEntries, decodeSharedProRegTx } from '@cairn/shares';
 import type { Agreement } from '../matching/agreement.ts';
 
 /** What the chain says about a registration (chain.ts gathers it over DAPI). */
@@ -10,6 +13,8 @@ export interface ChainFacts {
   hex: string;
   /** 0 while unconfirmed. */
   height: number;
+  /** The registration block's header time (seconds), from a header hashed to the proven block; null when it could not be read. */
+  blockTime: number | null;
   /** Proven into its block by the merkle root. */
   mined: boolean;
   chainLocked: 'verified' | 'claimed' | 'no';
@@ -25,8 +30,9 @@ export interface ChainFacts {
   notes: string[];
 }
 
-export type RegistrationState = 'verified' | 'mismatch' | 'unproven' | 'unconfirmed' | 'not-found';
-export type MnState = 'valid' | 'banned' | 'dissolved' | 'unknown';
+export type RegistrationState = 'verified' | 'recorded-after' | 'mismatch' | 'unproven' | 'unconfirmed' | 'not-found';
+/** `no-service`: banned because the operator has not given the node its address yet (registered without a service). */
+export type MnState = 'valid' | 'no-service' | 'banned' | 'dissolved' | 'unknown';
 
 export interface RegistrationJudgement {
   proTxHash: string;
@@ -42,24 +48,75 @@ export interface RegistrationJudgement {
 }
 
 export const STATE_HEADLINE: Record<RegistrationState, string> = {
-  verified: 'Live (verified)',
+  verified: 'Registration verified',
+  'recorded-after': 'Registration matches these terms, but they were recorded after it was registered',
   mismatch: 'Does not match what was approved',
   unproven: 'Registered, proof incomplete',
   unconfirmed: 'Waiting for a block',
   'not-found': 'Not on the chain',
 };
 
-export function mnStateOf(f: ChainFacts | null): { state: MnState; text: string } {
-  if (!f || f.height === 0 || f.mn === undefined) return { state: 'unknown', text: 'The masternode list could not be read.' };
-  if (f.mn === null) {
-    return { state: 'dissolved', text: 'It is no longer in the masternode list. A shared masternode leaves the list only when a dissolution spends its collateral, so it has been dissolved.' };
+/** Whether the network pays the masternode, in words: the one status a co-owner cares about most. */
+export const MN_HEADLINE: Record<MnState, string> = {
+  valid: 'Earning',
+  'no-service': 'Not earning yet: waiting for the operator’s service update',
+  banned: 'Not earning: PoSe-banned',
+  dissolved: 'Dissolved',
+  unknown: 'Earning status unknown',
+};
+
+function registeredWithoutService(hex: string): boolean {
+  try {
+    return coreP2PEntries(decodeSharedProRegTx(hex).payload.netInfo).length === 0;
+  } catch {
+    return false;
   }
-  return f.mn.isValid
-    ? { state: 'valid', text: 'Valid in the masternode list: it takes part and is paid in turn.' }
-    : { state: 'banned', text: 'PoSe-banned: the network does not pay it until the operator fixes the node and sends a service update.' };
 }
 
-export function judgeRegistration(agreement: Agreement, lookup: ChainFacts | { notFound: true; proTxHash: string }): RegistrationJudgement {
+export function mnStateOf(f: ChainFacts | null): { state: MnState; text: string } {
+  if (!f || f.height === 0 || f.mn === undefined) return { state: 'unknown', text: 'The masternode list could not be read just now, so Cairn cannot say whether the network pays it.' };
+  if (f.mn === null) {
+    return { state: 'dissolved', text: 'It is no longer in the masternode list. A shared masternode leaves the list only when someone leaves, so it has been dissolved and every share went back to its refund address.' };
+  }
+  if (f.mn.isValid) return { state: 'valid', text: 'The network lists it as valid: it takes part and is paid in turn.' };
+  // Cairn's list entries do not keep the address, so this reads the registration: registered without one, the operator's service
+  // update is what it waits for (an update and a later ban needs one as well, so the advice holds either way)
+  if (registeredWithoutService(f.hex)) {
+    return { state: 'no-service', text: 'It was registered without the node’s IP address, and the network pays it only after the operator sends a service update with it. Your coins are safe in the collateral.' };
+  }
+  return { state: 'banned', text: 'The network banned it for missing its duties, so it is not paid until the operator fixes the node and sends a service update. Your coins are safe in the collateral.' };
+}
+
+/**
+ * When the operator's key was on Cairn (ms), the latest it can be shown to have been: the operator's own accepted answer in a
+ * member-led group (its last change, since its history is not kept). In an operator-led group the key is in the organizer's group,
+ * whose history is not kept either; members approve only terms the group shows, and those include the key, so the first approval
+ * of the locked terms bounds it.
+ */
+export function operatorKeyPublishedAt(g: Group, opAccepts: readonly OpAccept[], approvals: readonly Approval[]): number | null {
+  const key = (g.operatorPubKey ?? '').toLowerCase();
+  if (!key) return null;
+  if (g.operatorId && g.operatorId === g.ownerId) {
+    const times = approvals.filter((a) => a.termsRevision === g.termsRevision).map((a) => a.createdAt);
+    return times.length && times.every((t) => t !== undefined) ? Math.min(...(times as number[])) : null;
+  }
+  const a = opAccepts.find((o) => o.ownerId === g.operatorId && o.status === OP_ACCEPT_STATUS.accepted && (o.operatorPubKey ?? '').toLowerCase() === key);
+  return a?.updatedAt ?? a?.createdAt ?? null;
+}
+
+/** What was recorded on Cairn only at or after the registration's block time (empty: everything was agreed before). */
+export function recordedLate(agreement: Agreement, keyPublishedAt: number | null, blockTime: number): string[] {
+  const at = blockTime * 1000;
+  const late = agreement.members.filter((m) => m.approval?.createdAt === undefined || m.approval.createdAt >= at).map((m) => `${m.label || 'a co-owner'}’s approval`);
+  if (keyPublishedAt === null || keyPublishedAt >= at) late.push('the operator’s key');
+  return late;
+}
+
+const block = (h: number) => `block ${h.toLocaleString('en-US')}`;
+const listWords = (xs: readonly string[]) => (xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
+
+/** `keyPublishedAt`: operatorKeyPublishedAt of the group; without it the registration can match but never count as verified. */
+export function judgeRegistration(agreement: Agreement, lookup: ChainFacts | { notFound: true; proTxHash: string }, keyPublishedAt: number | null = null): RegistrationJudgement {
   if ('notFound' in lookup) {
     return {
       proTxHash: lookup.proTxHash,
@@ -99,13 +156,25 @@ export function judgeRegistration(agreement: Agreement, lookup: ChainFacts | { n
       ...base,
       state: 'unproven',
       headline: STATE_HEADLINE.unproven,
-      detail: `It matches the approved terms and is in block ${lookup.height.toLocaleString('en-US')}, but the ChainLock above it could not be verified${lookup.notes.length ? ` (${lookup.notes.join('; ')})` : ''}.`,
+      detail: `It matches the approved terms and is in ${block(lookup.height)}, but the network’s final confirmation of that block could not be checked here${lookup.notes.length ? ` (${lookup.notes.join('; ')})` : ''}.`,
+    };
+  }
+  if (lookup.blockTime === null) {
+    return { ...base, state: 'unproven', headline: STATE_HEADLINE.unproven, detail: `It matches the approved terms and is in ${block(lookup.height)}, but the time of that block could not be read, so Cairn cannot tell whether the terms were agreed before it.` };
+  }
+  const late = recordedLate(agreement, keyPublishedAt, lookup.blockTime);
+  if (late.length) {
+    return {
+      ...base,
+      state: 'recorded-after',
+      headline: STATE_HEADLINE['recorded-after'],
+      detail: `The masternode in ${block(lookup.height)} has exactly these shares, operator, voting key, reward, exit terms and service, but ${listWords(late)} ${late.length === 1 ? 'was' : 'were'} recorded on Cairn only after it was registered. Anyone can copy a registered masternode’s public terms, so Cairn does not count it as this group’s verified masternode or in the operator’s track record.`,
     };
   }
   return {
     ...base,
     state: 'verified',
     headline: STATE_HEADLINE.verified,
-    detail: `Registered in block ${lookup.height.toLocaleString('en-US')}, ChainLocked, and exactly what every member approved: shares, operator, voting key, reward, exit terms and service, with every co-owner’s approval valid.`,
+    detail: `Registered in ${block(lookup.height)}, confirmed for good, and exactly what all ${agreement.members.length} co-owners approved before it was registered: shares, operator, voting key, reward, exit terms and service.`,
   };
 }

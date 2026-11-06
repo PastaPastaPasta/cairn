@@ -147,9 +147,20 @@ function laterStep(role: Role, v: GroupView, me: string | null, stage: Stage, st
     case 'linked':
       return step('wait', 'Registration linked', 'Cairn checks it against the chain and every approval on the live page.', 'live');
     case 'live':
-      if (role === 'operator') return step('done', 'Live (verified): keep the node running', 'Put the BLS secret key on the node and send a service update with your payout address; without it the operator reward is not paid.', 'live');
-      if (role === 'member') return step('done', 'Live (verified)', 'The chain shows exactly the masternode everyone approved. Save your standby dissolution and keep it offline.', 'live');
-      return step('done', role === 'visitor' ? 'This masternode is live' : 'Live (verified)', 'The chain shows exactly the masternode every member approved.', 'live');
+      if (role === 'operator') return step('done', 'Earning: keep the node running', 'Keep the node up and current. Without a payout address set in a service update, the operator reward goes to the co-owners.', 'live');
+      if (role === 'member') return step('done', 'Earning', 'The chain shows exactly the masternode everyone approved, and the network pays it. Save your standby dissolution and keep it offline.', 'live');
+      return step('done', role === 'visitor' ? 'This masternode is earning' : 'Earning', 'The chain shows exactly the masternode every member approved, and the network pays it.', 'live');
+    case 'registered':
+      if (role === 'operator') return step('todo', 'Registration verified: start the node', 'Put the BLS secret key on the node and send a service update with your payout address. Until the network lists it as valid, it earns nothing.', 'live');
+      if (role === 'member') return step('wait', 'Registration verified, not earning yet', 'The chain shows exactly the masternode everyone approved, but the network is not paying it yet; the live page says why. Save your standby dissolution meanwhile.', 'live');
+      return step('done', 'Registration verified', 'The chain shows exactly the masternode every member approved. The live page shows whether the network pays it yet.', 'live');
+    case 'recorded-after':
+      return step(
+        'wait',
+        'Registered, but not verified',
+        'The masternode on chain matches these terms, but they were recorded on Cairn after it was registered, so Cairn cannot show that this group agreed to it first.',
+        'live',
+      );
     case 'mismatch':
       return step('warn', 'The linked registration does not match', 'It is not what every member approved. Nobody should treat it as this group’s masternode; the live page shows what differs.', 'live');
     case 'dissolved':

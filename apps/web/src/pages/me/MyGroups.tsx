@@ -10,6 +10,8 @@ import { loadGroupBundle, rawId, readAll, readNewest, useLoad } from '../../data
 import { groupView, type GroupView } from '../../matching/group.ts';
 import { DUFFS } from '../../matching/money.ts';
 import { ROLE_WORDS, nextSteps, stepHref, type Step } from '../../matching/nextstep.ts';
+import { stageOf } from '../../matching/stage.ts';
+import { useGroupRegistrations } from '../../formation/useRegistration.ts';
 import { CairnStack } from '../../ui/CairnStack.tsx';
 import { Loaded } from '../../ui/Loaded.tsx';
 import { stonesOf } from '../group/GroupPage.tsx';
@@ -71,28 +73,37 @@ export function MyGroups({ me, isOperator }: { me: string; isOperator: boolean }
     >
       {(groups) => (
         <ul className="my-groups" data-testid="my-groups">
-          {groups.map(({ view, steps }) => (
-            <li key={view.group.id} className={`my-group${view.closed ? ' closed' : ''}`}>
-              <div className="my-group-head">
-                <Link to={`/g/${view.group.id}`} className="fit-title">
-                  {view.group.title}
-                </Link>
-                <CairnStack variant="row" legend={false} stones={stonesOf(view, me, () => null)} />
-              </div>
-              <ul className="my-steps">
-                {steps.map((s) => (
-                  <li key={s.role} className={`my-step next-${s.tone}`}>
-                    <span className="small muted">{ROLE_WORDS[s.role]}</span> <b>{s.title}</b>
-                    <span className="small block">{s.text}</span>
-                  </li>
-                ))}
-              </ul>
-              <StepLink groupId={view.group.id} steps={steps} />
-            </li>
+          {groups.map((g) => (
+            <MyGroupItem key={g.view.group.id} group={g} me={me} isOperator={isOperator} />
           ))}
         </ul>
       )}
     </Loaded>
+  );
+}
+
+/** One group; a linked registration is checked on chain, so its steps say registered or earning as the group page does. */
+function MyGroupItem({ group: { view, steps: fromDocs }, me, isOperator }: { group: MyGroup; me: string; isOperator: boolean }) {
+  const reg = useGroupRegistrations(view);
+  const steps = reg.primary ? nextSteps(view, { id: me, isOperator }, stageOf(view, reg.primary)).filter((s) => s.role !== 'visitor') : fromDocs;
+  return (
+    <li className={`my-group${view.closed ? ' closed' : ''}`}>
+      <div className="my-group-head">
+        <Link to={`/g/${view.group.id}`} className="fit-title">
+          {view.group.title}
+        </Link>
+        <CairnStack variant="row" legend={false} stones={stonesOf(view, me, () => null)} />
+      </div>
+      <ul className="my-steps">
+        {steps.map((s) => (
+          <li key={s.role} className={`my-step next-${s.tone}`}>
+            <span className="small muted">{ROLE_WORDS[s.role]}</span> <b>{s.title}</b>
+            <span className="small block">{s.text}</span>
+          </li>
+        ))}
+      </ul>
+      <StepLink groupId={view.group.id} steps={steps.length ? steps : fromDocs} />
+    </li>
   );
 }
 

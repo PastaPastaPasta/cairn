@@ -41,7 +41,9 @@ test.describe('standalone /check', () => {
     await expect(result.locator('.check-kind')).toHaveText('Locked Terms');
     await expect(result).toContainText('Round 2 of 3: Locked Terms → Approval');
     await expect(result).toContainText('B2B8-01BC');
-    await expect(verdict(page)).toHaveAttribute('data-verdict', 'neutral');
+    // the fixtures are regtest messages and this site is on Testnet
+    await expect(verdict(page)).toHaveAttribute('data-verdict', 'stop');
+    await expect(page.getByTestId('findings').locator('[data-code="wrong-network"]')).toContainText('Wrong network: this message is for Regtest, and this site is on Testnet');
     await expect(result.getByTestId('check-rows').locator('tbody tr')).toHaveCount(3);
     for (const [name, title] of [['combined', 'Signing Request'], ['fundingSigned', 'Signed Contribution'], ['broadcast', 'Final Record']]) {
       await paste(page, env(name!));
@@ -51,6 +53,19 @@ test.describe('standalone /check', () => {
     const sessionId = /"sessionId": "([0-9a-f]{64})"/.exec(frozen)![1]!;
     expect(sent.filter((s) => s.includes(sessionId) || s.includes(owner(0)) || s.includes(A.prepared.consentHash))).toEqual([]);
     expect(errors).toEqual([]);
+  });
+
+  test('a valid testnet message is not called safe on its own, and an edited one asks to check it', async ({ page }) => {
+    await stubActivation(page);
+    await page.goto('/check');
+    const draft = testnetDraft(env('draft-complete'));
+    await paste(page, draft);
+    await expect(verdict(page)).toHaveAttribute('data-verdict', 'neutral');
+    await expect(verdict(page)).toContainText('Valid in Dash Core, not compared with agreed terms');
+    await paste(page, draft.replace(/"fingerprint": "[0-9A-F]{4}-[0-9A-F]{4}"/, '"fingerprint": "AAAA-BBBB"'));
+    await expect(verdict(page)).toHaveAttribute('data-verdict', 'warn');
+    await expect(verdict(page)).toContainText('Check this');
+    await expect(page.getByTestId('check-result')).not.toContainText('Approve and Copy Reply');
   });
 
   test('stops on a tampered message', async ({ page }) => {
@@ -121,14 +136,19 @@ test.describe('against a group’s approved terms (testnet)', () => {
   });
 });
 
-test('the live page verifies the demo group against real testnet chain data', async ({ page }) => {
+test('the live page checks the demo group against real testnet chain data', async ({ page }) => {
   test.setTimeout(180_000);
   await stubActivation(page);
   await page.goto(`/g/${DEMO_GROUP}/live`);
   const reg = page.getByTestId('registration').first();
-  await expect(reg).toHaveAttribute('data-state', 'verified', { timeout: 150_000 });
-  await expect(reg).toContainText('Live (verified)');
-  await expect(page.getByTestId('mn-state')).toHaveAttribute('data-state', /valid|banned/);
+  // the demo copied d400c120's public terms after Dash-Qt registered it: it matches, but was not agreed before (F-003)
+  await expect(reg).toHaveAttribute('data-state', 'recorded-after', { timeout: 150_000 });
+  await expect(reg).toContainText('Registration matches these terms, but they were recorded after it was registered');
+  await expect(reg.locator('.reg-headline')).not.toHaveText('Registration verified');
+  // registered without a service: banned until the operator's service update, never "live" (D-002, F-013)
+  await expect(page.getByTestId('mn-state')).toHaveAttribute('data-state', /no-service|banned|valid/);
+  await expect(page.getByTestId('mn-state').locator('.mn-valid')).toHaveCount(0);
+  await expect(page.getByTestId('maintenance-note')).toBeVisible();
   await expect(page.getByTestId('early-period')).toContainText('ends at block 1,635,878');
   await expect(page.getByTestId('reward-split')).toContainText('48.5%');
 });
@@ -140,14 +160,15 @@ test('the group, form and live pages tell one lifecycle, from the documents and 
   await page.goto(`/g/${MATCHING_DEMO}`);
   await expect(page.getByTestId('group-status')).toHaveText('Ready to form', { timeout: 90_000 });
   await expect(page.getByRole('navigation', { name: 'This group' })).toBeVisible();
+  await expect(page.getByTestId('tab-live-later')).toHaveText('Live · after forming');
   // a linked registration: the group page asks the chain, not the organizer's "live" claim
   await page.goto(`/g/${DEMO_GROUP}`);
-  await expect(page.getByTestId('group-status')).toHaveText('Live (verified)', { timeout: 150_000 });
-  await expect(page.getByTestId('step-visitor')).toContainText('This masternode is live');
+  await expect(page.getByTestId('group-status')).toHaveText('Registered · terms recorded after registration', { timeout: 150_000 });
+  await expect(page.getByTestId('step-visitor')).toContainText('Registered, but not verified');
   await page.getByRole('navigation', { name: 'This group' }).getByRole('link', { name: 'Form' }).click();
   const status = page.getByTestId('form-status');
   await expect(status).toContainText('Ready to form', { timeout: 90_000 });
-  await expect(status.getByRole('link', { name: 'Live (verified)' })).toBeVisible({ timeout: 150_000 });
+  await expect(status.getByRole('link', { name: /recorded after it was registered/ })).toBeVisible({ timeout: 150_000 });
   await page.getByRole('navigation', { name: 'This group' }).getByRole('link', { name: 'Check a message' }).click();
   await expect(page).toHaveURL(new RegExp(`/check\\?group=${DEMO_GROUP}$`));
   await expect(page.getByTestId('checker-my-row')).toBeVisible({ timeout: 90_000 });

@@ -22,7 +22,7 @@ import { earlyView, labelChainShares, rewardSplit } from './live.ts';
 import { GroupGate, GroupTabs, RegistrationCard, RegProgress } from './parts.tsx';
 import { CodeBlock, CopyButton, Technical } from './ui.tsx';
 import { useGroupRegistrations } from './useRegistration.ts';
-import type { MnState, RegistrationJudgement } from './verify.ts';
+import { MN_HEADLINE, type RegistrationJudgement } from './verify.ts';
 
 const n = (x: number) => x.toLocaleString('en-US');
 const GOVERNANCE = 'https://gov.dashhq.org';
@@ -36,8 +36,6 @@ export function GroupLivePage() {
     </GroupGate>
   );
 }
-
-const MN_WORDS: Record<MnState, string> = { valid: 'Valid', banned: 'PoSe-banned', dissolved: 'Dissolved', unknown: 'Unknown' };
 
 function LiveBody({ bundle }: { bundle: GroupBundle }) {
   const { registry } = useApp();
@@ -108,33 +106,36 @@ function LiveRegistration({ j, view, agreement }: { j: RegistrationJudgement; vi
   const holder = useProfile(g.votingHolderId ?? null);
   const holderName = personName(holder.profile, holder.dpns) ?? g.roster.find((r) => r.id === g.votingHolderId)?.label ?? 'the voting key holder';
   const radar = `${registry.radar}/mn/${j.proTxHash}${registry.network === 'testnet' ? '?net=testnet' : ''}`;
-  const verified = j.state === 'verified' || j.state === 'unproven';
+  // the chain shows this masternode with these terms; only "verified" also says the group agreed to them first
+  const onChain = (j.state === 'verified' || j.state === 'recorded-after' || j.state === 'unproven') && !!f && f.height > 0;
+  const me = session?.identityId;
+  const coOwner = !!me && g.roster.some((r) => r.id === me);
+  const runsIt = !!me && me === g.operatorId;
+  // green "earning" only for a masternode the group verifiably agreed to and the network pays
+  const mnTone = j.mnState === 'valid' && j.state !== 'verified' ? 'unknown' : j.mnState;
 
   return (
     <>
       <section className={`live-hero live-${j.state}`} aria-label="Status" data-testid="live-status">
-        <RegistrationCard j={j} />
-        {verified && f && (
+        {onChain && (
           <div className="live-mn" data-testid="mn-state" data-state={j.mnState}>
-            <p className="live-mn-label small muted">In the masternode list</p>
-            <p className={`live-mn-state mn-${j.mnState}`}>{MN_WORDS[j.mnState]}</p>
+            <p className="live-mn-label small muted">Rewards</p>
+            <p className={`live-mn-state mn-${mnTone}`}>{MN_HEADLINE[j.mnState]}</p>
             <p className="small">{j.mnText}</p>
-            {j.check?.findings.some((x) => x.code === 'no-service') && (
-              <p className="small notice-box">No IP address is registered: the operator must send a service update before it can earn (see the operator checklist below).</p>
-            )}
           </div>
         )}
+        <RegistrationCard j={j} />
       </section>
 
-      {verified && f && terms && (
+      {onChain && f && terms && (
         <>
           <section className="live-facts" aria-label="Registration">
-            <Fact label="ProTx hash">
+            <Fact label="Registration ID (ProTx hash)">
               <span className="num break">{j.proTxHash}</span> <CopyButton value={j.proTxHash} what="ProTx hash" />
             </Fact>
             <Fact label="Registered">block {n(f.height)}</Fact>
             <EarlyFact registered={f.height} period={terms.earlyPeriodBlocks} penalty={terms.earlyPenalty} tip={f.tip} />
-            <Fact label="Chain tip (verified)">block {n(f.tip)}</Fact>
+            <Fact label="Latest block (verified)">block {n(f.tip)}</Fact>
           </section>
           {shares && <RewardSplit shares={shares} terms={terms} mine={mine} rewardBps={terms.rewardBps} />}
           <section className="live-links" aria-label="Elsewhere">
@@ -149,7 +150,13 @@ function LiveRegistration({ j, view, agreement }: { j: RegistrationJudgement; vi
               {g.votingPolicy ? ` Their policy: “${g.votingPolicy}”` : ''}
             </p>
           </section>
-          <Maintenance j={j} early={earlyView(f.height, terms.earlyPeriodBlocks, f.tip)} hasPenalty={terms.earlyPenalty > 0n} service={terms.service} network={terms.network} />
+          {coOwner || runsIt ? (
+            <Maintenance j={j} early={earlyView(f.height, terms.earlyPeriodBlocks, f.tip)} hasPenalty={terms.earlyPenalty > 0n} service={terms.service} network={terms.network} coOwner={coOwner} />
+          ) : (
+            <p className="small muted" data-testid="maintenance-note">
+              How-tos for looking after this masternode (saving a standby exit, changing a reward address, leaving) are shown to its co-owners and operator when they sign in.
+            </p>
+          )}
           <section className="form-section" id="checker">
             <Checker
               network={coreNetwork(registry.network)}
@@ -162,12 +169,17 @@ function LiveRegistration({ j, view, agreement }: { j: RegistrationJudgement; vi
             />
           </section>
           <section className="form-section dissolve-note" aria-labelledby="dissolve-title">
-            <h2 id="dissolve-title">How Cairn notices a dissolution</h2>
-            <p className="small">
-              DAPI has no <span className="num">protx</span> calls, so Cairn cannot ask for the dissolution itself. It reads the masternode list instead, proven against a
-              ChainLocked chain: a shared masternode leaves the list only when a dissolution spends its collateral, so a verified registration that is gone from the list
-              has been dissolved. Every principal went back to its refund address; the group can reopen with the same terms.
+            <h2 id="dissolve-title">If someone leaves</h2>
+            <p>
+              The masternode disappears from the network’s list and this page shows Dissolved. Every share goes back to its refund address, minus any early-exit
+              penalty, and the rest of you can reopen the group with the same terms.
             </p>
+            <Technical>
+              <p className="small">
+                DAPI has no <span className="num">protx</span> calls, so Cairn cannot ask for the dissolution itself. It reads the masternode list instead, proven against
+                a ChainLocked chain: a shared masternode leaves the list only when a dissolution spends its collateral.
+              </p>
+            </Technical>
           </section>
         </>
       )}
@@ -270,63 +282,67 @@ function RewardSplit({ shares, terms, mine, rewardBps }: { shares: ChainShare[];
   );
 }
 
-function Maintenance({ j, early, hasPenalty, service, network }: { j: RegistrationJudgement; early: ReturnType<typeof earlyView>; hasPenalty: boolean; service: string; network: 'main' | 'test' | 'devnet' | 'regtest' }) {
+function Maintenance({ j, early, hasPenalty, service, network, coOwner }: { j: RegistrationJudgement; early: ReturnType<typeof earlyView>; hasPenalty: boolean; service: string; network: 'main' | 'test' | 'devnet' | 'regtest'; coOwner: boolean }) {
   const h = j.proTxHash;
   const cli = network === 'main' ? 'dash-cli' : 'dash-cli -testnet';
   return (
     <section className="form-section maintenance" aria-labelledby="maint-title" data-testid="maintenance">
       <h2 id="maint-title">Looking after it</h2>
       <p className="muted small">In Dash-Qt every action starts from the Masternodes tab: right-click this masternode. The RPC lines are for dashd and the console.</p>
-      <HowTo title="Save your standby dissolution now" tag="each co-owner" open>
-        <p>A signed exit you keep offline. It returns every principal, works even if this wallet is lost, and never expires.</p>
-        <ol>
-          <li>Right-click the masternode → “Create Standby Dissolution…”.</li>
-          <li>Pick your share and press “Create Standby Dissolution…”, then save the text file.</li>
-          <li>
-            It holds two transactions: <b>full principal</b>, valid {early.over || early.none ? 'now' : `from block ${n(early.endHeight)}`}, and <b>immediate</b>
-            {hasPenalty ? ', which pays the early-exit penalty and is valid at once' : ''}.
-          </li>
-          <li>Paste it into the checker below to check it, then store it with your refund-address backup, apart from this wallet.</li>
-        </ol>
-        <Rpc code={`${cli} protx shared_dissolve ${h} <MY_SHARE_INDEX> 100000 false false\n${cli} protx shared_dissolve ${h} <MY_SHARE_INDEX> 100000 false true`} />
-      </HowTo>
-      <HowTo title="Change your reward address" tag="just you">
-        <p>Only your share is affected and nobody else signs. Your refund address never changes.</p>
-        <ol>
-          <li>Right-click → “Change Reward Address…”.</li>
-          <li>Pick your share, then “Use new address” (or “Use refund address”), and the address that pays the small fee.</li>
-          <li>Press “Send Update”.</li>
-        </ol>
-        <Rpc code={`${cli} protx shared_update_share ${h} <MY_SHARE_INDEX> "<NEW_REWARD_ADDRESS>" "<FEE_SOURCE_ADDRESS>"`} />
-      </HowTo>
-      <HowTo title="Replace the operator or the voting key" tag="needs everyone">
-        <p>Every co-owner must approve. If one cannot be reached, only leaving remains.</p>
-        <ol>
-          <li>One person: right-click → “Rotate Keys…”, enter the new operator key and/or voting address (blank keeps the current one), then “Prepare Request”.</li>
-          <li>They send the request to everyone. Each co-owner checks it in the checker below, then in Dash-Qt pastes it and presses “Approve and Copy Reply”.</li>
-          <li>The person who prepared it pastes every reply and presses “Send Rotation”. Only their wallet can send it.</li>
-          <li>A new operator key bans the masternode until the new operator sends a service update.</li>
-        </ol>
-        <Rpc
-          code={`${cli} protx shared_update_registrar_prepare ${h} "<NEW_OPERATOR_PUBKEY or empty>" "<NEW_VOTING_ADDRESS or empty>" "<FEE_SOURCE_ADDRESS>"\n${cli} protx shared_sign "<TX>"\n${cli} protx shared_combine "<TX>" '[{"shareIndex":0,"signature":"<SIG>"},…]' true`}
-        />
-      </HowTo>
-      <HowTo title="Leave" tag="just you">
-        <p>
-          Leaving ends the masternode for everyone and returns every principal to its refund address.{' '}
-          {early.none || early.over ? 'The early period is over, so leaving alone is free.' : `Leaving alone before block ${n(early.endHeight)} costs the early-exit penalty, split among the others.`}{' '}
-          If everyone agrees, leaving together is always free.
-        </p>
-        <ol>
-          <li>Right-click → “Dissolve…”.</li>
-          <li>“Dissolve Now” leaves alone (tick that you accept the penalty if it applies). “Dissolve Together” prepares a request every co-owner approves.</li>
-          <li>The others can open a new group with the same terms that needs only the amount that left.</li>
-        </ol>
-        <Rpc
-          code={`${cli} protx shared_dissolve ${h} <MY_SHARE_INDEX>\n# together, free: prepare, everyone signs, then combine and send\n${cli} protx shared_dissolve_prepare ${h} <MY_SHARE_INDEX>\n${cli} protx shared_sign "<TX>"\n${cli} protx shared_combine "<TX>" '[…every signature…]' true`}
-        />
-      </HowTo>
-      <HowTo title="Operator checklist" tag="the operator" open={j.check?.findings.some((x) => x.code === 'no-service')}>
+      {coOwner && (
+        <>
+          <HowTo title="Save your standby dissolution now" tag="each co-owner" open>
+            <p>A signed exit you keep offline. It returns every share’s coins, works even if this wallet is lost, and never expires.</p>
+            <ol>
+              <li>Right-click the masternode → “Create Standby Dissolution…”.</li>
+              <li>Pick your share and press “Create Standby Dissolution…”, then save the text file.</li>
+              <li>
+                It holds two transactions: <b>full principal</b>, valid {early.over || early.none ? 'now' : `from block ${n(early.endHeight)}`}, and <b>immediate</b>
+                {hasPenalty ? ', which pays the early-exit penalty and is valid at once' : ''}.
+              </li>
+              <li>Paste it into the checker below to check it, then store it with your refund-address backup, apart from this wallet.</li>
+            </ol>
+            <Rpc code={`${cli} protx shared_dissolve ${h} <MY_SHARE_INDEX> 100000 false false\n${cli} protx shared_dissolve ${h} <MY_SHARE_INDEX> 100000 false true`} />
+          </HowTo>
+          <HowTo title="Change your reward address" tag="just you">
+            <p>Only your share is affected and nobody else signs. Your refund address never changes.</p>
+            <ol>
+              <li>Right-click → “Change Reward Address…”.</li>
+              <li>Pick your share, then “Use new address” (or “Use refund address”), and the address that pays the small fee.</li>
+              <li>Press “Send Update”.</li>
+            </ol>
+            <Rpc code={`${cli} protx shared_update_share ${h} <MY_SHARE_INDEX> "<NEW_REWARD_ADDRESS>" "<FEE_SOURCE_ADDRESS>"`} />
+          </HowTo>
+          <HowTo title="Replace the operator or the voting key" tag="needs everyone">
+            <p>Every co-owner must approve. If one cannot be reached, only leaving remains.</p>
+            <ol>
+              <li>One person: right-click → “Rotate Keys…”, enter the new operator key and/or voting address (blank keeps the current one), then “Prepare Request”.</li>
+              <li>They send the request to everyone. Each co-owner checks it in the checker below, then in Dash-Qt pastes it and presses “Approve and Copy Reply”.</li>
+              <li>The person who prepared it pastes every reply and presses “Send Rotation”. Only their wallet can send it.</li>
+              <li>A new operator key bans the masternode until the new operator sends a service update.</li>
+            </ol>
+            <Rpc
+              code={`${cli} protx shared_update_registrar_prepare ${h} "<NEW_OPERATOR_PUBKEY or empty>" "<NEW_VOTING_ADDRESS or empty>" "<FEE_SOURCE_ADDRESS>"\n${cli} protx shared_sign "<TX>"\n${cli} protx shared_combine "<TX>" '[{"shareIndex":0,"signature":"<SIG>"},…]' true`}
+            />
+          </HowTo>
+          <HowTo title="Leave" tag="just you">
+            <p>
+              Leaving ends the masternode for everyone and returns every share’s coins to its refund address.{' '}
+              {early.none || early.over ? 'The early period is over, so leaving alone is free.' : `Leaving alone before block ${n(early.endHeight)} costs the early-exit penalty, split among the others.`}{' '}
+              If everyone agrees, leaving together is always free.
+            </p>
+            <ol>
+              <li>Right-click → “Dissolve…”.</li>
+              <li>“Dissolve Now” leaves alone (tick that you accept the penalty if it applies). “Dissolve Together” prepares a request every co-owner approves.</li>
+              <li>The others can open a new group with the same terms that needs only the amount that left.</li>
+            </ol>
+            <Rpc
+              code={`${cli} protx shared_dissolve ${h} <MY_SHARE_INDEX>\n# together, free: prepare, everyone signs, then combine and send\n${cli} protx shared_dissolve_prepare ${h} <MY_SHARE_INDEX>\n${cli} protx shared_sign "<TX>"\n${cli} protx shared_combine "<TX>" '[…every signature…]' true`}
+            />
+          </HowTo>
+        </>
+      )}
+      <HowTo title="Operator checklist" tag="the operator" open={j.mnState === 'no-service' || !coOwner}>
         <ol>
           <li>
             Put <span className="num">masternodeblsprivkey=&lt;BLS secret&gt;</span> in the node’s <span className="num">dash.conf</span> and restart it.

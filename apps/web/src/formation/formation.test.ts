@@ -8,7 +8,8 @@ import { checkMessage } from './checker.ts';
 import { cliPlan, fillArgs, percentString, renderPlan, shareTokens } from './cli.ts';
 import { earlyView, labelChainShares, rewardSplit } from './live.ts';
 import { setupSheet } from './setup.ts';
-import { judgeRegistration, type ChainFacts } from './verify.ts';
+import { OP_ACCEPT_STATUS } from '@cairn/contract';
+import { judgeRegistration, mnStateOf, operatorKeyPublishedAt, type ChainFacts } from './verify.ts';
 
 // biome-ignore lint: fixture JSON
 type J = any;
@@ -58,10 +59,13 @@ const d400Group = (patch: Partial<Group> = {}): Group => {
   return { ...g, lockedHash: patch.lockedHash ?? (validateTermSheet(sheet).length ? undefined : termsHash(sheet)) };
 };
 const termSheetOf = (g: Group) => termSheetFromGroup(g.id, g, 'testnet');
+/** The registration block's time in the fixtures (s); approvals and the key are recorded an hour before it unless a test says otherwise. */
+const BLOCK_T = 1_792_900_000;
+const BEFORE = (BLOCK_T - 3600) * 1000;
 const approvalsFor = (g: Group, patch: (a: Approval) => Approval = (a) => a): Approval[] =>
-  g.roster.map((r, i) => patch({ id: `ap${i}`, ownerId: r.id, docRevision: 1, termsRevision: g.termsRevision, groupId: g.id, termsHash: g.lockedHash!, shareAmount: r.amount }));
+  g.roster.map((r, i) => patch({ id: `ap${i}`, ownerId: r.id, docRevision: 1, createdAt: BEFORE + i, termsRevision: g.termsRevision, groupId: g.id, termsHash: g.lockedHash!, shareAmount: r.amount }));
 const facts = (patch: Partial<ChainFacts> = {}): ChainFacts => ({
-  proTxHash: D400_HASH, hex: D400, height: 1583318, mined: true, chainLocked: 'verified', trust: 'quorum-proof', weak: null, tip: 1586757, mn: { isValid: false }, listTrust: 'proven', notes: [], ...patch,
+  proTxHash: D400_HASH, hex: D400, height: 1583318, blockTime: BLOCK_T, mined: true, chainLocked: 'verified', trust: 'quorum-proof', weak: null, tip: 1586757, mn: { isValid: false }, listTrust: 'proven', notes: [], ...patch,
 });
 
 describe('message checker, standalone', () => {
@@ -87,7 +91,7 @@ describe('message checker, standalone', () => {
     expect(fact('draft-complete', 'Rows filled')).toBe('3 of 3');
     expect(fact('frozen', 'Approvals')).toBe('0 of 3 valid');
     expect(fact('signing', 'Approvals')).toBe('1 of 3 valid');
-    expect(fact('frozen', 'Message')).toBe('Locked Terms, or an Approval reply');
+    expect(fact('frozen', 'Message')).toBe('Locked Terms (members reply with an Approval)');
     expect(fact('combined', 'Approvals')).toBe('3 of 3 valid');
     expect(fact('combined', 'Coins signed')).toBe('0 of 3 funding inputs');
     expect(fact('fundingSigned', 'Coins signed')).toBe('3 of 3 funding inputs');
@@ -100,6 +104,44 @@ describe('message checker, standalone', () => {
     expect(v.verdictTitle).toBe('Stop — don’t sign');
     const edited = env('draft-invitation').replace('"revision": 4', '"revision": 5');
     expect(checkMessage(edited).findings.map((f) => f.code)).toContain('fingerprint-mismatch');
+  });
+
+  it('asks to check an edited message, even with nothing agreed to compare with', () => {
+    const edited = env('frozen').replace(/"fingerprint": "[0-9A-F]{4}-[0-9A-F]{4}"/, '"fingerprint": "AAAA-BBBB"');
+    const v = checkMessage(edited);
+    expect(v.verdict).toBe('warn');
+    expect(v.verdictTitle).toBe('Check this');
+    expect(v.next.join(' ')).not.toMatch(/Approve and Copy Reply/);
+  });
+
+  it('only says “Approve and Copy Reply” for a message checked safe against the approved terms', () => {
+    for (const name of ['frozen', 'signing', 'combined']) {
+      const v = checkMessage(env(name));
+      expect(v.verdict, name).toBe('neutral');
+      expect(v.verdictTitle).toBe('Valid in Dash Core, not compared with agreed terms');
+      expect(v.next.join(' '), name).not.toMatch(/Approve and Copy Reply|Sign and Copy Reply/);
+    }
+    expect(checkMessage(env('sigs-dissolve-request')).next.join(' ')).not.toMatch(/Approve and Copy Reply/);
+  });
+
+  it('stops on a message for another network than the site’s', () => {
+    const v = checkMessage(env('frozen'), { network: 'test' });
+    expect(v.verdict).toBe('stop');
+    expect(v.findings.find((x) => x.code === 'wrong-network')!.title).toBe('Wrong network: this message is for Regtest, and this site is on Testnet');
+    expect(v.facts.find((x) => x.label === 'Network')!.tone).toBe('stop');
+    expect(checkMessage(env('frozen'), { network: 'regtest' }).verdict).toBe('neutral');
+    expect(checkMessage(env('sigs-dissolve-request'), { network: 'test' }).findings.map((x) => x.code)).toContain('wrong-network');
+  });
+
+  it('calls a cut-off or damaged message damaged, not out of date', () => {
+    const typeOnly = checkMessage('{"type":"dash-shared-mn-session"}', { network: 'test' });
+    expect(typeOnly.verdict).toBe('stop');
+    expect(typeOnly.summary).toMatch(/incomplete or damaged/);
+    expect(typeOnly.summary).not.toMatch(/Update Dash Core/);
+    const noNetwork = checkMessage(env('frozen').replace(/\s*"network": "regtest",/, ''), { network: 'test' });
+    expect(noNetwork.summary).toMatch(/incomplete or damaged/);
+    expect(noNetwork.summary).not.toMatch(/unknown/);
+    expect(checkMessage(env('frozen').replace('"version": 1', '"version": 2')).summary).toMatch(/newer version of Dash Core/);
   });
 
   it('refuses what is not a message', () => {
@@ -294,12 +336,13 @@ describe('agreement and registration (M10)', () => {
     expect(agreementOf(incomplete, approvalsFor(incomplete), 'testnet')).toMatchObject({ terms: null, hash: null, anchored: false });
   });
 
-  it('is Live (verified) only when every approval names the locked hash and the chain matches', () => {
+  it('is verified only when every approval names the locked hash and the chain matches', () => {
     const g = d400Group();
-    const ok = judgeRegistration(agreementOf(g, approvalsFor(g), 'testnet'), facts());
+    const ok = judgeRegistration(agreementOf(g, approvalsFor(g), 'testnet'), facts(), BEFORE);
     expect(ok.state).toBe('verified');
-    expect(ok.headline).toBe('Live (verified)');
-    expect(ok.mnState).toBe('banned');
+    expect(ok.headline).toBe('Registration verified');
+    // d400c120 was registered without a service: banned until the operator's service update, not "live"
+    expect(ok.mnState).toBe('no-service');
     const missing = agreementOf(g, approvalsFor(g).slice(0, 2), 'testnet');
     expect(judgeRegistration(missing, facts()).state).toBe('mismatch');
     const other = agreementOf(g, approvalsFor(g, (a) => (a.ownerId === BOB ? { ...a, termsHash: 'ab'.repeat(32) } : a)), 'testnet');
@@ -319,6 +362,39 @@ describe('agreement and registration (M10)', () => {
     const a = agreementOf(edited, approvalsFor(g), 'testnet');
     expect(a.lockedHashOk).toBe(false);
     expect(judgeRegistration(a, facts()).state).toBe('mismatch');
+  });
+
+  it('counts a match as verified only when it was agreed before it was registered (F-003)', () => {
+    const g = d400Group();
+    const a = agreementOf(g, approvalsFor(g), 'testnet');
+    // the testnet demo: someone else's registered masternode, its public terms copied into a group and approved afterwards
+    const copied = agreementOf(g, approvalsFor(g, (x) => (x.ownerId === BOB ? { ...x, createdAt: (BLOCK_T + 86_400) * 1000 } : x)), 'testnet');
+    const late = judgeRegistration(copied, facts(), BEFORE);
+    expect(late.state).toBe('recorded-after');
+    expect(late.headline).toBe('Registration matches these terms, but they were recorded after it was registered');
+    expect(late.detail).toMatch(/Bob’s approval was recorded on Cairn only after it was registered/);
+    expect(late.problems).toEqual([]);
+    expect(judgeRegistration(a, facts(), (BLOCK_T + 1) * 1000)).toMatchObject({ state: 'recorded-after', detail: expect.stringMatching(/the operator’s key was recorded/) });
+    expect(judgeRegistration(a, facts()).state).toBe('recorded-after');
+    expect(judgeRegistration(a, facts({ blockTime: null }), BEFORE).state).toBe('unproven');
+  });
+
+  it('dates the operator’s key by their own answer (member-led) or the first approval of the locked terms (operator-led)', () => {
+    const g = d400Group();
+    const answer = { id: 'oa', ownerId: CAROL, docRevision: 2, groupId: g.id, status: OP_ACCEPT_STATUS.accepted, rewardBps: 300, operatorPubKey: g.operatorPubKey, createdAt: 5, updatedAt: 9 };
+    expect(operatorKeyPublishedAt(g, [answer], approvalsFor(g))).toBe(9);
+    expect(operatorKeyPublishedAt(g, [{ ...answer, operatorPubKey: 'ab'.repeat(48) }], approvalsFor(g))).toBeNull();
+    expect(operatorKeyPublishedAt(g, [{ ...answer, status: OP_ACCEPT_STATUS.withdrawn }], approvalsFor(g))).toBeNull();
+    const opLed = { ...g, ownerId: CAROL };
+    expect(operatorKeyPublishedAt(opLed, [], approvalsFor(opLed))).toBe(BEFORE);
+  });
+
+  it('tells earning from not earning, and why', () => {
+    expect(mnStateOf(facts({ mn: { isValid: true } })).state).toBe('valid');
+    expect(mnStateOf(facts()).state).toBe('no-service');
+    // a registration with a service that the network banned
+    expect(mnStateOf(facts({ hex: A.final, mn: { isValid: false } })).state).toBe('banned');
+    expect(mnStateOf(facts({ mn: undefined })).state).toBe('unknown');
   });
 
   it('needs a verified ChainLock, and reads a missing list entry as dissolved', () => {

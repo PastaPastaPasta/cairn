@@ -75,7 +75,7 @@ export const VERDICT_TITLE: Record<Verdict, string> = {
   ok: 'Safe to continue',
   warn: 'Check this',
   stop: 'Stop — don’t sign',
-  neutral: 'Readable',
+  neutral: 'Valid in Dash Core, not compared with agreed terms',
 };
 
 export const dash = (d: bigint) => formatDash(d, { unit: 'DASH', groupSeparator: ',' });
@@ -114,8 +114,30 @@ export function stageMessage(stage: Stage): { round: 1 | 2 | 3 | 4; request: str
 
 function verdictOf(findings: readonly Finding[], comparable: boolean): Verdict {
   if (findings.some((f) => f.level === 'stop')) return 'stop';
-  if (!comparable) return 'neutral';
-  return findings.some((f) => f.level === 'warn') ? 'warn' : 'ok';
+  // a warning (an edited message, say) matters even when there is nothing agreed to compare with
+  if (findings.some((f) => f.level === 'warn')) return 'warn';
+  return comparable ? 'ok' : 'neutral';
+}
+
+/** A message for another network than this site's: whatever else it says, nobody here should act on it. */
+const wrongNetwork = (message: string, site: CoreNetwork): Finding =>
+  f('stop', 'wrong-network', `Wrong network: this message is for ${networkName(message)}, and this site is on ${networkName(site)}`, 'Don’t act on it. Make sure you, the coordinator and Cairn are all on the same network.');
+
+/**
+ * Core's refusal in words that help here. Its "update Dash Core" and "unknown network" texts assume a well-formed file from another
+ * version; a pasted message missing those fields was cut off or edited, and copying it again is what helps.
+ */
+function sessionErrorText(text: string, report: SessionReport, site: CoreNetwork | undefined): string {
+  const json = readUniValue(text);
+  const field = (k: string) => (json ? findValue(json, k) : undefined);
+  const damaged = 'This message is incomplete or damaged. Ask the sender to copy it again from Dash-Qt.';
+  if (report.errorCode === 'version') return field('version')?.type === 'num' ? 'This message was made by a newer version of Dash Core than this checker reads.' : damaged;
+  if (report.errorCode === 'network') {
+    const net = field('network');
+    if (net?.type !== 'str' || !isNetwork(net.value)) return damaged;
+    return `This message is for ${networkName(net.value)}${site ? `, and this site is on ${networkName(site)}` : ''}. Don’t act on it.`;
+  }
+  return report.error ?? 'Dash Core would refuse this message.';
 }
 
 const empty = (kind: CheckView['kind'], title: string, summary: string): CheckView => ({
@@ -153,9 +175,10 @@ function unknown(summary: string): CheckView {
 const relativeLock = (sequence: number) => (sequence & 0x80000000) === 0;
 
 /** What a session message shows without agreed terms: Dash Core's verdict and the things Core only warns about. */
-function standaloneFindings(report: SessionReport): Finding[] {
+function standaloneFindings(report: SessionReport, site: CoreNetwork | undefined): Finding[] {
   const out: Finding[] = [];
   const env = report.envelope!;
+  if (site && env.network !== site) out.push(wrongNetwork(env.network, site));
   if (!report.ok) out.push(f('stop', `core-${report.errorCode}`, 'Dash Core would refuse this message', report.error ?? ''));
   else out.push(f('ok', 'core-ok', 'Dash Core would accept this message', 'It parses and checks exactly as Dash-Qt’s own import does.'));
   const fp = report.fingerprint!;
@@ -185,9 +208,10 @@ function sessionView(text: string, ctx: CheckContext): CheckView {
   const report = parseSessionEnvelope(text, network ? { network } : {});
   const env = report.envelope;
   if (!env) {
-    const findings = terms ? checkEnvelopeAgainstTerms(report, terms).findings : [f('stop', `core-${report.errorCode}`, 'Dash Core would refuse this message', report.error ?? '')];
+    const why = sessionErrorText(text, report, network ?? ctx.network);
+    const findings = terms ? checkEnvelopeAgainstTerms(report, terms).findings : [f('stop', `core-${report.errorCode}`, 'Dash Core would refuse this message', why)];
     return {
-      ...empty('session', 'Shared masternode message', report.error ?? 'Dash Core would refuse this message.'),
+      ...empty('session', 'Shared masternode message', why),
       verdict: 'stop', verdictTitle: VERDICT_TITLE.stop, verdictText: 'Dash Core would refuse this message, so nobody can act on it. Ask the sender to copy it again.', findings,
       next: ['Don’t act on this message.', 'Ask the sender to copy it again from Dash-Qt, and compare the message code they see with the one shown here.'],
     };
@@ -207,7 +231,7 @@ function sessionView(text: string, ctx: CheckContext): CheckView {
       );
     }
   } else {
-    findings = standaloneFindings(report);
+    findings = standaloneFindings(report, ctx.network);
   }
   const verdict = verdictOf(findings, !!terms);
   const valid = report.sigs.filter((s) => s.present && s.valid).length;
@@ -215,13 +239,13 @@ function sessionView(text: string, ctx: CheckContext): CheckView {
   const filled = report.rows.filter((r) => r.filled).length;
   const signedInputs = report.fundingInputs.filter((i) => i.signed).length;
   const fp = report.fingerprint!;
+  const siteNetwork = terms?.network ?? ctx.network;
   const facts: Fact[] = [
-    { label: 'Message', value: msg.request === msg.reply ? msg.request : `${msg.request}, or ${/^[AEIOU]/.test(msg.reply) ? 'an' : 'a'} ${msg.reply} reply` },
-    { label: 'Stage', value: report.stageName ?? env.stage },
-    { label: 'Session', value: report.sessionCode ?? '' },
     { label: 'Message code', value: fp.status === 'absent' ? `none (content gives ${fp.computed})` : fp.status === 'ok' ? fp.computed : `${fp.stamped}, edited: content gives ${fp.computed}`, tone: fp.status === 'mismatch' ? 'warn' : undefined },
+    { label: 'Message', value: msg.request === msg.reply ? msg.request : `${msg.request} (members reply with ${/^[AEIOU]/.test(msg.reply) ? 'an' : 'a'} ${msg.reply})` },
+    { label: 'Stage', value: report.stageName ?? env.stage },
     { label: 'Revision', value: String(env.revision) },
-    { label: 'Network', value: networkName(env.network), tone: terms && env.network !== terms.network ? 'stop' : undefined },
+    { label: 'Network', value: networkName(env.network), tone: siteNetwork && env.network !== siteNetwork ? 'stop' : undefined },
     { label: 'Rows filled', value: `${filled} of ${env.shares.length}` },
   ];
   if (msg.round >= 2) facts.push({ label: 'Approvals', value: `${valid} of ${env.shares.length} valid${present > valid ? `, ${present - valid} invalid` : ''}`, tone: present > valid ? 'warn' : undefined });
@@ -244,6 +268,7 @@ function sessionView(text: string, ctx: CheckContext): CheckView {
   });
   const t = env.terms;
   const technical: Fact[] = [
+    { label: 'Session', value: report.sessionCode ?? '' },
     { label: 'Session id', value: env.sessionId },
     { label: 'Service', value: t.coreP2PAddrs || '(none yet)' },
     { label: 'Operator key', value: t.operatorPubKey || '(none)' },
@@ -293,7 +318,7 @@ function verdictText(v: Verdict, comparable: boolean): string {
         ? 'This message does not match what your group approved, or Dash Core would refuse it. Don’t approve, sign or send anything from it.'
         : 'Dash Core would refuse this message, or it would lock coins. Don’t approve, sign or send anything from it.';
     case 'neutral':
-      return 'Dash Core would accept this message. Cairn has no agreed terms to compare it with here: check every line against what your group agreed.';
+      return 'Dash Core would accept this message, but nothing here says it is what your group agreed. Open it from your group’s Form page to check it against what you approved.';
   }
 }
 
@@ -304,6 +329,12 @@ function sessionNext(stage: Stage, v: Verdict): string[] {
       'Ask the coordinator to copy it again, and compare the message code they see in Dash-Qt with the one here.',
       'If it still fails, raise it in your group chat before anyone signs.',
     ];
+  }
+  // approving or signing is only ever suggested for a message checked safe against the approved terms
+  if (v !== 'ok' && (stage === 'frozen' || stage === 'signing' || stage === 'combined')) {
+    return v === 'warn'
+      ? ['Sort out every point marked Check above before you approve or sign anything in Dash-Qt.', 'If the message was edited, ask the coordinator for a fresh copy and check it again.']
+      : ['Open this message from your group’s Form page, so Cairn can compare it with the terms you approved, before you approve or sign anything in Dash-Qt.'];
   }
   switch (stage) {
     case 'draft':
@@ -327,12 +358,13 @@ function sessionNext(stage: Stage, v: Verdict): string[] {
 // ---- maintenance: dash-shared-mn-sigs ------------------------------------------------------------------------------------------
 
 function sigsView(text: string, ctx: CheckContext): CheckView {
-  const network = ctx.terms?.network;
+  const network = ctx.terms?.network ?? ctx.network;
   const report = parseSigsEnvelope(text, { ...(network ? { network } : {}), ...(ctx.proTxHash ? { proTxHash: ctx.proTxHash } : {}), ...(ctx.chainShares ? { shares: ctx.chainShares } : {}) });
   const kind = report.kind === 'dissolve' ? 'dissolve' : report.kind === 'registrar' ? 'registrar' : null;
   const title = kind === 'dissolve' ? 'Request to dissolve together' : kind === 'registrar' ? 'Request to change the operator or voting key' : 'Approvals message';
   const findings: Finding[] = [];
-  if (!report.ok) findings.push(f('stop', 'sigs-refused', 'Dash Core would refuse this message', report.error ?? ''));
+  if (network && report.network && isNetwork(report.network) && report.network !== network) findings.push(wrongNetwork(report.network, network));
+  else if (!report.ok) findings.push(f('stop', 'sigs-refused', 'Dash Core would refuse this message', report.error ?? ''));
   const fp = report.fingerprint;
   if (fp?.status === 'mismatch') findings.push(f('warn', 'fingerprint-mismatch', 'This message was edited after it was copied', `It says Code ${fp.stamped} but its content gives Code ${fp.computed}.`));
   else if (fp?.status === 'ok') findings.push(f('ok', 'fingerprint', `Message code ${fp.computed}`, 'Compare this code with the one the sender sees in Dash-Qt.'));
@@ -401,7 +433,11 @@ function sigsView(text: string, ctx: CheckContext): CheckView {
     next:
       verdict === 'stop'
         ? ['Don’t approve it. Ask whoever prepared it for a fresh request.']
-        : kind === 'dissolve'
+        : verdict === 'neutral'
+          ? ['Open it from your group’s live page, so Cairn can check it against the registered masternode, before you approve it in Dash-Qt.']
+          : verdict === 'warn'
+            ? ['Confirm every point marked Check above with your group before you approve it in Dash-Qt.']
+            : kind === 'dissolve'
           ? ['In Dash-Qt: Masternodes tab → right-click the masternode → Dissolve… → Dissolve Together.', 'Paste the request, read the payouts, then press “Approve and Copy Reply”.']
           : ['In Dash-Qt: Masternodes tab → right-click the masternode → Rotate Keys….', 'Paste the request, check the new keys, then press “Approve and Copy Reply”. Only the wallet that prepared it can send it.'],
   };

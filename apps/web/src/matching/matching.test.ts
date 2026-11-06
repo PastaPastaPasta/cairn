@@ -273,7 +273,12 @@ describe('lifecycle: locked → ready → session started → linked → live | 
     expect(stageOf(claimed, { state: 'verified', mnState: 'dissolved' })).toBe('dissolved');
     // a co-owner links from their own seat just as well; the chain still decides, even over a "cancelled" claim
     const bySeat = groupView({ ...b, group: { ...b.group, status: GROUP_STATUS.cancelled }, seats: [seat(A, D(600), { proTxHash: PROTX, votingAddress: VOTING }), seat(B, D(400))] }, 'testnet');
-    expect(stageOf(bySeat, { state: 'verified', mnState: 'banned' })).toBe('live');
+    // registered is not earning: "live" only for a verified masternode the network pays (D-002, F-013)
+    expect(stageOf(bySeat, { state: 'verified', mnState: 'banned' })).toBe('registered');
+    expect(stageOf(bySeat, { state: 'verified', mnState: 'no-service' })).toBe('registered');
+    expect(stageOf(bySeat, { state: 'verified', mnState: 'unknown' })).toBe('registered');
+    expect(stageOf(bySeat, { state: 'recorded-after', mnState: 'valid' })).toBe('recorded-after');
+    expect(stageOf(bySeat, { state: 'recorded-after', mnState: 'dissolved' })).toBe('dissolved');
     expect(stageOf(groupView({ ...readyToLock(), group: { ...readyToLock().group, status: GROUP_STATUS.cancelled } }, 'testnet'), null)).toBe('closed');
   });
 
@@ -285,7 +290,10 @@ describe('lifecycle: locked → ready → session started → linked → live | 
     expect(nextSteps(started, { id: OPR }, 'session-started')[0]).toMatchObject({ role: 'operator', action: 'form' });
     const linked = groupView({ ...b, group: { ...b.group, proTxHash: PROTX } }, 'testnet');
     expect(nextSteps(linked, { id: B })[0]).toMatchObject({ title: 'Registration linked', action: 'live' });
-    expect(nextSteps(linked, { id: B }, 'live')[0]).toMatchObject({ tone: 'done', title: 'Live (verified)', action: 'live' });
+    expect(nextSteps(linked, { id: B }, 'live')[0]).toMatchObject({ tone: 'done', title: 'Earning', action: 'live' });
+    expect(nextSteps(linked, { id: B }, 'registered')[0]).toMatchObject({ tone: 'wait', title: 'Registration verified, not earning yet', action: 'live' });
+    expect(nextSteps(linked, { id: OPR }, 'registered')[0]).toMatchObject({ tone: 'todo', action: 'live' });
+    expect(nextSteps(linked, { id: B }, 'recorded-after')[0]).toMatchObject({ tone: 'wait', title: 'Registered, but not verified' });
     expect(nextSteps(linked, { id: OPR }, 'live')[0]!.title).toMatch(/keep the node running/);
     expect(nextSteps(linked, { id: id(77) }, 'live')[0]).toMatchObject({ role: 'visitor', action: 'live' });
     expect(nextSteps(linked, { id: B }, 'mismatch')[0]).toMatchObject({ tone: 'warn', action: 'live' });
