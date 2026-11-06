@@ -34,8 +34,8 @@ export const SEAT_STATUS = { requested: 1, withdrawn: 2 } as const;
 export const INVITE_STATUS = { open: 1, withdrawn: 2 } as const;
 /** `opAccept.status`: the operator's answer to a member-led group (accepted doubles as an offer to a group with no operator yet). */
 export const OP_ACCEPT_STATUS = { accepted: 1, declined: 2, withdrawn: 3 } as const;
-/** `seat.flags` bits. */
-export const SEAT_FLAG = { canCoordinate: 1, votingKeyHolder: 2 } as const;
+/** `seat.flags` bits. sessionStarted: the coordinator (a co-owner, rarely the organizer) has started the Dash-Qt session. */
+export const SEAT_FLAG = { canCoordinate: 1, votingKeyHolder: 2, sessionStarted: 4 } as const;
 /** `group.flags` bits. openAmounts: members may ask for any amount that fits; without it the organizer offers seats at set amounts. */
 export const GROUP_FLAG = { openAmounts: 1 } as const;
 /** `profile.roles` bits. */
