@@ -1,0 +1,127 @@
+# @cairn/auth
+
+> **Vendored** from [govhub](https://github.com/PastaPastaPasta/govhub) `packages/auth` at `fa04bea` (see the repo's `VENDORED.md`).
+> This is govhub's README, kept for its design notes; `PLAN`, `docs/` and `services/` references point into govhub. `proposal.ts`, `keyring/` and the govhub scripts were not vendored; their sections do not apply here.
+
+
+Identity, login and funding for govhub (docs/PLAN.md r3.2 section 4). Headless TypeScript, browser-first, Node >= 22. The UI is in
+`apps/web/src/auth`.
+
+```
+npm test -w @cairn/auth          # offline: derivation, HPKE (RFC 9180), tx, sign-in, vault
+npm run typecheck -w @cairn/auth
+npx vite-node scripts/live-testnet.ts [create] [voucher] [topup] [signin] [vault] [addkeys]   # TESTNET, spends tDASH
+npx vite-node scripts/testnet-forum-keyring.ts [--update] [--keyring]                         # TESTNET: forum.keyring update + live keyring
+npx vite-node scripts/testnet-proposal.ts collateral|status                                   # TESTNET: a cheap test proposal (QA wallet)
+```
+
+Entry points: `@cairn/auth` (everything headless), `@cairn/auth/evo` (the evo-sdk 5 `PlatformPort` adapter; the caller passes the
+already-loaded SDK so the 8.7 MB chunk is never pulled in by this package), `@cairn/auth/keyring-evo` (the keyring's Platform store,
+same rule) and `@cairn/auth/webauthn` (browser only).
+
+## What it does
+
+| Area | Module | Notes |
+|---|---|---|
+| Seed | `seed.ts` | BIP39 English, 12 or 24 words, **no passphrase**. DIP-13 identity keys `m/9'/c'/5'/0'/0'/identity'/key'` (c = 5 mainnet, 1 testnet), registration funding `m/9'/c'/5'/1'/identity` (key-wallet `IdentityRegistration` pool; the hardened `…/1'/identity'` used until 2026-10-25 is scan-only, `legacyRegistrationFundingPath`), top-up funding `m/9'/c'/5'/2'/identity'/n` (key-wallet `IdentityTopUp`). `SeedWallet` keeps the BIP32 root and the entropy, never the phrase string. |
+| Key layout | `layout.ts` | Created with 0 AUTH/MASTER, 1 AUTH/CRITICAL, 2 AUTH/HIGH (ECDSA_SECP256K1, id = index). `addLaterKeys` adds 3 TRANSFER/CRITICAL and 4/5 ENC/DEC MEDIUM bound to DashPay `contactRequest` with one MASTER-signed IdentityUpdate. |
+| Sign-in | `signin.ts` | Discovery by the key-0 hash, identity index 0.. with a gap of 5 (DashPay iOS, rs-platform-wallet, Yappr). The session key is the identity's HIGH authentication key, else CRITICAL, never MASTER; key indexes 0..11 are probed (Evo Tool), so seeds whose key ids differ from their indexes work. Key paste: WIF or hex, only the public key hash is sent. Sessions hold the key in memory; `end()` wipes it. |
+| Funding | `funding.ts`, `tx.ts` | One-time key at the funding path; `watchAddressForDeposit` subscribes **before** the address is shown; type-8 asset lock spending the deposit (1 duff/byte); a second watcher on the lock's txid and inputs opens **before** the broadcast and its IS-lock bytes are persisted on arrival; instant proof, else a chain proof at Platform's `coreChainLockedHeight`; `identities.create` / `topUp`; a proved read confirms. Progress (`FundingRecord`) holds public data only, so a reload resumes once the same seed (or, for seedless top-ups, the same pasted key) is unlocked again. |
+| Vouchers | `voucher.ts` | `dashpay://invite?assetlocktx=<txid>&pk=<WIF>&islock=null` (dash-faucet-cf). The identity gets the user's own seed keys; the voucher key only signs the proof. |
+| Passkey vault | `vault/*` | `forum.vault` documents. RFC 9180 HPKE base mode (X25519, HKDF-SHA256, ChaCha20-Poly1305) to the key a WebAuthn PRF output derives; AAD binds contract, owner, credential, recipient key and key id. Bundles: the seed (entropy + identity index), one HIGH/CRITICAL key, or up to 7 MN voting keys, all padded to 240 B (256 B sealed). Every opened bundle is checked against the owner's keys on chain before a session exists (planted entries). |
+| MN keyring | `keyring/*` | `forum.keyring` documents: masternode voting keys, node labels and held votes, encrypted in the browser to the seed and the user's passkeys (section below). Restored by signing in again with the phrase or a passkey; a pasted key cannot open it. |
+| Central login | `central.ts` | Interface only (accounts service, OPAQUE + passkey envelopes); a later phase. |
+
+## Masternode keyring (`keyring/`, phase 3)
+
+"Add my masternodes" once, sign in again later and they are back; the operator never sees a key. `format.ts` (plaintext layout,
+buckets), `seal.ts` (encryption), `keyring.ts` (load / open / save, unlockers), `evo-store.ts` (Platform store).
+
+| | |
+|---|---|
+| Content key | `K` = 32 random bytes, **new on every write**. Body = `nonce(24) \|\| XChaCha20-Poly1305(K, nonce, AAD, padded plaintext)`, split into 4,096-byte fields `c0` (`c1`, `c2`) |
+| AAD | `"govhub/keyring/v1" \|\| 0x00 \|\| contractId \|\| ownerId \|\| kind \|\| version \|\| bucket \|\| SHA-256(wraps)` |
+| Wraps | 8 slots x 80 B in random order; a used slot is RFC 9180 HPKE `SealBase(pkR, info, "", K)` = enc(32) + ciphertext(48); a filler is the X25519 public key of a throwaway secret + 48 random bytes, so the two cannot be told apart (a random 32-byte prefix would not be a curve point half the time). `info = "govhub/keyring/v1/wrap" \|\| 0x00 \|\| contractId \|\| ownerId \|\| kind`. Readers try every slot |
+| Seed unlocker | `pkR` = HPKE `DeriveKeyPair(HKDF-SHA256(ikm = BIP39 entropy, salt = "govhub/keyring/v1/seed", info = network \|\| 0x00 \|\| ownerId))`. Never published (it exists only inside the ciphertext) |
+| Passkey unlocker | the passkey vault's PRF key (`recipientFromPrf`, same PRF input), i.e. the same X25519 key as the passkey's `forum.vault` entry; the HPKE info differs. One ceremony opens both |
+| Sizes | plaintext starts with `keyringId` (16) and `generation` (u32). bucket 1: 4,096 B (<= 32 keys, 24 node labels, 8 unlockers, labels <= 32 UTF-8 bytes); bucket 2: 12,288 B (<= 96 keys, 80 labels). Pending votes: 16 / 60. The bucket is chosen from counts only, so the chain learns "bucket 1 or 2", never a count. Beyond bucket 2 the encoder refuses |
+| Leaks | that the identity has a keyring and a pending-votes document, the bucket, and when either changes (a pending update hints "this identity scheduled votes around now", not which or how many) |
+| Planted keyrings | anyone holding a HIGH key of the identity can replace the keyring with one sealed to the user's (public) passkey key that lists their own unlocker. A seed session checks that the content lists ITS seed unlocker (`authenticated`); a passkey-only session cannot, so the app lists every unlocker (marking the one that opened it) and refuses to save until the user confirms them. New unlockers are only ever derived in the tab (seed, or a PRF from a ceremony there), never taken from the chain |
+| Replays | KEYS carries a `generation` (+1 per write); the app remembers the highest it opened per identity and treats an older one as suspect (same confirmation). PENDING is opened with the seed when the session has it and must carry the KEYS document's random `keyringId`, so a PENDING document sealed by someone else (to the public passkey key) is ignored |
+| Wiping | `OpenedKeyring.close()` zeroes every key; encode buffers and `K` are zeroed after use. JS strings (a typed WIF or phrase) cannot be wiped |
+
+Live (testnet, `scripts/testnet-forum-keyring.ts`, results in `scripts/results/testnet-forum-keyring.json`): the contract update,
+then create / replace / shrink and a pending document, read back with proofs and opened. Fees: create 0.0016 DASH, pending create
+0.0015, a same-bucket replace is cheap; an identity funded with only 0.003 can afford the keyring but not also the pending backup, so the web
+app makes the backup opt-in.
+
+## Findings
+
+1. **The asset-lock proof index is the payload's credit-output index, not the burn output's vout.** rs-dpp
+   `InstantAssetLockProof::output()` is `payload.credit_outputs.get(output_index)` and the chain proof's `out_point.vout` goes through
+   the same lookup (`validate_asset_lock_transaction_structure` v0); the identity id is `sha256d(txid || u32le(index))`. With one
+   credit output it is 0 wherever the burn sits. Live check: a voucher with the burn at vout 1 (change first, as dash-faucet-cf's
+   BIP69 sort can produce) redeemed with index 0. `locateCredit` finds the credit output paying the key and uses its index.
+2. **Testnet evonodes report `isSynced: false`** (status ERROR) in `getBlockchainStatus` while serving current blocks (2026-10-24,
+   just after V24). `@cairn/dapi`'s `getBestBlockHeight()` refuses them, so funding takes the tip from `getBestBlockHeight` RPC (a
+   claim, used only as a stream start a few blocks back).
+3. The DIP-13 funding paths' last index is unhardened in key-wallet (`AddressPoolType::Absent`), for registration and top-up alike.
+   Until 2026-10-25 the registration path here was the hardened `.../1'/identity'` (also the phase-0 mainnet run's); it is now
+   `.../1'/identity`, what rs-platform-wallet funds from, and the old one is a scan-only Recover lane. `test/derivation.test.ts` pins
+   rs-platform-wallet's own outputs for the BIP39 test phrase (docs/RECOVERY.md, "Derivation paths", has the per-wallet table).
+4. `Document.toJSON` needs a platform version argument in rc.8; byte fields come back base64.
+5. **Nonce cache refresh (rc.8 source, tag v5.0.0-rc.8).** `sdk.wasm.refreshIdentityNonce(identifier)` (wasm-sdk `src/sdk.rs`
+   118-121 -> rs-sdk `Sdk::refresh_identity_nonce`, `src/sdk.rs` 754-755 -> `NonceCache::refresh`, `src/internal_cache/mod.rs`
+   224-245) marks the identity nonce AND every identity-contract nonce of that identity stale (timestamp 0), so the next facade
+   write fetches both again. `settings: { identityNonceStaleTimeS: 0 }` is weaker: `get_or_fetch_nonce` (same file, 284-288)
+   treats an entry as stale only when `last_fetch_timestamp < now - 0`, i.e. fetched in an earlier second, so a retry within the
+   same second reuses the cached nonce. Both keep `max(cached, platform)` (335), so neither can lower a nonce, and neither helps
+   when the re-fetch itself hits a lagging node. Live (`scripts/live-writer.ts u6 cache`, `scripts/results/live-writer-cache.json`):
+   after a write that bypassed the cache, a facade create without a refresh signed the spent nonce ("nonce already present at
+   tip"); with `identityNonceStaleTimeS: 0` (cache fetched seconds earlier) and after `refreshIdentityNonce` it succeeded. Of
+   two earlier runs without the 10 s pause after the bypassing write, one timed out on that create (transport, nothing stored)
+   and one was refused with `identityNonceStaleTimeS: 0` ("nonce already present at tip"); that the pause fixed it points to a
+   re-fetch from a lagging node, which this run does not prove. The document writer
+   does not depend on the cache at all: it reads `identities.contractNonceWithProof` (a direct proved fetch,
+   `getIdentityContractNonceWithProofInfo`) and passes `identityContractNonce` itself; `addKeys` (SDK-built IdentityUpdate) calls
+   `refreshIdentityNonce` after a spent-nonce refusal.
+6. Right after `connect()`, `sdk.version()` can still report the SDK's starting protocol (13) on testnet (PV14); it ratchets up
+   after the first response. The writer takes the protocol from the proved nonce read's `metadata.protocolVersion`, because the
+   create id rule differs (PV13 sha256d(contract || owner || type || entropy); PV14 also the nonce).
+
+## Document writer (`evo.ts` `writeDocument`)
+
+Each write is a batch transition built and signed once per nonce (`DocumentCreate/Replace/DeleteTransition` +
+`BatchTransition.fromBatchedTransitions`, nonce = proved identity-contract nonce + 1), broadcast with
+`stateTransitions.broadcastAndWait`, and settled by proved state when the outcome is not a clean success:
+
+| Outcome | Action |
+|---|---|
+| `nonce too far in future`, 40101, ambiguous (timeout, transport, `ExecutionNotProved`, `tx already exists in cache`) | re-send the SAME signed transition |
+| `nonce already present in past / at tip`, `nonce too far in past` | sign again with a fresh proved nonce; a create only once a proved nonce read shows the nonce used and a later proved read shows its own id absent (no second document) |
+| any other consensus refusal | create / delete: final on the first send; replace (an earlier call may have landed), or any write after an earlier send: done only if proved reads (with backoff) show the write |
+| a local SDK error (`InvalidArgument`, `SerializationError`, ...) | never re-sent; done if proved reads show the write, else "it may still appear" (it can follow an execution) |
+| a proved read shows a replace can no longer apply (another revision or other data) | fail with that message |
+
+While `broadcastAndWait` has not answered, proved reads of the end state run alongside it (after 2 s, then every 1.5 s, at most
+25): a node's result stream can stay silent until its 30 s timeout although the write executed in about 2 s, and the write is
+done as soon as a read proves it. The transition is freed only once the SDK's wait has answered.
+
+No new send starts after 2 minutes (document writes and `addKeys`); the settle reads still run, and the final error says
+whether the write may still appear. Only a consensus refusal of a first send is final without a read: a local SDK error
+(`SerializationError`, ...) can be raised after the transition executed (result conversion in `broadcastAndWait`), so it is
+settled by proved reads before it is reported.
+
+Done means: create, a proved read finds the id it signed; replace, `$revision === revision + 1` with exactly our fields; delete,
+the document was found by a proved pre-read at height H0 (a document already gone fails fast) and a proved read shows it absent at
+a height > H0. Live check: `npx vite-node scripts/live-writer.ts [u3|u6|owner]` (results in `scripts/results/live-writer.json`).
+
+## Live testnet results (`scripts/results/live-testnet.json`, `apps/web/e2e/results/auth-live.json`)
+
+| Step | Result |
+|---|---|
+| Create from external DASH (QR address) | IS-lock 1.1 s after broadcast, identity in 10 s end to end; create fee 0.00106604 DASH (3 keys) |
+| Voucher (burn at vout 1) | chain-lock proof, about 2 to 6 min waiting for Platform's ChainLock; fee 0.00106400 |
+| Top-up | IS-lock proof, 9 s; fee 0.00008021 |
+| Vault entry write | 0.00053329 |
+| Add keys 3..5 | 0.00073962 |

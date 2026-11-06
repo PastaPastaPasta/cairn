@@ -1,0 +1,14 @@
+{
+  "name": "cairn-contract-validate",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Offline validation of cairn.json with wasm-dpp (the DPP build with validation) and evo-sdk at PV13 and PV14, as govhub's spikes/sdk5 does. Not a workspace: npm ci here, then npm run validate.",
+  "scripts": { "validate": "node validate.ts" },
+  "dependencies": {
+    "dpp4": "npm:@dashevo/wasm-dpp@4.1.1",
+    "dpp5": "npm:@dashevo/wasm-dpp@5.0.0-rc.8",
+    "evo4": "npm:@dashevo/evo-sdk@4.1.1",
+    "evo5": "npm:@dashevo/evo-sdk@5.0.0-rc.8"
+  }
+}

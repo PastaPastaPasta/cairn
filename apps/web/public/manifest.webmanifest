@@ -1,0 +1,10 @@
+{
+  "name": "Cairn",
+  "short_name": "Cairn",
+  "description": "Build a Dash masternode together. Cairn never holds your coins or keys.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F2EC",
+  "theme_color": "#F5F2EC",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

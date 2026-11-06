@@ -1,0 +1,646 @@
+// Sign-in sheet (a modal <dialog>): create a new identity, use an existing recovery phrase, paste a key, or use a passkey; plus the
+// signed-in views reached from the account menu (top-up, passkeys). Secrets are held in component state only while a view needs
+// them; the session takes ownership of the seed when sign-in completes, and closing the sheet drops the rest.
+import {
+  addressOf, discardFunding, discoverIdentities, generatePhrase, lockTooSmall, nextCreateIndex, isValidPhrase, localPasskeys, MIN_CREATE_DEPOSIT_DUFFS, MIN_TOPUP_DEPOSIT_DUFFS, nextTopUpIndex, normalizePhrase,
+  createFundingPath, SUGGESTED_CREATE_DEPOSIT_DUFFS, parseVoucher, pendingFundings, PhraseError, redeemVoucher, SeedWallet, signInWithKey, signInWithSeed, toBase64, wipe, type FoundIdentity, type FundingRecord,
+  type PhraseLength,
+} from '@cairn/auth';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useAuth, type SheetView } from './context.tsx';
+import { FundingPanel } from './FundingPanel.tsx';
+import { PasskeySignIn, Passkeys } from './Passkeys.tsx';
+import { RecoverLink } from './RecoverLink.tsx';
+import { SecretField } from './SecretField.tsx';
+import { formatDuffs, plainErrorText } from './runtime.ts';
+
+export { SecretField }; // moved to its own file (the Recover tool uses it too); tests import it from here
+
+const TITLES: Record<SheetView, string> = {
+  choose: 'Sign in or create an account',
+  create: 'Create an account',
+  phrase: 'Sign in with a recovery phrase',
+  key: 'Sign in with a key',
+  passkey: 'Sign in with a passkey',
+  topup: 'Top up',
+  passkeys: 'Passkeys',
+};
+
+export function AuthSheet() {
+  const { sheet, closeSheet } = useAuth();
+  const ref = useRef<HTMLDialogElement>(null);
+  // What had focus when the sheet opened: focus goes back there when it closes (or to the account button, if that control is gone).
+  const opener = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    if (sheet && !d.open) {
+      const a = document.activeElement;
+      // <body> is no opener (Safari does not focus a clicked button): the account button is the fallback
+      opener.current = a instanceof HTMLElement && a !== document.body ? a : null;
+      d.showModal();
+    }
+    if (!sheet && d.open) d.close();
+  }, [sheet]);
+  const onClose = () => {
+    closeSheet();
+    const back = opener.current?.isConnected && opener.current.getClientRects().length ? opener.current : document.getElementById('session-button');
+    opener.current = null;
+    back?.focus();
+  };
+  return (
+    <dialog ref={ref} className="sheet" aria-labelledby="sheet-title" onClose={onClose} onCancel={closeSheet}>
+      {sheet && (
+        <div className="sheet-body">
+          <header className="sheet-head">
+            <h2 id="sheet-title">{TITLES[sheet]}</h2>
+            <button type="button" className="btn btn-quiet" onClick={closeSheet} aria-label="Close">
+              ✕
+            </button>
+          </header>
+          {/* key = view: switching views unmounts the previous one and drops what it held */}
+          <SheetContent key={sheet} view={sheet} />
+        </div>
+      )}
+    </dialog>
+  );
+}
+
+function SheetContent({ view }: { view: SheetView }) {
+  switch (view) {
+    case 'choose':
+      return <Choose />;
+    case 'create':
+      return <CreateFlow />;
+    case 'phrase':
+      return <PhraseSignIn />;
+    case 'key':
+      return <KeySignIn />;
+    case 'passkey':
+      return <PasskeySignIn />;
+    case 'topup':
+      return <TopUp />;
+    case 'passkeys':
+      return <Passkeys />;
+  }
+}
+
+/**
+ * Money this browser knows is waiting at a one-time address: a payment after the lock (any funding, finished ones too) or a lock too
+ * small for what it was made for. The Recover tool sends it anywhere or uses it; it does not need this browser's records.
+ */
+function stuckDuffs(r: FundingRecord): bigint {
+  const late = (r.lateDeposits ?? []).reduce((a, d) => a + BigInt(d.value), 0n);
+  return late + (r.state === 'registering' && lockTooSmall(r) ? BigInt(r.lock!.lockDuffs) : 0n);
+}
+
+function RecoverableNotice({ records }: { records: FundingRecord[] }) {
+  const { closeSheet } = useAuth();
+  const stuck = records.map(stuckDuffs).filter((d) => d > 0n);
+  if (!stuck.length) return null;
+  return (
+    <div className="notice-box" role="status" data-testid="recoverable">
+      <p>
+        <b>{formatDuffs(stuck.reduce((a, d) => a + d, 0n))}</b> is waiting at {stuck.length === 1 ? 'a payment address' : 'payment addresses'} from an earlier
+        payment (paid after an account setup or top-up, or too small for it).
+      </p>
+      <RecoverLink onClick={closeSheet}>Recover funds</RecoverLink>
+    </div>
+  );
+}
+
+/**
+ * The phrase or key is typed into a web page, so it should never guard real money: one made for Cairn, holding only what Cairn
+ * needs. Shown wherever a phrase or key is made or entered. Once sign-in with a Dash wallet exists, that is the main path.
+ */
+function SeedWarning({ what = 'phrase' }: { what?: 'phrase' | 'key' }) {
+  return (
+    <p className="seed-warning" role="note" data-testid="seed-warning">
+      <b>Use a {what === 'key' ? 'key from an account' : 'recovery phrase'} just for Cairn.</b> You type it into a web page, so never use one that holds
+      real money, or one you couldn’t afford to see leaked.
+    </p>
+  );
+}
+
+function Choose() {
+  const { openSheet, store, network } = useAuth();
+  const [, rerender] = useState(0);
+  const pending = pendingFundings(store, network).filter((r) => r.kind === 'create');
+  const main: Array<{ v: SheetView; title: string; text: string }> = [
+    { v: 'create', title: 'Create an account', text: `Pay a little DASH (${formatDuffs(SUGGESTED_CREATE_DEPOSIT_DUFFS)} is suggested) from any Dash wallet; it covers the account and your first posts on Cairn.` },
+    { v: 'phrase', title: 'I have a recovery phrase', text: 'The 12 or 24 words of an account you made for Cairn.' },
+  ];
+  const other: Array<{ v: SheetView; title: string; text: string }> = [
+    { v: 'passkey', title: 'Use a passkey', text: 'If you saved one on this device or another.' },
+    { v: 'key', title: 'Paste a key', text: 'For developers: a private key of your identity.' },
+  ];
+  const choice = (o: (typeof main)[number], big: boolean) => (
+    <li key={o.v}>
+      <button type="button" className={`choice${big ? ' choice-l' : ''}`} onClick={() => openSheet(o.v)}>
+        <b>{o.title}</b>
+        <span className="muted small">{o.text}</span>
+      </button>
+    </li>
+  );
+  return (
+    <div className="sheet-choose">
+      <p className="lede">Browsing is free and needs no account. Sign in to make a profile, say you’re looking, or join a group. Cairn never holds your coins or the keys of your masternode.</p>
+      {pending.length > 0 && (
+        <div className="notice-box" role="status">
+          <p>
+            <b>{pending.length === 1 ? 'An account setup is' : `${pending.length} account setups are`} in progress.</b> Enter its recovery phrase to continue.
+          </p>
+          <ul className="pending-list">
+            {pending.map((r) => (
+              <li key={r.key}>
+                <span className="mono-ish">{r.address}</span>
+                <span className="muted small">
+                  {stuckDuffs(r) > 0n ? `${formatDuffs(stuckDuffs(r))} recoverable` : r.deposits.length || r.lock ? 'payment received' : 'no payment yet'}
+                </span>
+                {!r.deposits.length && !r.lock && (
+                  <button
+                    type="button"
+                    className="btn btn-quiet"
+                    onClick={() => {
+                      // A payment made while no tab was watching is not visible here yet; the record is only hidden, never deleted.
+                      if (!confirm(`Hide this setup? Only do this if you never sent DASH to ${r.address}. Continuing with the same phrase later still finds any payment.`)) return;
+                      discardFunding(store, r.key);
+                      rerender((n) => n + 1);
+                    }}
+                  >
+                    Discard
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="btn" onClick={() => openSheet('phrase')}>
+            Continue
+          </button>
+        </div>
+      )}
+      <RecoverableNotice records={store.list().filter((r) => r.network === network && !r.discarded)} />
+      <ul className="choices">
+        <li>
+          <button type="button" className="choice choice-l" disabled aria-describedby="wallet-soon" data-testid="wallet-signin">
+            <span className="choice-soon">
+              <b>Sign in with a Dash wallet</b>
+              <span className="tag tag-info" id="wallet-soon">
+                Coming soon
+              </span>
+            </span>
+            <span className="muted small">Approve from DashPay or another Dash wallet, with no phrase typed here. This will become the main way to sign in.</span>
+          </button>
+        </li>
+        {main.map((o) => choice(o, true))}
+      </ul>
+      <SeedWarning />
+      <p className="small muted choices-more">Other ways to sign in</p>
+      <ul className="choices choices-s">{other.map((o) => choice(o, false))}</ul>
+      <details className="learn">
+        <summary>What is an account here?</summary>
+        <p className="small">
+          Your account is a Dash Platform identity. Your profile, listings and approvals are stored on Dash Platform and paid for with a little credit from your account’s
+          balance (about 0.0005 DASH a change). Your recovery phrase is the account: other Dash wallets (DashPay, Dash Evo Tool) can restore it. It stays in
+          this browser; Cairn has no account server and can’t reset it for you.
+        </p>
+      </details>
+    </div>
+  );
+}
+
+// ---- create ----------------------------------------------------------------------------------------------------------------
+
+/** Three distinct word positions, from Web Crypto. */
+function quizPositions(n: number): number[] {
+  const out = new Set<number>();
+  const r = new Uint32Array(1);
+  while (out.size < 3) {
+    crypto.getRandomValues(r);
+    out.add(r[0]! % n);
+  }
+  return [...out].sort((a, b) => a - b);
+}
+
+export function CreateFlow() {
+  const [words, setWords] = useState<PhraseLength>(12);
+  const [phrase, setPhrase] = useState(() => generatePhrase(12));
+  const [step, setStep] = useState<'show' | 'quiz' | 'fund'>('show');
+  const list = useMemo(() => phrase.split(' '), [phrase]);
+  // Drawn once per phrase: a re-render (the app loading around the sheet) or going back to the phrase never moves them.
+  const positions = useMemo(() => quizPositions(list.length), [list]);
+
+  if (step === 'show') {
+    return (
+      <div className="create">
+        <ol className="steps-bar" aria-label="Creating an account">
+          <li aria-current="step">Save your phrase</li>
+          <li>Check it</li>
+          <li>Add credit</li>
+        </ol>
+        <p>
+          These words are your <b>recovery phrase</b>. They <i>are</i> your account: write them down in order and keep them somewhere safe, offline. Anyone who
+          has them can use your account, and nobody, Cairn included, can recover it if you lose them.
+        </p>
+        <p className="seed-warning" role="note">
+          <b>Keep this phrase for Cairn only.</b> Don’t reuse it in a wallet, and don’t keep more DASH in it than Cairn needs.
+        </p>
+        <ol className="words" data-testid="phrase-words">
+          {list.map((w, i) => (
+            <li key={i}>
+              <span className="muted">{i + 1}</span> {w}
+            </li>
+          ))}
+        </ol>
+        <div className="form-actions">
+          <button type="button" className="btn btn-primary" onClick={() => setStep('quiz')}>
+            I wrote it down
+          </button>
+          <button
+            type="button"
+            className="btn btn-quiet"
+            onClick={() => {
+              const n: PhraseLength = words === 12 ? 24 : 12;
+              setWords(n);
+              setPhrase(generatePhrase(n));
+            }}
+          >
+            Use {words === 12 ? 24 : 12} words instead
+          </button>
+        </div>
+      </div>
+    );
+  }
+  if (step === 'quiz') return <Quiz words={list} positions={positions} onBack={() => setStep('show')} onPass={() => setStep('fund')} />;
+  return <FundNewIdentity phrase={phrase} identityIndex={0} />;
+}
+
+function Quiz({ words, positions, onPass, onBack }: { words: string[]; positions: number[]; onPass(): void; onBack(): void }) {
+  const [answers, setAnswers] = useState<string[]>(['', '', '']);
+  const [wrong, setWrong] = useState(false);
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const ok = positions.every((p, i) => normalizePhrase(answers[i]!) === words[p]);
+    setWrong(!ok);
+    if (ok) onPass();
+  };
+  return (
+    <form className="form quiz" onSubmit={submit}>
+      <ol className="steps-bar" aria-label="Creating an account">
+        <li>Save your phrase</li>
+        <li aria-current="step">Check it</li>
+        <li>Add credit</li>
+      </ol>
+      <p>Type these words from your written copy, to be sure you have it.</p>
+      <div className="row3">
+        {positions.map((p, i) => (
+          <label key={p}>
+            Word #{p + 1}
+            <input
+              value={answers[i]}
+              onChange={(e) => setAnswers((a) => a.map((x, j) => (j === i ? e.target.value : x)))}
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              data-testid={`quiz-${p + 1}`}
+            />
+          </label>
+        ))}
+      </div>
+      {wrong && <p className="error" role="alert">That doesn't match. Check your written copy, or go back and look again.</p>}
+      <div className="form-actions">
+        <button type="submit" className="btn btn-primary">
+          Continue
+        </button>
+        <button type="button" className="btn btn-quiet" onClick={onBack}>
+          Show the phrase again
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Funding choice for a new identity at `identityIndex` of `phrase`: pay with DASH (QR), or redeem a voucher link someone gave you.
+ * `resume`: an earlier visit began this setup, so go straight to the payment.
+ */
+function FundNewIdentity({ phrase, identityIndex, resume }: { phrase: string; identityIndex: number; resume?: boolean }) {
+  const { network, signIn, closeSheet, platform } = useAuth();
+  const [wallet, setWallet] = useState<SeedWallet | null>(null);
+  const [how, setHow] = useState<'choose' | 'dash' | 'voucher'>(resume ? 'dash' : 'choose');
+  const [error, setError] = useState<string | null>(null);
+  const owned = useRef(false);
+  // The wallet is made and wiped by the effect (StrictMode-safe): unless the session took it over, leaving this view wipes it.
+  useEffect(() => {
+    const w = SeedWallet.fromPhrase(phrase, network);
+    setWallet(w);
+    return () => {
+      if (!owned.current) w.wipe();
+    };
+  }, [phrase, network]);
+
+  // `index`: a new account paid for after a too-small payment lives at a later index
+  const finish = async (identityId: string, index = identityIndex) => {
+    if (!wallet) return;
+    try {
+      const s = await signInWithSeed(wallet, { identityIndex: index, identityId }, await platform());
+      owned.current = true;
+      signIn(s);
+      closeSheet();
+    } catch (e) {
+      setError(plainErrorText(e));
+    }
+  };
+  if (!wallet) return null;
+  if (how === 'choose') {
+    return (
+      <div className="fund-choice">
+        <ol className="steps-bar" aria-label="Creating an account">
+          <li>Save your phrase</li>
+          <li>Check it</li>
+          <li aria-current="step">Add credit</li>
+        </ol>
+        <p>
+          Accounts live on Dash Platform, which needs a little credit to store them: about 0.0011 DASH for the account, and the rest stays in its balance for your
+          profile and listings.
+        </p>
+        <ul className="choices">
+          <li>
+            <button type="button" className="choice choice-l" onClick={() => setHow('dash')}>
+              <b>Pay with DASH</b>
+              <span className="muted small">Scan a QR code with any Dash wallet. {formatDuffs(SUGGESTED_CREATE_DEPOSIT_DUFFS)} covers your profile and first changes; {formatDuffs(MIN_CREATE_DEPOSIT_DUFFS)} is the minimum.</span>
+            </button>
+          </li>
+        </ul>
+        <ul className="choices choices-s">
+          <li>
+            <button type="button" className="choice" onClick={() => setHow('voucher')}>
+              <b>I have a voucher link</b>
+              <span className="muted small">Paste a voucher link someone gave you.</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+    );
+  }
+  return (
+    <>
+      {how === 'dash' && <FundingPanel kind="create" wallet={wallet} identityIndex={identityIndex} onDone={finish} />}
+      {how === 'voucher' && <VoucherRedeem wallet={wallet} identityIndex={identityIndex} onDone={finish} />}
+      {error && <p className="error" role="alert">{error}</p>}
+    </>
+  );
+}
+
+function VoucherRedeem({ wallet, identityIndex, onDone }: { wallet: SeedWallet; identityIndex: number; onDone(id: string): void }) {
+  const { network, platform, dapi } = useAuth();
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    let voucher;
+    try {
+      voucher = parseVoucher(text, network);
+    } catch (err) {
+      return setError(plainErrorText(err));
+    }
+    setBusy(true);
+    try {
+      const r = await redeemVoucher({ voucher, wallet, identityIndex, dapi: dapi(), platform: await platform(), onUpdate: (n) => setNote(n) });
+      onDone(r.identityId);
+    } catch (err) {
+      setError(plainErrorText(err));
+    } finally {
+      wipe(voucher.privateKey);
+      setBusy(false);
+    }
+  };
+  return (
+    <form className="form" onSubmit={submit}>
+      <SecretField label="Voucher link" what="the voucher link" value={text} onChange={setText} placeholder="dashpay://invite?assetlocktx=…&pk=…" testId="voucher-input" disabled={busy} />
+      <p className="muted small">The voucher only pays for the identity. Its keys are the ones from your recovery phrase; the faucet never controls it.</p>
+      {note && busy && (
+        <p className="muted small" aria-live="polite">
+          <span className="spinner" aria-hidden="true" /> {note}
+        </p>
+      )}
+      {error && <p className="error" role="alert">{error}</p>}
+      <div className="form-actions">
+        <button type="submit" className="btn btn-primary" disabled={busy || !text.trim()}>
+          {busy ? 'Redeeming…' : 'Redeem'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ---- existing phrase -------------------------------------------------------------------------------------------------------
+
+function PhraseSignIn() {
+  const { network, platform, signIn, closeSheet, store } = useAuth();
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<{ phrase: string; found: FoundIdentity[]; resume?: FundingRecord; createIndex?: number } | null>(null);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!isValidPhrase(text)) return setError(new PhraseError().message);
+    const phrase = normalizePhrase(text);
+    setBusy(true);
+    const wallet = SeedWallet.fromPhrase(phrase, network);
+    let handedOver = false;
+    try {
+      // An unfinished identity setup of this phrase (hidden ones included: a payment made while no tab watched is only found by
+      // replaying their address). One that already holds money continues first; an unpaid one only when the phrase has no identity.
+      // A setup paid again after a too-small payment comes before the too-small one.
+      const mine = store
+        .list()
+        .filter((r) => {
+          if (r.network !== network || r.kind !== 'create' || r.state === 'done') return false;
+          // the key a resume would fund from (the hardened pre-2026-10-25 one for a funding begun there)
+          const d = wallet.derive(createFundingPath(store, wallet, r.identityIndex));
+          try {
+            return r.address === addressOf(d.publicKey, network);
+          } finally {
+            d.privateKey.fill(0); // only the address was needed
+          }
+        });
+      const paid = (r: FundingRecord) => r.deposits.length > 0 || !!r.lock;
+      const resume = mine.find((r) => paid(r) && !lockTooSmall(r)) ?? mine.find(paid) ?? mine[0];
+      if (resume && (resume.deposits.length || resume.lock)) return setState({ phrase, found: [], resume });
+      const port = await platform();
+      const found = await discoverIdentities(wallet, port);
+      if (!found.length && resume) return setState({ phrase, found: [], resume });
+      if (found.length === 1) {
+        signIn(await signInWithSeed(wallet, found[0]!, port));
+        handedOver = true;
+        closeSheet();
+        return;
+      }
+      // a new identity skips an index whose payment was used to top up another identity
+      setState({ phrase, found, createIndex: found.length ? undefined : nextCreateIndex(store, wallet) });
+    } catch (err) {
+      setError(plainErrorText(err));
+    } finally {
+      if (!handedOver) wallet.wipe();
+      setBusy(false);
+    }
+  };
+  const pick = async (f: FoundIdentity) => {
+    if (!state) return;
+    setBusy(true);
+    const wallet = SeedWallet.fromPhrase(state.phrase, network);
+    try {
+      signIn(await signInWithSeed(wallet, f, await platform()));
+      closeSheet();
+    } catch (err) {
+      wallet.wipe();
+      setError(plainErrorText(err));
+      setBusy(false);
+    }
+  };
+
+  if (state?.resume) return <FundNewIdentity phrase={state.phrase} identityIndex={state.resume.identityIndex} resume />;
+  if (state && state.found.length === 0) {
+    return (
+      <div>
+        <p>This phrase has no account on Dash Platform ({network}) yet. You can create one now.</p>
+        <FundNewIdentity phrase={state.phrase} identityIndex={state.createIndex ?? 0} />
+      </div>
+    );
+  }
+  if (state) {
+    return (
+      <div>
+        <p>This phrase has {state.found.length} accounts. Which one?</p>
+        <ul className="choices">
+          {state.found.map((f) => (
+            <li key={f.identityId}>
+              <button type="button" className="choice" disabled={busy} onClick={() => pick(f)}>
+                <b className="break">{f.identityId}</b>
+                <span className="muted small">identity #{f.identityIndex}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        {error && <p className="error" role="alert">{error}</p>}
+      </div>
+    );
+  }
+  return (
+    <form className="form" onSubmit={submit}>
+      <SeedWarning />
+      <SecretField label="Recovery phrase (12 or 24 words)" what="the recovery phrase" value={text} onChange={setText} testId="phrase-input" disabled={busy} />
+      <p className="muted small">The phrase never leaves this browser. Cairn finds your account by a public key fingerprint only.</p>
+      {error && <p className="error" role="alert">{error}</p>}
+      <div className="form-actions">
+        <button type="submit" className="btn btn-primary" disabled={busy || !text.trim()}>
+          {busy ? <><span className="spinner" aria-hidden="true" /> Looking up…</> : 'Sign in'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ---- key paste -------------------------------------------------------------------------------------------------------------
+
+function KeySignIn() {
+  const { platform, signIn, closeSheet, openSheet } = useAuth();
+  const [text, setText] = useState('');
+  const [keep, setKeep] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      signIn(await signInWithKey(text, await platform()));
+      setText('');
+      if (keep) openSheet('passkeys');
+      else closeSheet();
+    } catch (err) {
+      setError(plainErrorText(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form className="form" onSubmit={submit}>
+      <SeedWarning what="key" />
+      <label>
+        Private key (WIF or 64 hex characters)
+        <input type="password" value={text} onChange={(e) => setText(e.target.value)} autoComplete="off" spellCheck={false} data-testid="key-input" disabled={busy} />
+      </label>
+      <p className="muted small">Use your identity's HIGH (or CRITICAL) authentication key, never the MASTER key. It stays in memory (shared with your other open Cairn tabs) and is gone when you sign out or close the browser.</p>
+      <label className="check">
+        <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} /> Keep it with a passkey so I can sign in again without pasting
+      </label>
+      {error && <p className="error" role="alert">{error}</p>}
+      <div className="form-actions">
+        <button type="submit" className="btn btn-primary" disabled={busy || !text.trim()}>
+          {busy ? 'Checking…' : 'Sign in'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ---- top-up ----------------------------------------------------------------------------------------------------------------
+
+function TopUp() {
+  const { session, store, network, refreshBalance, closeSheet } = useAuth();
+  const [done, setDone] = useState(false);
+  // A passkey made on another device may have been planted by someone who once held one of this identity's keys. A key session from
+  // such an entry derives its top-up address from that key, so the payer is warned first.
+  const foreignPasskey = !!session?.credentialId && !localPasskeys.list(localStorage, session.identityId).includes(toBase64(session.credentialId));
+  const [acknowledged, setAcknowledged] = useState(false);
+  // Continue an unfinished top-up if there is one, else start the next index.
+  const topUpIndex = useMemo(() => (session ? nextTopUpIndex(store, network, session.identityId) : 0), [session, store, network]);
+  if (!session) return <p className="muted">Sign in first.</p>;
+  if (foreignPasskey && !acknowledged) {
+    return (
+      <div className="notice-box" role="alert">
+        <p>
+          You signed in with a passkey that was not added in this browser. Only continue if you added it yourself: anyone who once held one of your keys could have
+          added a passkey, and its key decides where this top-up is paid.
+        </p>
+        <button type="button" className="btn" onClick={() => setAcknowledged(true)}>
+          I added this passkey, continue
+        </button>
+      </div>
+    );
+  }
+  if (done) {
+    return (
+      <div>
+        <p className="notice">Top-up complete. Your balance is updated.</p>
+        <button type="button" className="btn btn-primary" onClick={closeSheet}>
+          Close
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <RecoverableNotice records={store.list().filter((r) => r.network === network && r.kind === 'topup' && r.identityId === session.identityId)} />
+      <p>Add Platform credits with DASH from any wallet. {formatDuffs(MIN_TOPUP_DEPOSIT_DUFFS)} minimum; about 0.00008 DASH of it pays for the top-up itself.</p>
+      <FundingPanel
+        kind="topup"
+        wallet={session.wallet}
+        identityIndex={session.identityIndex ?? 0}
+        topUp={{ identityId: session.identityId, index: topUpIndex }}
+        session={session.wallet ? undefined : session}
+        onDone={() => {
+          refreshBalance();
+          setDone(true);
+        }}
+      />
+    </div>
+  );
+}
