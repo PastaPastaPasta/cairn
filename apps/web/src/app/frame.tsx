@@ -1,6 +1,6 @@
-// Frame buster. GitHub Pages cannot send frame-ancestors / X-Frame-Options, so another page could show govhub in a frame and trick
-// clicks on its buttons ("Use these settings" of a ?config= link, a profile switch, a vote). A same-site frame even shares govhub's
-// storage and session. There is no reason to embed govhub, so inside a frame it renders only a way out.
+// Frame buster. GitHub Pages cannot send frame-ancestors / X-Frame-Options, so another page could show Cairn in a frame and trick
+// clicks on its buttons (a network switch, a profile save, an approval). A same-site frame even shares Cairn's storage and session.
+// There is no reason to embed Cairn, so inside a frame it renders only a way out.
 
 /** Whether Cairn is shown inside another page's frame. */
 export function isFramed(): boolean {
