@@ -43,6 +43,7 @@ export async function readTrackRecord(r: Registry, operatorId: string, onProgres
     }
   });
   const entries: TrackEntry[] = [];
+  const counted = new Set<string>();
   let linked = 0;
   for (const g of groups.filter((x) => x.lockedHash)) {
     const bundle = await readGroupBundle(r, g.id);
@@ -52,10 +53,14 @@ export async function readTrackRecord(r: Registry, operatorId: string, onProgres
     linked++;
     const agreement = agreementOf(bundle.group, bundle.approvals, r.network);
     for (const { hash } of hashes) {
+      if (counted.has(hash)) continue;
       onProgress?.(`Checking “${bundle.group.title}” against the chain`);
       const j = judgeRegistration(agreement, await lookupRegistration(r, hash));
       entries.push({ group: { id: g.id, title: bundle.group.title }, judgement: j });
-      if (j.state === 'verified') break;
+      if (j.state === 'verified') {
+        counted.add(hash);
+        break;
+      }
     }
   }
   return summarizeTrack(entries, linked);
@@ -124,7 +129,10 @@ function TrackBody({ summary }: { summary: TrackSummary }) {
           </li>
         ))}
       </ul>
-      <p className="small muted">The masternode list shows each node’s state now; Radar keeps its history of payments and uptime.</p>
+      <p className="small muted">
+        The masternode list shows each node’s state now; Radar keeps its history of payments and uptime. A group links a registration by copying its terms, so the
+        chain proves each masternode runs with this operator’s key, not that the operator is who their profile says: ask them to show the key in your group chat.
+      </p>
     </>
   );
 }

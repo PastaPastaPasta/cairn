@@ -44,7 +44,7 @@ export function shareTokens(terms: Pick<TermSheet, 'shares'>): string[] {
       .replace(/^_+|_+$/g, '')
       .toUpperCase()
       .slice(0, 16);
-    if (!t || /^\d/.test(t) || seen.has(t)) t = `SHARE${i + 1}`;
+    for (let n = i + 1; !t || /^\d/.test(t) || seen.has(t); n++) t = `SHARE${n}`;
     seen.add(t);
     return t;
   });

@@ -336,11 +336,19 @@ function sigsView(text: string, ctx: CheckContext): CheckView {
   else if (fp?.status === 'ok') findings.push(f('ok', 'fingerprint', `Message code ${fp.computed}`, 'Compare this code with the one the sender sees in Dash-Qt.'));
   const signed = report.signatures.length;
   const total = ctx.chainShares?.length;
-  const valid = report.signatures.filter((s) => s.valid).length;
-  if (report.ok && ctx.chainShares) {
-    for (const s of report.signatures.filter((x) => x.valid === false)) findings.push(f('warn', 'approval-invalid', `The approval for share ${s.shareIndex + 1} does not match`, s.reason ?? ''));
-    if (kind === 'dissolve' && report.dissolution?.reading?.returnsPrincipal) {
-      findings.push(f('ok', 'returns-principal', 'Every share gets its full principal back', `The fee, ${dash(report.dissolution.reading.fee)}, comes out of share ${report.dissolution.actorIndex + 1}.`));
+  const valid = report.signatures.filter((s) => s.valid === true).length;
+  if (report.ok && !report.txHex) {
+    findings.push(f('stop', 'sigs-no-tx', 'This message has no transaction to approve', 'A request from Dash-Qt always carries the prepared transaction. Ask for a fresh copy.'));
+  } else if (report.ok && ctx.chainShares) {
+    if (!report.signHash) findings.push(f('stop', 'sigs-unreadable', 'The prepared transaction could not be checked', ''));
+    for (const s of report.signatures.filter((x) => x.valid !== true)) findings.push(f('warn', 'approval-invalid', `The approval for share ${s.shareIndex + 1} does not match`, s.reason ?? ''));
+    if (kind === 'dissolve') {
+      const r = report.dissolution?.reading;
+      if (r?.returnsPrincipal) findings.push(f('ok', 'returns-principal', 'Every share gets its full principal back', `The fee, ${dash(r.fee)}, comes out of share ${report.dissolution!.actorIndex + 1}.`));
+      else findings.push(f('stop', 'dissolve-principal', 'This request does not return every principal', r?.error ?? ''));
+    }
+    if (kind === 'registrar') {
+      findings.push(f('warn', 'new-keys', 'Confirm the new keys with your group', 'Cairn cannot know which operator key or voting address your group chose now. Compare both with what was agreed in your group chat before you approve.'));
     }
   } else if (report.ok) {
     findings.push(f('info', 'no-shares', 'Approvals not checked here', 'Open the checker from your group’s live page: with the registered share table Cairn checks every approval and that every principal is returned.'));
@@ -415,7 +423,9 @@ export function judgeDissolution(rep: ProDisReport, shares: readonly ChainShare[
   const bonus = r.bonuses.reduce((a, b) => a + (b > 0n ? b : 0n), 0n);
   if (!short.length) out.push(f('ok', 'dissolve-principal', bonus > 0n ? `Every other share gets its principal plus ${dash(bonus)} of penalty` : 'Every share gets its full principal back', `fee ${dash(r.fee)}`));
   const bad = rep.sigs?.filter((s) => !s.valid) ?? [];
-  if (rep.sigs && !bad.length && rep.sigs.length) out.push(f('ok', 'dissolve-sigs', `${rep.mode === 'unilateral' ? 'Signed by share' : 'Signed by every share, fee from share'} ${rep.actorIndex + 1}`, ''));
+  if (rep.mode === 'unanimous' && rep.sigs && rep.sigs.length !== shares.length) {
+    out.push(f('stop', 'dissolve-sig-count', `Signed by ${rep.sigs.length} of ${shares.length} shares`, 'Dash Core accepts one signature (leaving alone) or one from every share.'));
+  } else if (rep.sigs && !bad.length && rep.sigs.length) out.push(f('ok', 'dissolve-sigs', `${rep.mode === 'unilateral' ? 'Signed by share' : 'Signed by every share, fee from share'} ${rep.actorIndex + 1}`, ''));
   if (bad.length) out.push(f('stop', 'dissolve-sigs', 'A signature does not match the masternode’s owner keys', bad.map((s) => s.reason ?? '').join('; ')));
   return out;
 }
@@ -429,7 +439,7 @@ function dissolutionFacts(rep: ProDisReport): Fact[] {
 }
 
 const KEEP_PRIVATE = f(
-  'warn',
+  'info',
   'keep-private',
   'Anyone who has this can broadcast it',
   'A signed dissolution ends the masternode for everyone the moment someone sends it. Every principal still goes back to its own refund address, but keep the file private and offline.',
@@ -439,7 +449,9 @@ function standbyView(text: string, ctx: CheckContext): CheckView {
   const file = parseStandbyFile(text, ctx.chainShares);
   if (!file.transactions.length) return unknown('This text has transaction-like lines, but none is a shared masternode dissolution.');
   const findings: Finding[] = [KEEP_PRIVATE];
-  if (ctx.proTxHash && file.proTxHash !== ctx.proTxHash.toLowerCase()) findings.push(f('stop', 'other-masternode', 'This standby dissolution is for a different masternode', file.proTxHash ?? ''));
+  const others = ctx.proTxHash ? file.transactions.filter((t) => t.proTxHash !== ctx.proTxHash!.toLowerCase()) : [];
+  if (others.length) findings.push(f('stop', 'other-masternode', 'This standby dissolution is for a different masternode', others.map((t) => t.proTxHash).join(', ')));
+  if (file.transactions.some((t) => t.mode === 'unsigned')) findings.push(f('stop', 'standby-unsigned', 'A line is an unsigned request, not a standby dissolution', 'It cannot be broadcast. Create the standby dissolution again in Dash-Qt.'));
   if (ctx.chainShares) for (const t of file.transactions) findings.push(...judgeDissolution(t, ctx.chainShares).map((x) => ({ ...x, title: `${t === file.immediate ? 'Immediate' : 'Full principal'}: ${x.title}` })));
   else findings.push(f('info', 'no-shares', 'Payouts not checked here', 'Open the checker from your group’s live page to check the payouts and signatures against the registered masternode.'));
   const first = file.transactions[0]!;
@@ -453,7 +465,7 @@ function standbyView(text: string, ctx: CheckContext): CheckView {
     summary: 'Signed dissolutions kept offline in case you ever need to leave without the others: they return every principal and never expire.',
     verdict,
     verdictTitle: verdict === 'ok' ? 'Valid standby dissolution' : VERDICT_TITLE[verdict],
-    verdictText: verdict === 'ok' ? 'Both lines pay every share correctly and are signed by your share’s owner key. Keep the file with your refund-address backup.' : verdict === 'neutral' ? 'Readable. Keep it private and offline.' : verdictText(verdict, true),
+    verdictText: verdict === 'ok' ? 'Every line pays every share correctly and is signed by the leaving share’s owner key. Keep the file with your refund-address backup.' : verdict === 'neutral' ? 'Readable. Keep it private and offline.' : verdictText(verdict, true),
     facts,
     rows: [],
     findings,
@@ -510,15 +522,29 @@ function registrationView(hex: string, ctx: CheckContext): CheckView {
     return unknown(`This is a masternode registration, but not a shared one (${e instanceof Error ? e.message : String(e)}).`);
   }
   const p = d.payload;
+  // shared_register_prepare leaves zeroed placeholder signatures until the approvals are combined
+  const awaiting = p.joinSigs.every((s) => s.every((b) => b === 0));
   const net: CoreNetwork = ctx.terms?.network ?? ctx.network ?? 'test';
   let findings: Finding[];
   if (ctx.terms) {
-    findings = checkRegistrationAgainstTerms(hex, ctx.terms).findings.filter((x) => x.code !== 'protx' && x.code !== 'addresses');
+    const myLabel = ctx.myLabel?.trim();
+    const mine = myLabel ? ctx.terms.shares.find((s) => s.label.trim() === myLabel) : undefined;
+    const myOwner = ctx.myOwnerAddress?.trim();
+    findings = checkRegistrationAgainstTerms(hex, ctx.terms, {
+      ...(ctx.proTxHash ? { proTxHash: ctx.proTxHash } : {}),
+      ...(mine && myOwner ? { owners: [{ ownerAddress: myOwner, amount: mine.amount, label: mine.label }] } : {}),
+    })
+      .findings.filter((x) => x.code !== 'protx' && x.code !== 'addresses')
+      .map((x) => (awaiting && x.code === 'join-sigs' ? f('info', 'join-sigs', 'Prepared, waiting for every co-owner’s approval', '') : x));
+    if (mine && myOwner && !findings.some((x) => x.code.startsWith('owner-'))) findings.push(f('ok', 'my-share', `Your share: ${dash(mine.amount)}, with your owner key`, `owner ${myOwner}`));
+    else if (mine && !myOwner) {
+      findings.push(f('warn', 'my-share-unbound', 'Confirm your share is yours', 'Paste your owner address from Dash-Qt so Cairn can check that your amount is on your own owner key and not on someone else’s.'));
+    }
   } else {
     const { results } = verifyJoinSigs(d.tx, p);
     const bad = results.filter((r) => !r.ok);
     findings = [
-      bad.length ? f('stop', 'join-sigs', 'Not every co-owner’s approval is valid', bad.map((r) => `share ${r.shareIndex + 1}: ${r.reason}`).join('; ')) : f('ok', 'join-sigs', `All ${results.length} co-owner approvals are valid`, ''),
+      awaiting ? f('info', 'join-sigs', 'Prepared, waiting for every co-owner’s approval', '') : bad.length ? f('stop', 'join-sigs', 'Not every co-owner’s approval is valid', bad.map((r) => `share ${r.shareIndex + 1}: ${r.reason}`).join('; ')) : f('ok', 'join-sigs', `All ${results.length} co-owner approvals are valid`, ''),
       f('info', 'no-terms', 'Nothing agreed to compare with', 'Open the checker from your group’s formation page to compare it with the approved terms.'),
     ];
   }

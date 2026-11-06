@@ -150,6 +150,46 @@ describe('message checker, against the approved terms', () => {
   });
 });
 
+describe('review regressions', () => {
+  it('binds a registration hex to my owner key: a swapped share is a stop, an unbound one a warning', () => {
+    const base = { terms: termsA, myLabel: 'Bob' };
+    expect(checkMessage(A.combined, { ...base, myOwnerAddress: owner(1) }).verdict).toBe('ok');
+    const swapped = checkMessage(A.combined, { ...base, myOwnerAddress: owner(0) });
+    expect(swapped.verdict).toBe('stop');
+    expect(swapped.findings.map((f) => f.code)).toContain('owner-amount');
+    expect(checkMessage(A.combined, base).findings.map((f) => f.code)).toContain('my-share-unbound');
+  });
+
+  it('reads the prepared transaction (placeholder approvals) as waiting, not as a stop', () => {
+    const v = checkMessage(A.prepared.tx, { terms: termsA, myLabel: 'Bob', myOwnerAddress: owner(1) });
+    expect(v.verdict).toBe('ok');
+    expect(v.findings.find((f) => f.code === 'join-sigs')!.level).toBe('info');
+    expect(checkMessage(A.prepared.tx).verdict).toBe('neutral');
+  });
+
+  it('never calls an approvals message without its transaction safe; a key rotation always asks to confirm the keys', () => {
+    const noTx = JSON.stringify({ type: 'dash-shared-mn-sigs', version: 1, network: 'regtest', kind: 'registrar', proTxHash: A.proTxHash, signatures: [] });
+    expect(checkMessage(noTx, { chainShares: chainSharesA, proTxHash: A.proTxHash }).verdict).toBe('stop');
+    expect(checkMessage(env('sigs-registrar'), { chainShares: chainSharesA, proTxHash: A.proTxHash }).verdict).toBe('warn');
+  });
+
+  it('stops on a standby file of unsigned requests', () => {
+    const request = JSON.parse(env('sigs-dissolve-request')).tx as string;
+    const v = checkMessage(`FULL PRINCIPAL — valid from block 142\n${request}\n\nIMMEDIATE — pays the penalty\n${A.standby.immediate}`, { chainShares: chainSharesA, proTxHash: A.proTxHash });
+    expect(v.verdict).toBe('stop');
+    expect(v.findings.map((f) => f.code)).toContain('standby-unsigned');
+  });
+
+  it('keeps placeholder names distinct when a label looks like a fallback', () => {
+    expect(shareTokens({ shares: [{ label: 'Share2' }, { label: '😀' }, { label: '' }] as never })).toEqual(['SHARE2', 'SHARE3', 'SHARE4']);
+  });
+
+  it('is not verified on a weak chain proof', () => {
+    const g = d400Group();
+    expect(judgeRegistration(agreementOf(g, approvalsFor(g), 'testnet'), facts({ weak: 'testnet proof of work' })).state).toBe('unproven');
+  });
+});
+
 describe('maintenance messages', () => {
   it('checks a dissolve-together request against the registered share table', () => {
     expect(checkMessage(env('sigs-dissolve-request')).verdict).toBe('neutral');

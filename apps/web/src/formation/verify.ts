@@ -86,6 +86,14 @@ export function judgeRegistration(agreement: Agreement, lookup: ChainFacts | { n
   if (lookup.height === 0) {
     return { ...base, state: 'unconfirmed', headline: STATE_HEADLINE.unconfirmed, detail: 'It matches the approved terms. Cairn verifies it again once it is in a block.' };
   }
+  if (lookup.weak) {
+    return {
+      ...base,
+      state: 'unproven',
+      headline: STATE_HEADLINE.unproven,
+      detail: `It matches the approved terms and is in block ${lookup.height.toLocaleString('en-US')}, but the chain it was proven on is not secure against a lying node here (${lookup.weak}).`,
+    };
+  }
   if (!lookup.mined || lookup.chainLocked !== 'verified') {
     return {
       ...base,

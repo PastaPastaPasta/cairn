@@ -191,6 +191,8 @@ function StatusItem({ ok, pending = false, label }: { ok: boolean; pending?: boo
 
 function RegistrationStatus({ linked, state, id }: { linked: boolean; state: ReturnType<typeof useRegistrations>['state']; id: string }) {
   if (!linked) return <StatusItem ok={false} pending label="No registration linked yet" />;
+  if (state.status === 'idle') return <StatusItem ok={false} pending label="Registration linked; checked once every member approved" />;
+  if (state.status === 'error') return <StatusItem ok={false} label="The linked registration could not be checked" />;
   if (state.status !== 'done') return <StatusItem ok={false} pending label="Checking the linked registration…" />;
   const j = primaryOf(state.results)!;
   return <StatusItem ok={j.state === 'verified'} pending={j.state !== 'mismatch' && j.state !== 'not-found'} label={<Link to={`/g/${id}/live`}>{j.headline}</Link>} />;

@@ -75,11 +75,11 @@ export async function lookupRegistration(r: Registry, proTxHash: string, onProgr
         hex,
         height: v.height,
         mined: v.proof.merkle,
-        chainLocked: v.proof.anchor ? 'verified' : v.chainLocked,
+        chainLocked: v.chainLocked,
         trust: anchor.trust.kind,
         weak: anchor.weak,
         tip: anchor.tip,
-        mn: entry ? { isValid: entry.isValid } : null,
+        mn: listEntry(entry, anchor.sml.proof.height, v.height),
         listTrust: 'proven',
         notes: v.proof.notes,
       };
@@ -100,10 +100,16 @@ export async function lookupRegistration(r: Registry, proTxHash: string, onProgr
     trust: 'node',
     weak: null,
     tip: Math.max(v.proof.chainLock?.height ?? 0, sml?.height ?? 0, v.height),
-    mn: sml ? (entry ? { isValid: entry.isValid } : null) : undefined,
+    mn: sml ? listEntry(entry, sml.height, v.height) : undefined,
     listTrust: sml ? 'agreed' : null,
     notes: v.proof.notes,
   };
+}
+
+/** A list from before the registration's block cannot say it is gone: that reads as unknown, not dissolved. */
+function listEntry(entry: { isValid: boolean } | undefined, listHeight: number | null, registeredHeight: number): ChainFacts['mn'] {
+  if (entry) return { isValid: entry.isValid };
+  return listHeight !== null && listHeight >= registeredHeight ? null : undefined;
 }
 
 const toHex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');

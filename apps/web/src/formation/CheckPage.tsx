@@ -51,11 +51,12 @@ function GroupChecker({ groupId }: { groupId: string }) {
   const { session } = useAccount();
   const { state } = useGroupBundle(groupId);
   if (state.status === 'loading') return <p className="muted" role="status">Reading the group’s approved terms…</p>;
-  if (state.status !== 'ready' || !state.agreement.terms || !state.agreement.lockedHashOk) {
+  const a = state.status === 'ready' ? state.agreement : null;
+  if (state.status !== 'ready' || !a?.terms || !a.lockedHashOk || !a.allApproved || a.problems.length) {
     return (
       <>
         <p className="notice-box small">
-          {state.status === 'ready' ? `“${state.bundle.group.title}” has no locked terms to compare with yet.` : 'That group could not be read.'} The checker below reads messages
+          {state.status === 'ready' ? `“${state.bundle.group.title}” has no terms every member approved yet, so there is nothing to compare with.` : 'That group could not be read.'} The checker below reads messages
           on their own.
         </p>
         <Checker network={coreNetwork(registry.network)} title="Your message" />
