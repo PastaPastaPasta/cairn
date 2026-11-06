@@ -22,6 +22,7 @@
     "register": "node --experimental-transform-types scripts/register.ts"
   },
   "dependencies": {
+    "@cairn/shares": "*",
     "@scure/base": "^2.0.0"
   },
   "devDependencies": {

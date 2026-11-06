@@ -6,7 +6,12 @@
 //                every limit cairn.json sets, so consensus never has to refuse a write the UI built.
 //   createOp / replaceOp / deleteOp stamp the system times the schema requires.
 import { base58, base64, hex } from '@scure/base';
-import { CAIRN_SCHEMAS, NO_OPERATOR, prop, type DocType, type Network } from './schema.ts';
+import {
+  EVO_COLLATERAL, MAX_EARLY_PERIOD_BLOCKS, MIN_SHARE_AMOUNT, REGULAR_COLLATERAL, areShareAmountsValid, isCompletable, isEarlyPenaltyValid, isEarlyPeriodValid, minAmount,
+  remainingDuffs, validateCoreService, type Network as CoreNetwork,
+} from '@cairn/shares';
+import { CAIRN_SCHEMAS, GROUP_STATUS, MAX_AMOUNT_DUFFS, MN_TYPE, NO_OPERATOR, prop, type DocType, type Network } from './schema.ts';
+import { badgeLike, cleanName, nameProblem } from './text.ts';
 
 export type RawDoc = Record<string, unknown>;
 /** Same shape as @cairn/auth's DocValue: byte arrays and identifiers as bytes, integers as numbers, strings, booleans. */
@@ -158,18 +163,24 @@ export function httpsUrl(v: string): string | null {
   }
 }
 
+/** A handle as stored and shown, or why it cannot be: the website is normalized first, so both sides check the same length. */
+function contactHandle(k: ContactKind, raw: string): { ok: string } | { problem: string } {
+  const v = raw.trim();
+  if (/[\u0000-\u001f\u007f]/.test(v)) return { problem: `the ${k} handle has control characters` };
+  const out = k === 'website' ? httpsUrl(v) : v;
+  if (out === null) return { problem: 'the website must be an https:// address' };
+  if (chars(out) > MAX_HANDLE) return { problem: `the ${k} handle is longer than ${MAX_HANDLE} characters${k === 'website' ? ' once written as a full address' : ''}` };
+  return { ok: out };
+}
+
 /** Trims, drops empty handles, checks each one; key order is fixed so equal contacts serialize equally. */
 export function normalizeContacts(c: Contacts): Contacts {
   const out: Contacts = {};
   for (const k of CONTACT_KINDS) {
-    const v = c[k]?.trim();
-    if (!v) continue;
-    if (chars(v) > MAX_HANDLE || /[\u0000-\u001f]/.test(v)) throw new DocError(`the ${k} handle is too long or has control characters`);
-    if (k === 'website') {
-      const u = httpsUrl(v);
-      if (!u) throw new DocError('the website must be an https:// address');
-      out[k] = u;
-    } else out[k] = v;
+    if (!c[k]?.trim()) continue;
+    const h = contactHandle(k, c[k]!);
+    if ('problem' in h) throw new DocError(h.problem);
+    out[k] = h.ok;
   }
   return out;
 }
@@ -179,11 +190,9 @@ function parseContacts(v: unknown): Contacts {
   const out: Contacts = {};
   for (const k of CONTACT_KINDS) {
     const x = raw[k];
-    if (typeof x !== 'string' || !x || chars(x) > MAX_HANDLE) continue;
-    if (k === 'website') {
-      const u = httpsUrl(x);
-      if (u) out[k] = u;
-    } else out[k] = x;
+    if (typeof x !== 'string' || !x.trim()) continue;
+    const h = contactHandle(k, x);
+    if ('ok' in h) out[k] = h.ok;
   }
   return out;
 }
@@ -201,11 +210,25 @@ export interface EarlyPref {
   maxPeriodBlocks: number | null;
   maxPenalty: number | null;
 }
-function parseEarlyPref(v: unknown): EarlyPref {
+/** The same bounds on read and write: whole numbers or null, the period within Core's cap. */
+export function parseEarlyPref(v: unknown): EarlyPref {
   const o = v as Record<string, unknown> | null;
-  const n = (x: unknown) => (x === null || x === undefined ? null : Number.isSafeInteger(x) && (x as number) >= 0 ? (x as number) : fail('earlyPref'));
-  if (!o || typeof o !== 'object' || Array.isArray(o)) return fail('earlyPref');
-  return { maxPeriodBlocks: n(o.maxPeriodBlocks), maxPenalty: n(o.maxPenalty) };
+  if (!o || typeof o !== 'object' || Array.isArray(o)) throw new DocError('the early-exit preference is not an object');
+  const n = (x: unknown, max: number, what: string) => {
+    if (x === null || x === undefined) return null;
+    if (!Number.isSafeInteger(x) || (x as number) < 0 || (x as number) > max) throw new DocError(`the ${what} must be a whole number from 0 to ${max}, or any`);
+    return x as number;
+  };
+  return { maxPeriodBlocks: n(o.maxPeriodBlocks, MAX_EARLY_PERIOD_BLOCKS, 'longest early period'), maxPenalty: n(o.maxPenalty, MAX_AMOUNT_DUFFS, 'largest penalty') };
+}
+
+const SHARE_MAX = REGULAR_COLLATERAL - MIN_SHARE_AMOUNT;
+/** A share a member brings to a regular masternode: 100 to 900 DASH (a table needs two shares). EvoNodes are not open yet. */
+function checkShare(type: DocType, k: string, v: number): number {
+  checkInt(type, k, v);
+  const d = BigInt(v);
+  if (d < MIN_SHARE_AMOUNT || d > SHARE_MAX) throw new DocError(`${type}.${k}: a share is 100 to 900 DASH`);
+  return v;
 }
 
 /** One share in a group's roster: the member's identity and amount (duffs). */
@@ -213,27 +236,59 @@ export interface RosterEntry {
   id: string;
   amount: number;
 }
-export function parseRoster(v: unknown): RosterEntry[] {
+export const collateralOf = (mnType: number): bigint => (mnType === MN_TYPE.evo ? EVO_COLLATERAL : REGULAR_COLLATERAL);
+/** A roster Dash Core could still accept: distinct members, each share 100 DASH up to the collateral, and a remainder that can be filled. */
+export function parseRoster(v: unknown, collateral: bigint = REGULAR_COLLATERAL): RosterEntry[] {
   if (!Array.isArray(v) || v.length > 8) throw new DocError('roster is not a list of up to 8 shares');
   const seen = new Set<string>();
-  return v.map((e) => {
+  const roster = v.map((e) => {
     const o = e as Record<string, unknown>;
-    if (!o || typeof o !== 'object' || !isIdentifier(o.id) || !Number.isSafeInteger(o.amount) || (o.amount as number) <= 0 || seen.has(o.id as string)) throw new DocError('roster entry malformed or repeated');
+    if (!o || typeof o !== 'object' || !isIdentifier(o.id) || !Number.isSafeInteger(o.amount) || seen.has(o.id as string)) throw new DocError('roster entry malformed or repeated');
+    if (BigInt(o.amount as number) < MIN_SHARE_AMOUNT || BigInt(o.amount as number) > collateral) throw new DocError('every roster share must be at least 100 DASH and at most the collateral');
     seen.add(o.id as string);
     return { id: o.id as string, amount: o.amount as number };
   });
+  if (!isCompletable(roster.length, remainingDuffs(roster.map((r) => BigInt(r.amount)), collateral))) throw new DocError('the roster can no longer add up to the collateral with valid shares');
+  return roster;
 }
 
-/** `ip:port` of a masternode service: IPv4 only (what Dash Core v24 registers for regular masternodes); mainnet must use 9999. */
-export function parseService(v: string, network?: Network): { ip: string; port: number } {
-  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3}):(\d{1,5})$/.exec(v.trim());
-  if (!m) throw new DocError('the service address must look like 203.0.113.7:9999');
-  const octets = m.slice(1, 5).map(Number);
-  const port = Number(m[5]);
-  if (octets.some((o) => o > 255) || port < 1 || port > 65535) throw new DocError('the service address is out of range');
-  if (network === 'mainnet' && port !== 9999) throw new DocError('mainnet masternodes use port 9999');
-  return { ip: octets.join('.'), port };
+const coreNetwork = (n: Network): CoreNetwork => (n === 'mainnet' ? 'main' : 'test');
+
+/**
+ * A masternode service as Dash Core accepts it for a shared (ProTx v3) registration: public IPv4, a port Core allows, 9999 on
+ * mainnet. Without a network, the rules both networks share (mainnet adds only the port). Returns the canonical `ip:port`.
+ */
+export function parseService(v: string, network?: Network): { ip: string; port: number; canonical: string } {
+  const r = validateCoreService(v.trim(), coreNetwork(network ?? 'testnet'));
+  if (!r.ok) throw new DocError(r.message);
+  return { ip: r.ip, port: r.port, canonical: r.canonical };
 }
+const serviceOrUndefined = (v: string | undefined, network?: Network): string | undefined => {
+  if (v === undefined) return undefined;
+  try {
+    return parseService(v, network).canonical;
+  } catch {
+    return undefined;
+  }
+};
+
+/** The early-exit terms and share table rules of @cairn/shares, for a roster that may still be forming; null when they hold. */
+function groupTermsProblem(roster: RosterEntry[], collateral: bigint, earlyPeriodBlocks: number, earlyPenalty: number, complete: boolean): string | null {
+  const amounts = roster.map((r) => BigInt(r.amount));
+  const period = isEarlyPeriodValid(earlyPeriodBlocks);
+  if (!period.ok) return period.message;
+  // shares still to come are at least 100 DASH, so that bounds the penalty while the roster is empty
+  const pen = isEarlyPenaltyValid(earlyPeriodBlocks, BigInt(earlyPenalty), amounts.length ? minAmount(amounts) : MIN_SHARE_AMOUNT);
+  if (!pen.ok) return pen.message;
+  if (earlyPeriodBlocks > 0 && earlyPenalty === 0) return 'Set an early-exit penalty, or set the early period to 0 (a zero penalty makes the period meaningless).';
+  if (complete) {
+    const table = areShareAmountsValid(amounts, collateral);
+    if (!table.ok) return table.message;
+  }
+  return null;
+}
+/** Statuses that claim the roster is a whole share table. */
+const COMPLETE_STATUSES: readonly number[] = [GROUP_STATUS.full, GROUP_STATUS.locked, GROUP_STATUS.formingOnchain, GROUP_STATUS.live];
 
 // ---- profile ---------------------------------------------------------------------------------------------------------------
 
@@ -243,19 +298,31 @@ export interface ProfileFields {
   contacts?: Contacts;
   roles?: number;
 }
-export type Profile = DocMeta & Required<Pick<ProfileFields, 'displayName' | 'contacts' | 'roles'>> & Pick<ProfileFields, 'about'>;
+/** `displayName` is cleaned (invisible characters removed; may be empty); `nameSuspect` marks a name that imitates a label. */
+export type Profile = DocMeta & Required<Pick<ProfileFields, 'displayName' | 'contacts' | 'roles'>> & Pick<ProfileFields, 'about'> & { nameSuspect: boolean };
+
+function checkName(type: DocType, k: string, v: string): string {
+  const problem = nameProblem(v);
+  if (problem) throw new DocError(problem);
+  return checkStr(type, k, v.trim());
+}
+const readName = (d: RawDoc, k: string) => {
+  const name = cleanName(str(d, k));
+  return { name, suspect: badgeLike(name) };
+};
 
 export function profileData(f: ProfileFields): DocData {
   const contacts = normalizeContacts(f.contacts ?? {});
   return defined({
-    displayName: checkStr('profile', 'displayName', f.displayName.trim()),
+    displayName: checkName('profile', 'displayName', f.displayName),
     about: opt(f.about?.trim(), (v) => checkStr('profile', 'about', v)),
     contacts: Object.keys(contacts).length ? jsonStr('profile', 'contacts', contacts) : undefined,
     roles: opt(f.roles, (v) => checkInt('profile', 'roles', v)),
   });
 }
 export function toProfile(d: RawDoc): Profile {
-  return { ...meta(d), displayName: str(d, 'displayName'), about: optStr(d, 'about'), contacts: absent(d, 'contacts') ? {} : json(d, 'contacts', parseContacts), roles: optNum(d, 'roles') ?? 0 };
+  const { name, suspect } = readName(d, 'displayName');
+  return { ...meta(d), displayName: name, nameSuspect: suspect, about: optStr(d, 'about'), contacts: absent(d, 'contacts') ? {} : json(d, 'contacts', parseContacts), roles: optNum(d, 'roles') ?? 0 };
 }
 
 // ---- operator --------------------------------------------------------------------------------------------------------------
@@ -274,7 +341,7 @@ export interface OperatorFields {
   claimedProTx?: string[];
   status: number;
 }
-export type Operator = DocMeta & OperatorFields & { regions: string[]; claimedProTx: string[] };
+export type Operator = DocMeta & OperatorFields & { regions: string[]; claimedProTx: string[]; nameSuspect: boolean };
 
 export function operatorData(f: OperatorFields): DocData {
   const lo = f.rewardMinBps ?? f.rewardBps;
@@ -285,7 +352,7 @@ export function operatorData(f: OperatorFields): DocData {
   const pro = (f.claimedProTx ?? []).map((p) => p.trim().toLowerCase());
   parseProTxList(pro);
   return defined({
-    name: checkStr('operator', 'name', f.name.trim()),
+    name: checkName('operator', 'name', f.name),
     rewardBps: checkInt('operator', 'rewardBps', f.rewardBps),
     rewardMinBps: opt(f.rewardMinBps, (v) => checkInt('operator', 'rewardMinBps', v)),
     rewardMaxBps: opt(f.rewardMaxBps, (v) => checkInt('operator', 'rewardMaxBps', v)),
@@ -297,9 +364,11 @@ export function operatorData(f: OperatorFields): DocData {
   });
 }
 export function toOperator(d: RawDoc): Operator {
+  const { name, suspect } = readName(d, 'name');
   return {
     ...meta(d),
-    name: str(d, 'name'),
+    name,
+    nameSuspect: suspect,
     rewardBps: num(d, 'rewardBps'),
     rewardMinBps: optNum(d, 'rewardMinBps'),
     rewardMaxBps: optNum(d, 'rewardMaxBps'),
@@ -329,10 +398,10 @@ export type Looking = DocMeta & LookingFields & { earlyPref: EarlyPref };
 export function lookingData(f: LookingFields): DocData {
   const ep = f.earlyPref;
   return defined({
-    amount: checkInt('looking', 'amount', f.amount),
+    amount: checkShare('looking', 'amount', f.amount),
     operatorId: opt(f.operatorId, (v) => idBytes(v, 'operatorId')),
     maxRewardBps: checkInt('looking', 'maxRewardBps', f.maxRewardBps),
-    earlyPref: ep && (ep.maxPeriodBlocks !== null || ep.maxPenalty !== null) ? jsonStr('looking', 'earlyPref', { maxPeriodBlocks: ep.maxPeriodBlocks, maxPenalty: ep.maxPenalty }) : undefined,
+    earlyPref: ep && (ep.maxPeriodBlocks !== null || ep.maxPenalty !== null) ? jsonStr('looking', 'earlyPref', parseEarlyPref(ep)) : undefined,
     canCoordinate: f.canCoordinate,
     note: opt(f.note?.trim(), (v) => checkStr('looking', 'note', v)),
     status: checkInt('looking', 'status', f.status),
@@ -384,16 +453,23 @@ export interface GroupFields {
 }
 export type Group = DocMeta & GroupFields;
 
-export function groupData(f: GroupFields): DocData {
-  const roster = parseRoster(f.roster);
+/** The group document for a write on `network`: schema limits plus Dash Core's share-table, early-exit and service rules. */
+export function groupData(f: GroupFields, network: Network): DocData {
+  const mnType = checkInt('group', 'mnType', f.mnType);
+  const collateral = collateralOf(mnType);
+  const roster = parseRoster(f.roster, collateral);
+  checkInt('group', 'earlyPeriodBlocks', f.earlyPeriodBlocks);
+  checkInt('group', 'earlyPenalty', f.earlyPenalty);
+  const problem = groupTermsProblem(roster, collateral, f.earlyPeriodBlocks, f.earlyPenalty, COMPLETE_STATUSES.includes(f.status));
+  if (problem) throw new DocError(problem);
   return defined({
     title: checkStr('group', 'title', f.title.trim()),
     about: opt(f.about?.trim(), (v) => checkStr('group', 'about', v)),
-    mnType: checkInt('group', 'mnType', f.mnType),
+    mnType,
     operatorId: idBytes(f.operatorId ?? NO_OPERATOR, 'operatorId'),
     rewardBps: checkInt('group', 'rewardBps', f.rewardBps),
-    earlyPeriodBlocks: checkInt('group', 'earlyPeriodBlocks', f.earlyPeriodBlocks),
-    earlyPenalty: checkInt('group', 'earlyPenalty', f.earlyPenalty),
+    earlyPeriodBlocks: f.earlyPeriodBlocks,
+    earlyPenalty: f.earlyPenalty,
     coordinatorId: opt(f.coordinatorId, (v) => idBytes(v, 'coordinatorId')),
     votingHolderId: opt(f.votingHolderId, (v) => idBytes(v, 'votingHolderId')),
     votingPolicy: opt(f.votingPolicy?.trim(), (v) => checkStr('group', 'votingPolicy', v)),
@@ -407,35 +483,44 @@ export function groupData(f: GroupFields): DocData {
     revision: checkInt('group', 'revision', f.revision),
     lockedHash: opt(f.lockedHash, (v) => hexBytes('group', 'lockedHash', v, 32)),
     operatorPubKey: opt(f.operatorPubKey, (v) => hexBytes('group', 'operatorPubKey', v, 48)),
-    service: opt(f.service, (v) => (parseService(v), checkStr('group', 'service', v.trim()))),
+    service: opt(f.service?.trim(), (v) => checkStr('group', 'service', parseService(v, network).canonical)),
     proTxHash: opt(f.proTxHash, (v) => hexBytes('group', 'proTxHash', v, 32)),
     status: checkInt('group', 'status', f.status),
     refillOf: opt(f.refillOf, (v) => idBytes(v, 'refillOf')),
   });
 }
-export function toGroup(d: RawDoc): Group {
+/**
+ * A stored group. Throws when its roster or early-exit terms break Dash Core's rules (no front end may show them as terms);
+ * drops a service Core would refuse, judged by `network`'s rules when given.
+ */
+export function toGroup(d: RawDoc, network?: Network): Group {
   const op = ident(d, 'operatorId');
   const chat = optStr(d, 'chatUrl');
+  const mnType = num(d, 'mnType');
+  const roster = json(d, 'roster', (v) => parseRoster(v, collateralOf(mnType)));
+  const earlyPeriodBlocks = num(d, 'earlyPeriodBlocks');
+  const earlyPenalty = num(d, 'earlyPenalty');
+  if (groupTermsProblem(roster, collateralOf(mnType), earlyPeriodBlocks, earlyPenalty, false)) fail('earlyPenalty');
   return {
     ...meta(d),
     title: str(d, 'title'),
     about: optStr(d, 'about'),
-    mnType: num(d, 'mnType'),
+    mnType,
     operatorId: op === NO_OPERATOR ? null : op,
     rewardBps: num(d, 'rewardBps'),
-    earlyPeriodBlocks: num(d, 'earlyPeriodBlocks'),
-    earlyPenalty: num(d, 'earlyPenalty'),
+    earlyPeriodBlocks,
+    earlyPenalty,
     coordinatorId: optIdent(d, 'coordinatorId'),
     votingHolderId: optIdent(d, 'votingHolderId'),
     votingPolicy: optStr(d, 'votingPolicy'),
     // a stored link is shown only if it is still an https URL (the schema cannot say so)
     chatUrl: chat ? (httpsUrl(chat) ?? undefined) : undefined,
     formBy: optNum(d, 'formBy'),
-    roster: json(d, 'roster', parseRoster),
+    roster,
     revision: num(d, 'revision'),
     lockedHash: optHex(d, 'lockedHash', 32),
     operatorPubKey: optHex(d, 'operatorPubKey', 48),
-    service: optStr(d, 'service'),
+    service: serviceOrUndefined(optStr(d, 'service'), network),
     proTxHash: optHex(d, 'proTxHash', 32),
     status: num(d, 'status'),
     refillOf: optIdent(d, 'refillOf'),
@@ -454,7 +539,7 @@ export type Seat = DocMeta & SeatFields;
 export function seatData(f: SeatFields): DocData {
   return defined({
     groupId: idBytes(f.groupId, 'groupId'),
-    amount: checkInt('seat', 'amount', f.amount),
+    amount: checkShare('seat', 'amount', f.amount),
     message: opt(f.message?.trim(), (v) => checkStr('seat', 'message', v)),
     status: checkInt('seat', 'status', f.status),
   });
@@ -473,7 +558,7 @@ export function inviteData(f: InviteFields): DocData {
   return defined({
     groupId: idBytes(f.groupId, 'groupId'),
     toId: idBytes(f.toId, 'toId'),
-    amount: checkInt('invite', 'amount', f.amount),
+    amount: checkShare('invite', 'amount', f.amount),
     message: opt(f.message?.trim(), (v) => checkStr('invite', 'message', v)),
     status: checkInt('invite', 'status', f.status),
   });
@@ -493,7 +578,7 @@ export function approvalData(f: ApprovalFields): DocData {
     groupId: idBytes(f.groupId, 'groupId'),
     revision: checkInt('approval', 'revision', f.revision),
     termsHash: hexBytes('approval', 'termsHash', f.termsHash, 32),
-    shareAmount: checkInt('approval', 'shareAmount', f.shareAmount),
+    shareAmount: checkShare('approval', 'shareAmount', f.shareAmount),
   };
 }
 export const toApproval = (d: RawDoc): Approval => ({

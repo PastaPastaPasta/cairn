@@ -36,6 +36,29 @@ describe('profile', () => {
     expect(() => profileData({ displayName: 'ok', contacts: { website: 'http://insecure.example' } })).toThrow(/https/);
   });
 
+  it('checks a website after normalizing it, with the same limit on both sides', () => {
+    // punycode makes this 100-character input longer than 100 once normalized: refused when written, not silently dropped on read
+    const long = `https://${'ü'.repeat(40)}.example/${'a'.repeat(40)}`;
+    expect([...long].length).toBeLessThanOrEqual(100);
+    expect(() => profileData({ displayName: 'x', contacts: { website: long } })).toThrow(/longer than 100/);
+    const ok = `https://bücher.example/${'a'.repeat(50)}`;
+    const p = toProfile(stored('profile', profileData({ displayName: 'x', contacts: { website: ok } })));
+    expect(p.contacts.website).toBe('https://xn--bcher-kva.example/' + 'a'.repeat(50));
+    expect(toProfile({ ...stored('profile', profileData({ displayName: 'x' })), contacts: JSON.stringify({ website: long }) }).contacts).toEqual({});
+  });
+
+  it('refuses names that imitate labels or hide characters, and cleans stored ones (govhub D-035)', () => {
+    for (const name of ['\u202Eecila', 'al\u200Bice', 'Verified Bob', 'b\u043Eb \u2713', 'alice.dash', '0wner', 'Cairn team', 'p\u0430ypal'])
+      expect(() => profileData({ displayName: name }), name).toThrow(DocError);
+    for (const name of ['Alice', 'Lena Masternode Hosting', '\u5F20\u4F1F', 'Zo\u00EB', '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}']) expect(() => profileData({ displayName: name }), name).not.toThrow();
+    const raw = stored('profile', profileData({ displayName: 'x' }));
+    expect(toProfile({ ...raw, displayName: '\u202Eecila\u200B' })).toMatchObject({ displayName: 'ecila', nameSuspect: false });
+    expect(toProfile({ ...raw, displayName: 'Verified  Bob' })).toMatchObject({ displayName: 'Verified Bob', nameSuspect: true });
+    expect(toProfile({ ...raw, displayName: '\u200B\u200B' }).displayName).toBe('');
+    expect(() => operatorData({ name: 'Official \u2714 hosting', rewardBps: 0, status: 1 })).toThrow(DocError);
+    expect(toOperator({ ...stored('operator', operatorData({ name: 'N', rewardBps: 0, status: 1 })), name: 'N\u2066orth' }).name).toBe('North');
+  });
+
   it('reads a document whose contacts were written by another front end defensively', () => {
     const p = toProfile({ ...stored('profile', profileData({ displayName: 'x' })), contacts: '{"discord":"a","website":"javascript:alert(1)","evil":"y"}' });
     expect(p.contacts).toEqual({ discord: 'a' });
@@ -58,44 +81,104 @@ describe('operator and looking', () => {
     expect(any.operatorId).toBeUndefined();
     expect(any.earlyPref).toEqual({ maxPeriodBlocks: null, maxPenalty: null });
   });
+
+  it('refuses an early-exit preference the reader would refuse (the listing would vanish)', () => {
+    const f = { amount: 300 * DASH, maxRewardBps: 1000, canCoordinate: true, status: 1 };
+    for (const earlyPref of [{ maxPeriodBlocks: -5, maxPenalty: 1.5 }, { maxPeriodBlocks: 420_481, maxPenalty: null }, { maxPeriodBlocks: null, maxPenalty: 0.5 }])
+      expect(() => lookingData({ ...f, earlyPref }), JSON.stringify(earlyPref)).toThrow(DocError);
+    const max = { maxPeriodBlocks: 420_480, maxPenalty: 0 };
+    expect(toLooking(stored('looking', lookingData({ ...f, earlyPref: max }))).earlyPref).toEqual(max);
+  });
+
+  it('amounts members bring are valid shares of a regular masternode (100 to 900 DASH)', () => {
+    const f = { maxRewardBps: 0, canCoordinate: false, status: 1 };
+    for (const amount of [99 * DASH, 901 * DASH, 4000 * DASH]) {
+      expect(() => lookingData({ ...f, amount })).toThrow(/100 to 900/);
+      expect(() => seatData({ groupId: C, amount, status: 1 })).toThrow(/100 to 900/);
+      expect(() => inviteData({ groupId: C, toId: B, amount, status: 1 })).toThrow(/100 to 900/);
+      expect(() => approvalData({ groupId: C, revision: 1, termsHash: 'aa'.repeat(32), shareAmount: amount })).toThrow(/100 to 900/);
+    }
+  });
 });
 
 describe('group', () => {
   const base = {
     title: "Lena's node", mnType: 1, operatorId: B, rewardBps: 500, earlyPeriodBlocks: 52_560, earlyPenalty: 10 * DASH,
-    roster: [{ id: A, amount: 400 * DASH }, { id: B, amount: 250 * DASH }], revision: 0, status: GROUP_STATUS.forming,
+    roster: [{ id: A, amount: 400 * DASH }, { id: B, amount: 250 * DASH }], revision: 0, status: GROUP_STATUS.forming as number,
   };
 
   it('round-trips every field', () => {
     const f = {
       ...base, about: 'EU operator', coordinatorId: A, votingHolderId: A, votingPolicy: 'majority of shares', chatUrl: 'https://discord.gg/x', formBy: 1_800_000_000,
-      lockedHash: 'cd'.repeat(32), operatorPubKey: 'ef'.repeat(48), service: '203.0.113.7:9999', proTxHash: '12'.repeat(32), refillOf: C,
+      lockedHash: 'cd'.repeat(32), operatorPubKey: 'ef'.repeat(48), service: '34.212.1.7:9999', proTxHash: '12'.repeat(32), refillOf: C,
     };
-    expect(toGroup(stored('group', groupData(f)))).toMatchObject(f);
+    expect(toGroup(stored('group', groupData(f, 'mainnet')), 'mainnet')).toMatchObject(f);
   });
 
   it('stores "operator to be chosen" as the zero identifier and reads it back as null', () => {
-    const data = groupData({ ...base, operatorId: null });
+    const data = groupData({ ...base, operatorId: null }, 'testnet');
     expect(base58.encode(data.operatorId as Uint8Array)).toBe(NO_OPERATOR);
     expect(toGroup(stored('group', data)).operatorId).toBeNull();
   });
 
+  const g = (f: Partial<typeof base> & Record<string, unknown>, network: 'testnet' | 'mainnet' = 'testnet') => () => groupData({ ...base, ...f } as never, network);
+  const id = (i: number) => base58.encode(new Uint8Array(32).fill(i + 1));
+
   it('refuses malformed rosters, keys and services', () => {
-    expect(() => groupData({ ...base, roster: [{ id: A, amount: 1 }, { id: A, amount: 2 }] })).toThrow(/repeated/);
-    expect(() => groupData({ ...base, roster: Array.from({ length: 9 }, (_, i) => ({ id: base58.encode(new Uint8Array(32).fill(i + 1)), amount: DASH })) })).toThrow(/8 shares/);
-    expect(() => groupData({ ...base, operatorPubKey: 'ab' })).toThrow(/96 hex/);
-    expect(() => groupData({ ...base, service: '[::1]:9999' })).toThrow(DocError);
-    expect(() => groupData({ ...base, chatUrl: 'javascript:alert(1)' })).toThrow(/https/);
+    expect(g({ roster: [{ id: A, amount: 100 * DASH }, { id: A, amount: 200 * DASH }] })).toThrow(/repeated/);
+    expect(g({ roster: Array.from({ length: 9 }, (_, i) => ({ id: id(i), amount: 100 * DASH })) })).toThrow(/8 shares/);
+    expect(g({ operatorPubKey: 'ab' })).toThrow(/96 hex/);
+    expect(g({ service: '[::1]:9999' })).toThrow(DocError);
+    expect(g({ chatUrl: 'javascript:alert(1)' })).toThrow(/https/);
   });
 
-  it('parseService checks the mainnet port', () => {
-    expect(parseService('203.0.113.7:19999', 'testnet')).toEqual({ ip: '203.0.113.7', port: 19999 });
-    expect(() => parseService('203.0.113.7:19999', 'mainnet')).toThrow(/9999/);
-    expect(() => parseService('256.0.0.1:9999')).toThrow(/range/);
+  it('applies Dash Core v24 share rules: early period cap, penalty below the smallest share and only with a period, shares 100..1000', () => {
+    expect(g({ earlyPeriodBlocks: 4_000_000 })).toThrow(/0 to 420480 blocks/);
+    expect(g({ earlyPeriodBlocks: 420_481 })).toThrow(/0 to 420480 blocks/);
+    expect(g({ earlyPeriodBlocks: 420_480 })).not.toThrow();
+    expect(g({ earlyPenalty: 3000 * DASH })).toThrow(/below the smallest share/);
+    expect(g({ earlyPenalty: 250 * DASH })).toThrow(/below the smallest share/);
+    expect(g({ roster: [], earlyPenalty: 100 * DASH })).toThrow(/below the smallest share/);
+    expect(g({ earlyPeriodBlocks: 0, earlyPenalty: DASH })).toThrow(/penalty to 0/);
+    expect(g({ earlyPeriodBlocks: 1000, earlyPenalty: 0 })).toThrow(/Set an early-exit penalty/);
+    expect(g({ earlyPeriodBlocks: 0, earlyPenalty: 0 })).not.toThrow();
+    expect(g({ roster: [{ id: A, amount: 90_000_000 * DASH }] })).toThrow(/at least 100 DASH and at most the collateral/);
+    expect(g({ roster: [{ id: A, amount: 1001 * DASH }] })).toThrow(/at most the collateral/);
+    expect(g({ roster: [{ id: A, amount: 99 * DASH }] })).toThrow(/at least 100 DASH/);
+    expect(g({ roster: [{ id: A, amount: 950 * DASH }] })).toThrow(/can no longer add up/);
+    expect(g({ roster: [{ id: A, amount: 500 * DASH }, { id: B, amount: 450 * DASH }] })).toThrow(/can no longer add up/);
+    expect(g({ roster: Array.from({ length: 8 }, (_, i) => ({ id: id(i), amount: 100 * DASH })) })).toThrow(/can no longer add up/);
+    // a status that claims a whole table needs one
+    expect(g({ status: GROUP_STATUS.full })).toThrow(/add up to exactly/);
+    expect(g({ status: GROUP_STATUS.full, roster: [{ id: A, amount: 600 * DASH }, { id: B, amount: 400 * DASH }] })).not.toThrow();
+  });
+
+  it('a stored group that breaks those rules is not read', () => {
+    const raw = stored('group', groupData(base, 'testnet'));
+    expect(() => toGroup({ ...raw, roster: JSON.stringify([{ id: A, amount: 9e15 }]) })).toThrow(DocError);
+    expect(() => toGroup({ ...raw, earlyPenalty: 3000 * DASH })).toThrow(DocError);
+    expect(() => toGroup({ ...raw, earlyPeriodBlocks: 4_000_000 })).toThrow(DocError);
+  });
+
+  it('services follow Dash Core: public IPv4, allowed port, 9999 on mainnet; stored canonical', () => {
+    expect(parseService(' 34.212.1.7:19999 ', 'testnet')).toEqual({ ip: '34.212.1.7', port: 19999, canonical: '34.212.1.7:19999' });
+    expect(() => parseService('34.212.1.7:19999', 'mainnet')).toThrow(/9999/);
+    expect(() => parseService('256.0.0.1:9999')).toThrow(/IPv4/);
+    for (const s of ['10.1.2.3:9999', '192.168.0.2:9999', '127.0.0.1:9999', '203.0.113.7:9999', '100.64.1.1:9999']) expect(() => parseService(s), s).toThrow(/public IP/);
+    for (const s of ['34.212.1.7:22', '34.212.1.7:6667', '34.212.1.7:8333']) expect(() => parseService(s), s).toThrow(/refuses port/);
+    expect(groupData({ ...base, service: ' 34.212.1.7:19999 ' }, 'testnet').service).toBe('34.212.1.7:19999');
+    expect(g({ service: '34.212.1.7:19999' }, 'mainnet')).toThrow(/9999/);
+  });
+
+  it('a stored service Dash Core would refuse is not shown', () => {
+    const raw = stored('group', groupData(base, 'testnet'));
+    for (const service of ['javascript:alert(1)', '10.0.0.1:9999', '34.212.1.7:443']) expect(toGroup({ ...raw, service }).service, service).toBeUndefined();
+    expect(toGroup({ ...raw, service: '34.212.1.7:19999' }).service).toBe('34.212.1.7:19999');
+    expect(toGroup({ ...raw, service: '34.212.1.7:19999' }, 'mainnet').service).toBeUndefined();
   });
 
   it('a stored chat link that is not https is not shown', () => {
-    const raw = stored('group', groupData(base));
+    const raw = stored('group', groupData(base, 'testnet'));
     expect(toGroup({ ...raw, chatUrl: 'javascript:alert(1)' }).chatUrl).toBeUndefined();
   });
 });
