@@ -35,9 +35,10 @@ function ApprovalTag({ s }: { s: ShareRow }) {
   return <span className="state state-wait">Not approved yet</span>;
 }
 
-export function Roster({ view, people, me, ops, done }: { view: GroupView; people: Map<string, Person>; me: string | null; ops: GroupOps; done(): void }) {
+/** `frozen`: the masternode is registered, so the roster is what the chain holds and the organizer's roster tools are gone. */
+export function Roster({ view, people, me, ops, done, frozen = false }: { view: GroupView; people: Map<string, Person>; me: string | null; ops: GroupOps; done(): void; frozen?: boolean }) {
   const g = view.group;
-  const organizer = me === g.ownerId;
+  const organizer = me === g.ownerId && !frozen;
   const { busy, error, run } = useAction();
   const [editing, setEditing] = useState(false);
   const act = (f: () => Promise<unknown>) => run(async () => {

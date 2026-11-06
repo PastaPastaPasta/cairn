@@ -208,7 +208,8 @@ export function OperatorSection({ view, people, ops, done }: Props) {
   );
 }
 
-export function EditTerms({ view, ops, done }: Omit<Props, 'people'>) {
+/** `frozen`: the masternode is registered with these terms, so only the details outside the term sheet can change. */
+export function EditTerms({ view, ops, done, frozen = false }: Omit<Props, 'people'> & { frozen?: boolean }) {
   const g = view.group;
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(g.title);
@@ -238,12 +239,16 @@ export function EditTerms({ view, ops, done }: Omit<Props, 'people'>) {
   const next = () => ({
     title: title.trim(),
     about: about.trim() || undefined,
-    rewardBps: bps!,
-    earlyPeriodBlocks: period,
-    earlyPenalty: pen ?? 0,
     chatUrl: chat.trim() || undefined,
     votingPolicy: policy.trim() || undefined,
-    flags: ((g.flags ?? 0) & ~GROUP_FLAG.openAmounts) | (openAmounts ? GROUP_FLAG.openAmounts : 0),
+    ...(frozen
+      ? {}
+      : {
+          rewardBps: bps!,
+          earlyPeriodBlocks: period,
+          earlyPenalty: pen ?? 0,
+          flags: ((g.flags ?? 0) & ~GROUP_FLAG.openAmounts) | (openAmounts ? GROUP_FLAG.openAmounts : 0),
+        }),
   });
   const problems = [!title.trim() && 'Give the group a name.', bps === null && 'The reward must be a percentage from 0 to 100.', pen === null ? 'Enter the penalty in DASH.' : exitProblem(period, pen, smallest), chat.trim() && !httpsUrl(chat) && 'The chat link must start with https://'].filter(Boolean) as string[];
   let rule: string | null = null;
@@ -276,17 +281,22 @@ export function EditTerms({ view, ops, done }: Omit<Props, 'people'>) {
       ) : (
         <form className="form" onSubmit={submit} aria-busy={busy}>
           <fieldset disabled={busy}>
-            {view.locked && <p className="notice-box small">The terms are locked. Saving any change makes revision {g.revision + 1}, unlocks the terms and voids every approval.</p>}
+            {frozen && <p className="notice-box small">The masternode is registered with these terms, so only the name, description, chat link and voting policy can change.</p>}
+            {view.locked && !frozen && <p className="notice-box small">The terms are locked. Changing the shares or terms makes revision {g.termsRevision + 1}, unlocks them and voids every approval. The name, description, chat link and voting policy can change without that.</p>}
             <Field label="Group name">{({ id }) => <input id={id} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} />}</Field>
             <Field label="About" optional>
               {({ id }) => <textarea id={id} value={about} onChange={(e) => setAbout(e.target.value)} maxLength={1000} rows={3} />}
             </Field>
-            <PercentField label="Operator reward" value={reward} onChange={setReward} problem={bps === null ? 'A percentage from 0 to 100.' : null} hint={!view.operatorLed && g.operatorId ? 'The operator must accept a new reward again.' : undefined} />
-            <ExitTermsField period={period} onPeriod={setPeriod} penalty={penalty} onPenalty={setPenalty} problem={pen === null ? 'Enter the penalty in DASH.' : exitProblem(period, pen, smallest)} rewardBps={bps} />
-            <label className="check">
-              <input type="checkbox" checked={openAmounts} onChange={(e) => setOpenAmounts(e.target.checked)} />
-              Anyone can ask for a seat (otherwise by invitation)
-            </label>
+            {!frozen && (
+              <>
+                <PercentField label="Operator reward" value={reward} onChange={setReward} problem={bps === null ? 'A percentage from 0 to 100.' : null} hint={!view.operatorLed && g.operatorId ? 'The operator must accept a new reward again.' : undefined} />
+                <ExitTermsField period={period} onPeriod={setPeriod} penalty={penalty} onPenalty={setPenalty} problem={pen === null ? 'Enter the penalty in DASH.' : exitProblem(period, pen, smallest)} rewardBps={bps} />
+                <label className="check">
+                  <input type="checkbox" checked={openAmounts} onChange={(e) => setOpenAmounts(e.target.checked)} />
+                  Anyone can ask for a seat (otherwise by invitation)
+                </label>
+              </>
+            )}
             <Field label="Group chat link" optional problem={chat.trim() && !httpsUrl(chat) ? 'The chat link must start with https://' : null}>
               {({ id, describedBy }) => <input id={id} value={chat} onChange={(e) => setChat(e.target.value)} inputMode="url" aria-describedby={describedBy} />}
             </Field>
@@ -380,7 +390,7 @@ export function LockSection({ view, people, ops, done }: Props) {
       <section className="section tool" id="lock" aria-labelledby="lock-title">
         <h2 id="lock-title">Locked terms</h2>
         <p>
-          Locked at revision {g.revision}. {view.approvedCount} of {view.shares.length} approved.
+          Locked at revision {g.termsRevision}. {view.approvedCount} of {view.shares.length} approved.
         </p>
         <button type="button" className="btn btn-s" onClick={() => setEditing(true)}>
           Change coordinator, voting key or labels
@@ -390,8 +400,8 @@ export function LockSection({ view, people, ops, done }: Props) {
   return (
     <section className="section tool" id="lock" aria-labelledby="lock-title" data-testid="lock-section">
       <h2 id="lock-title">Prepare and lock the terms</h2>
-      <p className="muted">Locking freezes the shares and terms into revision {g.revision}. Members then approve exactly that; any later change makes a new revision and voids the approvals.</p>
-      {view.locked && <p className="notice-box small">Saving makes revision {g.revision + 1} and voids every approval.</p>}
+      <p className="muted">Locking freezes the shares and terms into revision {g.termsRevision}. Members then approve exactly that; any later change makes a new revision and voids the approvals.</p>
+      {view.locked && <p className="notice-box small">Saving makes revision {g.termsRevision + 1} and voids every approval.</p>}
       <form className="form" onSubmit={(e) => e.preventDefault()} aria-busy={busy}>
         <fieldset disabled={busy}>
           <fieldset className="subfields">
@@ -508,7 +518,7 @@ export function RefillPanel({ view, people, me }: { view: GroupView; people: Map
       navigate(`/g/${rawId(back!, '$id')}`);
     });
   return (
-    <section className="section tool" aria-labelledby="refill-title" data-testid="refill">
+    <section className="section tool" id="refill" aria-labelledby="refill-title" data-testid="refill">
       <h2 id="refill-title">Reopen with the same terms</h2>
       <p className="muted">When someone leaves, the masternode dissolves and every share goes back. The rest of you can start again with the same operator and terms, needing only the leavers’ amount.</p>
       <fieldset className="subfields">

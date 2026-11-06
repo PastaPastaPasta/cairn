@@ -1,16 +1,17 @@
-import { GROUP_STATUS, INVITE_STATUS, OP_ACCEPT_STATUS, SEAT_FLAG, SEAT_STATUS, groupData, toGroup, type Invite } from '@cairn/contract';
+import { GROUP_STATUS, INVITE_STATUS, OP_ACCEPT_STATUS, SEAT_FLAG, SEAT_STATUS, groupData, termSheetFromGroup, toGroup, type Invite } from '@cairn/contract';
 import { termsHash } from '@cairn/shares';
 import { describe, expect, it } from 'vitest';
 import { EXIT_PRESETS, exitProblem, exitWords, termWarnings } from './exit.ts';
 import { A, B, BLS, C, D, GID, OPR, ORG, SERVICE, VOTING, approval, group, id, looking, opAccept, seat } from './fixtures.ts';
-import { acceptSeat, change, groupView, lockPlan, refillFields, removeShare, saveChoices, termSheetOf, type GroupBundle } from './group.ts';
+import { acceptSeat, change, groupView, lockPlan, refillFields, removeShare, saveChoices, type GroupBundle } from './group.ts';
 import { asciiLabel, deriveLabels, labelProblem } from './labels.ts';
 import { combosWith, completions, filterGroups, lookingThatFits, rankGroups } from './match.ts';
 import { parseDashInput, parsePercentInput } from './money.ts';
-import { nextSteps, rolesOf } from './nextstep.ts';
+import { nextSteps, rolesOf, seatFlags, stepHref } from './nextstep.ts';
+import { stageOf } from './stage.ts';
 
-const bundle = (over: Partial<GroupBundle> = {}): GroupBundle => ({ group: group(), docRevision: 1, seats: [], opAccepts: [], invites: [], approvals: [], voided: [], ...over });
-const invite = (toId: string, amount: number): Invite => ({ id: id(70), ownerId: ORG, revision: 1, groupId: GID, toId, amount, status: INVITE_STATUS.open }) as Invite;
+const bundle = (over: Partial<GroupBundle> = {}): GroupBundle => ({ group: group(), seats: [], opAccepts: [], invites: [], approvals: [], voided: [], ...over });
+const invite = (toId: string, amount: number): Invite => ({ id: id(70), ownerId: ORG, docRevision: 1, groupId: GID, toId, amount, status: INVITE_STATUS.open }) as Invite;
 
 describe('exit terms', () => {
   it('offer presets in blocks at 576 a day, up to Core’s cap', () => {
@@ -120,7 +121,7 @@ describe('lock and approve (S3, M8)', () => {
     expect(() => groupData(p.fields, 'testnet')).not.toThrow();
     // what the members recompute from the stored document is what the organizer locked
     const stored = toGroup({ $id: GID, $ownerId: ORG, $revision: 3, ...groupData(p.fields, 'testnet') }, 'testnet');
-    expect(termsHash(termSheetOf(GID, stored, 'testnet'))).toBe(p.hash);
+    expect(termsHash(termSheetFromGroup(GID, stored, 'testnet'))).toBe(p.hash);
   });
 
   it('refuses when the operator has not accepted the group’s reward', () => {
@@ -170,9 +171,9 @@ describe('lock and approve (S3, M8)', () => {
   it('re-locking changed terms makes a new revision; re-locking the same terms does not', () => {
     const { b } = locked();
     const v = groupView(b, 'testnet');
-    expect(lockPlan(v, { coordinatorId: A, votingHolderId: A, labels: ['Ana', 'Bo'] }).fields.revision).toBe(1);
+    expect(lockPlan(v, { coordinatorId: A, votingHolderId: A, labels: ['Ana', 'Bo'] }).fields.termsRevision).toBe(1);
     const p = lockPlan(v, { coordinatorId: A, votingHolderId: A, labels: ['Ana', 'Bob'] });
-    expect(p.fields.revision).toBe(2);
+    expect(p.fields.termsRevision).toBe(2);
     expect(p.sheet.revision).toBe(2);
   });
 
@@ -183,12 +184,22 @@ describe('lock and approve (S3, M8)', () => {
     expect(lockPlan(v, { coordinatorId: OPR, votingHolderId: OPR, labels: ['Op', 'Bo'] }).problems).toEqual([]);
   });
 
-  it('a change after lock bumps the revision and unlocks, voiding approvals', () => {
+  it('a change to locked terms bumps the revision and unlocks, voiding approvals', () => {
     const { b } = locked();
-    const f = change(b.group, { title: 'Renamed' });
-    expect(f).toMatchObject({ revision: 2, status: GROUP_STATUS.full, lockedHash: undefined });
-    expect(saveChoices(b.group, { coordinatorId: B, votingHolderId: A, labels: ['Ana', 'Bo'] }).revision).toBe(2);
-    expect(change(group(), { title: 'x' }).revision).toBe(1);
+    const f = change(b.group, { rewardBps: 900 });
+    expect(f).toMatchObject({ termsRevision: 2, status: GROUP_STATUS.full, lockedHash: undefined });
+    expect(saveChoices(b.group, { coordinatorId: B, votingHolderId: A, labels: ['Ana', 'Bo'] }).termsRevision).toBe(2);
+    expect(change(b.group, { operatorId: C }).termsRevision).toBe(2);
+    expect(change(group(), { title: 'x' }).termsRevision).toBe(1);
+  });
+
+  it('a change that leaves the term sheet as it is keeps the lock, so a formed masternode stays verified', () => {
+    const { b, hash } = locked();
+    const live = { ...b.group, status: GROUP_STATUS.live };
+    for (const next of [{ title: 'Renamed' }, { chatUrl: 'https://discord.gg/x', votingPolicy: 'majority' }]) expect(change(live, next)).toMatchObject({ ...next, termsRevision: 1, status: GROUP_STATUS.live, lockedHash: hash });
+    expect(change(b.group, { status: GROUP_STATUS.cancelled })).toMatchObject({ termsRevision: 1, status: GROUP_STATUS.cancelled, lockedHash: hash });
+    expect(saveChoices(b.group, { coordinatorId: A, votingHolderId: A, labels: ['Ana', 'Bo'] })).toMatchObject({ termsRevision: 1, status: GROUP_STATUS.locked });
+    expect('docRevision' in change(b.group, { title: 'x' })).toBe(false);
   });
 });
 
@@ -237,6 +248,74 @@ describe('next steps per role', () => {
   });
 });
 
+describe('lifecycle: locked → ready → session started → linked → live | mismatch → dissolved', () => {
+  function ready(over: Partial<GroupBundle> = {}) {
+    const b = readyToLock();
+    const p = lockPlan(groupView(b, 'testnet'), { coordinatorId: A, votingHolderId: A, labels: ['Ana', 'Bo'] });
+    const g = { ...b.group, ...p.fields };
+    return { ...b, group: g, approvals: [approval(A, p.hash!, D(600)), approval(B, p.hash!, D(400))], ...over };
+  }
+  const PROTX = 'd4'.repeat(32);
+
+  it('takes from the documents what only they know, and from the chain what the chain knows', () => {
+    expect(stageOf(groupView(readyToLock(), 'testnet'), null)).toBe('full');
+    const b = ready();
+    expect(stageOf(groupView({ ...b, approvals: [] }, 'testnet'), null)).toBe('locked');
+    expect(stageOf(groupView(b, 'testnet'), null)).toBe('ready');
+    const started = { ...b, seats: [seat(A, D(600), { flags: SEAT_FLAG.canCoordinate | SEAT_FLAG.votingKeyHolder | SEAT_FLAG.sessionStarted, votingAddress: VOTING }), seat(B, D(400))] };
+    expect(stageOf(groupView(started, 'testnet'), null)).toBe('session-started');
+    // the organizer's "live" claim is not a verdict: a linked registration waits for the chain
+    const claimed = groupView({ ...b, group: { ...b.group, status: GROUP_STATUS.live, proTxHash: PROTX } }, 'testnet');
+    expect(stageOf(claimed, null)).toBe('linked');
+    expect(stageOf(claimed, { state: 'verified', mnState: 'valid' })).toBe('live');
+    expect(stageOf(claimed, { state: 'unproven', mnState: 'valid' })).toBe('linked');
+    expect(stageOf(claimed, { state: 'mismatch', mnState: 'dissolved' })).toBe('mismatch');
+    expect(stageOf(claimed, { state: 'verified', mnState: 'dissolved' })).toBe('dissolved');
+    // a co-owner links from their own seat just as well; the chain still decides, even over a "cancelled" claim
+    const bySeat = groupView({ ...b, group: { ...b.group, status: GROUP_STATUS.cancelled }, seats: [seat(A, D(600), { proTxHash: PROTX, votingAddress: VOTING }), seat(B, D(400))] }, 'testnet');
+    expect(stageOf(bySeat, { state: 'verified', mnState: 'banned' })).toBe('live');
+    expect(stageOf(groupView({ ...readyToLock(), group: { ...readyToLock().group, status: GROUP_STATUS.cancelled } }, 'testnet'), null)).toBe('closed');
+  });
+
+  it('gives each role its next step at every stage, and links it to the page where it is done', () => {
+    const b = ready();
+    const started = groupView({ ...b, seats: [seat(A, D(600), { flags: SEAT_FLAG.sessionStarted, votingAddress: VOTING }), seat(B, D(400))] }, 'testnet');
+    expect(nextSteps(started, { id: A }, 'session-started')[0]).toMatchObject({ role: 'member', action: 'form' });
+    expect(nextSteps(started, { id: B }, 'session-started')[0]).toMatchObject({ role: 'member', action: 'check' });
+    expect(nextSteps(started, { id: OPR }, 'session-started')[0]).toMatchObject({ role: 'operator', action: 'form' });
+    const linked = groupView({ ...b, group: { ...b.group, proTxHash: PROTX } }, 'testnet');
+    expect(nextSteps(linked, { id: B })[0]).toMatchObject({ title: 'Registration linked', action: 'live' });
+    expect(nextSteps(linked, { id: B }, 'live')[0]).toMatchObject({ tone: 'done', title: 'Live (verified)', action: 'live' });
+    expect(nextSteps(linked, { id: OPR }, 'live')[0]!.title).toMatch(/keep the node running/);
+    expect(nextSteps(linked, { id: id(77) }, 'live')[0]).toMatchObject({ role: 'visitor', action: 'live' });
+    expect(nextSteps(linked, { id: B }, 'mismatch')[0]).toMatchObject({ tone: 'warn', action: 'live' });
+    expect(nextSteps(linked, { id: B }, 'dissolved')[0]).toMatchObject({ tone: 'todo', action: 'refill' });
+    // an organizer who co-owns gets one step, as a co-owner
+    const own = groupView({ ...b, group: { ...b.group, ownerId: A, proTxHash: PROTX } }, 'testnet');
+    expect(nextSteps(own, { id: A }, 'live').map((s) => s.role)).toEqual(['member']);
+    expect(['form', 'check', 'live', 'refill', 'approve'].map((action) => stepHref({ action: action as never }, GID))).toEqual([`/g/${GID}/form`, `/g/${GID}/form#checker`, `/g/${GID}/live`, `/g/${GID}#refill`, `/g/${GID}`]);
+  });
+
+  it('reads a hash no node knows as linked, not as different terms', () => {
+    const b = ready();
+    const linked = groupView({ ...b, group: { ...b.group, proTxHash: PROTX } }, 'testnet');
+    expect(stageOf(linked, { state: 'not-found', mnState: 'unknown' })).toBe('linked');
+  });
+
+  it('gives an organizer who runs the node one step after formation, as the operator', () => {
+    const b = ready();
+    const g = { ...b.group, ownerId: OPR, proTxHash: PROTX };
+    const v = groupView({ ...b, group: g }, 'testnet');
+    expect(v.operatorLed).toBe(true);
+    for (const stage of ['session-started', 'linked', 'live'] as const) expect(nextSteps(v, { id: OPR }, stage).map((s) => s.role)).toEqual(['operator']);
+  });
+
+  it('keeps the coordinator’s session flag when a seat’s offers change', () => {
+    expect(seatFlags(false, true, SEAT_FLAG.canCoordinate | SEAT_FLAG.sessionStarted)).toBe(SEAT_FLAG.votingKeyHolder | SEAT_FLAG.sessionStarted);
+    expect(seatFlags(true, false)).toBe(SEAT_FLAG.canCoordinate);
+  });
+});
+
 describe('matching (M4)', () => {
   const g1 = group({ id: id(31), roster: [{ id: A, amount: D(700) }], rewardBps: 1500, updatedAt: 5 });
   const g2 = group({ id: id(32), roster: [{ id: A, amount: D(400) }], rewardBps: 800, updatedAt: 4 });
@@ -277,9 +356,9 @@ describe('matching (M4)', () => {
 
 describe('refill (M12)', () => {
   it('reopens with the same terms, needing only the leaver’s amount', () => {
-    const old = group({ roster: [{ id: A, amount: D(500), label: 'Ana' }, { id: B, amount: D(300), label: 'Bo' }, { id: C, amount: D(200), label: 'Cy' }], status: GROUP_STATUS.dissolved, coordinatorId: B, votingHolderId: B, votingAddress: VOTING, lockedHash: 'ab'.repeat(32), revision: 4, earlyPeriodBlocks: 52_416, earlyPenalty: D(20) });
+    const old = group({ roster: [{ id: A, amount: D(500), label: 'Ana' }, { id: B, amount: D(300), label: 'Bo' }, { id: C, amount: D(200), label: 'Cy' }], status: GROUP_STATUS.dissolved, coordinatorId: B, votingHolderId: B, votingAddress: VOTING, lockedHash: 'ab'.repeat(32), termsRevision: 4, earlyPeriodBlocks: 52_416, earlyPenalty: D(20) });
     const f = refillFields(old, [B]);
-    expect(f).toMatchObject({ refillOf: GID, revision: 1, status: GROUP_STATUS.forming, lockedHash: undefined, coordinatorId: undefined, votingAddress: undefined, earlyPenalty: D(20), rewardBps: 1000 });
+    expect(f).toMatchObject({ refillOf: GID, termsRevision: 1, status: GROUP_STATUS.forming, lockedHash: undefined, coordinatorId: undefined, votingAddress: undefined, earlyPenalty: D(20), rewardBps: 1000 });
     expect(f.roster.map((r) => r.id)).toEqual([A, C]);
     expect(() => groupData(f, 'testnet')).not.toThrow();
     expect(OP_ACCEPT_STATUS.accepted).toBe(1);

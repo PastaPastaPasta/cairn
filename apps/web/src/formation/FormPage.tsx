@@ -1,48 +1,61 @@
 // /g/:id/form (DESIGN.md M9-M10): forming a locked, fully approved group's masternode in Dash-Qt. The coordinator's setup sheet,
-// every member's three rounds with the checker, the dash-cli path, and linking the registration once it is broadcast.
+// every member's three rounds with the checker, the dash-cli path, and linking the registration once it is broadcast. Where the
+// group is comes from the same lifecycle as its group page (matching/stage.ts), with the chain's word on any linked registration.
+import { coreNetwork } from '@cairn/contract';
 import { useMemo, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
+import { useGroupBundle } from '../data/cairn.ts';
 import { personName, useProfile } from '../data/profile.ts';
+import type { Agreement } from '../matching/agreement.ts';
+import { groupView, type GroupBundle, type GroupView } from '../matching/group.ts';
+import { isFormed, isUnderway, stageOf } from '../matching/stage.ts';
+import { useGroupOps, type GroupOps } from '../pages/group/ops.ts';
 import { ActivationCard } from '../ui/Activation.tsx';
 import { PageHead } from '../ui/states.tsx';
 import { useAction } from '../ui/useAction.ts';
+import { useScrollToHash } from '../ui/useScrollToHash.ts';
 import { Checker } from './Checker.tsx';
 import { dashPlain as dash } from './checker.ts';
 import { cliPlan, renderCommand } from './cli.ts';
-import { coreNetwork, linkedProTx, markStartedOp, sessionStarted, useGroupBundle, type GroupBundle, type Agreement } from './data.ts';
 import { GroupGate, GroupTabs, LinkRegistration, RegistrationCard } from './parts.tsx';
 import { setupSheet, type SetupPage } from './setup.ts';
 import { CodeBlock, CopyButton, CopyValue, Technical } from './ui.tsx';
-import { primaryOf, useRegistrations, useV24Active } from './useRegistration.ts';
+import { primaryOf, useGroupRegistrations, useV24Active, type RegState } from './useRegistration.ts';
 
 export function GroupFormPage() {
   const { id = '' } = useParams();
-  const { state, refresh } = useGroupBundle(id);
+  const load = useGroupBundle(id);
   return (
-    <GroupGate title="Form the masternode" id={id} state={state}>
-      {state.status === 'ready' && <FormBody bundle={state.bundle} agreement={state.agreement} refresh={refresh} />}
+    <GroupGate title="Form the masternode" id={id} load={load}>
+      {(bundle) => <FormBody bundle={bundle} refresh={load.reload} />}
     </GroupGate>
   );
 }
 
-function FormBody({ bundle, agreement, refresh }: { bundle: GroupBundle; agreement: Agreement; refresh(): void }) {
+function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void }) {
   const { registry } = useApp();
   const { session } = useAccount();
-  const g = bundle.group;
-  const me = session?.identityId;
+  const view = useMemo(() => groupView(bundle, registry.network), [bundle, registry.network]);
+  const { group: g, agreement } = view;
+  const me = session?.identityId ?? null;
+  const ops = useGroupOps(bundle, me);
   const mine = g.roster.find((r) => r.id === me);
   const coordinator = g.roster.find((r) => r.id === g.coordinatorId);
   const iCoordinate = !!me && me === g.coordinatorId;
   const active = useV24Active(registry.network);
   const waiting = active === false || (registry.network === 'mainnet' && active !== true);
-  const ready = agreement.lockedHashOk && agreement.allApproved && !!agreement.terms;
   const operator = useProfile(g.operatorId);
   const operatorName = personName(operator.profile, operator.dpns) ?? undefined;
-  const linked = useMemo(() => linkedProTx(g, bundle.seats).map((x) => x.hash), [g, bundle.seats]);
-  const regs = useRegistrations(linked, ready ? agreement : null);
-  const started = sessionStarted(g, bundle.seats);
+  const regs = useGroupRegistrations(view);
+  const stage = stageOf(view, regs.primary);
+  const pastReady = isUnderway(stage);
+  const started = view.sessionStarted || isFormed(stage);
+  // the tools need terms every member approved; once a registration is linked they stay, whatever the documents say since
+  const ready = agreement.anchored && (view.ready || view.linked.length > 0);
+  const reasons = view.locked ? view.waitingFor : agreement.problems;
+  useScrollToHash(ready);
   const later = waiting ? <span className="tag tag-later">available once v24 activates</span> : null;
 
   return (
@@ -59,28 +72,35 @@ function FormBody({ bundle, agreement, refresh }: { bundle: GroupBundle; agreeme
       <GroupTabs id={g.id} />
 
       <ul className="form-status" aria-label="Where this group is" data-testid="form-status">
-        <StatusItem ok={agreement.lockedHashOk} label={agreement.lockedHashOk ? `Terms locked, revision ${g.revision}` : 'Terms not locked'} />
+        <StatusItem ok={agreement.lockedHashOk} label={agreement.lockedHashOk ? `Terms locked, revision ${g.termsRevision}` : 'Terms not locked'} />
         <StatusItem
           ok={agreement.allApproved}
-          label={`${agreement.members.filter((m) => m.ok).length} of ${agreement.members.length} approved these exact terms`}
+          label={`${agreement.members.filter((m) => m.state === 'approved').length} of ${agreement.members.length} approved these exact terms`}
         />
+        <StatusItem ok={view.ready || pastReady} label={view.ready || pastReady ? 'Ready to form' : 'Not ready to form yet'} />
         <StatusItem ok={started} pending={!started} label={started ? 'Dash-Qt session started' : 'Dash-Qt session not started yet'} />
-        <RegistrationStatus linked={linked.length > 0} state={regs.state} id={g.id} />
+        <RegistrationStatus linked={view.linked.length > 0} state={regs.state} id={g.id} />
       </ul>
 
       {!ready && (
         <div className="empty-state not-ready" data-testid="not-ready">
           <p>
-            <b>Not ready to form yet.</b> Forming starts once the organizer has locked the terms and every member has approved them on Cairn: that approval is
-            what every message below is checked against.
+            <b>Not ready to form yet.</b> Forming starts once the organizer has locked the terms, every member has approved them on Cairn and the group page
+            says “Ready to form”: that approval is what every message below is checked against.
           </p>
           <ul className="small">
-            {agreement.problems.map((p) => (
+            {reasons.map((p) => (
               <li key={p}>{p}</li>
             ))}
           </ul>
           <p>
             <Link to={`/g/${g.id}`}>Back to the group</Link>
+            {agreement.anchored && (
+              <>
+                {' · '}
+                <Link to={`/check?group=${g.id}`}>Check a message against the approved terms</Link>
+              </>
+            )}
           </p>
         </div>
       )}
@@ -112,7 +132,7 @@ function FormBody({ bundle, agreement, refresh }: { bundle: GroupBundle; agreeme
             ) : (
               <p className="muted">You are not a co-owner of this group. You can follow along and check messages, but there is nothing for you to sign.</p>
             )}
-            <SessionMark bundle={bundle} started={started} onDone={refresh} />
+            {!started && <SessionMark ops={ops} onDone={refresh} />}
           </section>
 
           <section className="form-section" aria-labelledby="setup-title">
@@ -141,7 +161,7 @@ function FormBody({ bundle, agreement, refresh }: { bundle: GroupBundle; agreeme
               terms={agreement.terms}
               myLabel={mine?.label}
               title="Check a message against your approval"
-              intro={`Compared with the terms all ${g.roster.length} members approved (revision ${g.revision}). Pick your row and paste your owner address so a moved row stops you.`}
+              intro={`Compared with the terms all ${g.roster.length} members approved (revision ${g.termsRevision}). Pick your row and paste your owner address so a moved row stops you.`}
             />
           </section>
 
@@ -151,13 +171,13 @@ function FormBody({ bundle, agreement, refresh }: { bundle: GroupBundle; agreeme
               Any co-owner can paste the ProTx hash from Dash-Qt. Cairn fetches the registration from the chain, proves it into a ChainLocked block and compares it with
               every approval before anyone sees it as live.
             </p>
-            {regs.state.status === 'done' && primaryOf(regs.state.results) && <RegistrationCard j={primaryOf(regs.state.results)!} compact />}
-            <LinkRegistration rec={bundle} seats={bundle.seats} agreement={agreement} onLinked={refresh} />
+            {regs.primary && <RegistrationCard j={regs.primary} compact />}
+            <LinkRegistration view={view} ops={ops} onLinked={refresh} />
           </section>
 
           <section className="form-section">
             <Technical title="Technical: use dash-cli instead" testId="cli-drawer">
-              <CliDrawer bundle={bundle} agreement={agreement} />
+              <CliDrawer view={view} agreement={agreement} />
             </Technical>
           </section>
 
@@ -187,7 +207,7 @@ function StatusItem({ ok, pending = false, label }: { ok: boolean; pending?: boo
   );
 }
 
-function RegistrationStatus({ linked, state, id }: { linked: boolean; state: ReturnType<typeof useRegistrations>['state']; id: string }) {
+function RegistrationStatus({ linked, state, id }: { linked: boolean; state: RegState; id: string }) {
   if (!linked) return <StatusItem ok={false} pending label="No registration linked yet" />;
   if (state.status === 'idle') return <StatusItem ok={false} pending label="Registration linked; checked once every member approved" />;
   if (state.status === 'error') return <StatusItem ok={false} label="The linked registration could not be checked" />;
@@ -196,18 +216,12 @@ function RegistrationStatus({ linked, state, id }: { linked: boolean; state: Ret
   return <StatusItem ok={j.state === 'verified'} pending={j.state !== 'mismatch' && j.state !== 'not-found'} label={<Link to={`/g/${id}/live`}>{j.headline}</Link>} />;
 }
 
-function SessionMark({ bundle, started, onDone }: { bundle: GroupBundle; started: boolean; onDone(): void }) {
-  const { registry } = useApp();
-  const { session, write } = useAccount();
+function SessionMark({ ops, onDone }: { ops: GroupOps; onDone(): void }) {
   const action = useAction();
-  const me = session?.identityId;
-  const g = bundle.group;
-  if (started || !me || (me !== g.ownerId && me !== g.coordinatorId)) return null;
-  const op = markStartedOp(registry, bundle, bundle.seats, me);
-  if (!op) return null;
+  if (!ops.canMarkStarted) return null;
   return (
     <div className="session-mark">
-      <button type="button" className="btn btn-s" disabled={action.busy} onClick={() => action.run(async () => (await write(op), onDone()))} data-testid="mark-started">
+      <button type="button" className="btn btn-s" disabled={action.busy} onClick={() => action.run(async () => (await ops.markStarted(), onDone()))} data-testid="mark-started">
         {action.busy ? 'Saving…' : 'Mark the Dash-Qt session as started'}
       </button>
       <span className="small muted">Tells the group to watch for the invitation.</span>
@@ -329,7 +343,7 @@ function ParticipantRounds() {
   );
 }
 
-function CliDrawer({ bundle, agreement }: { bundle: GroupBundle; agreement: Agreement }) {
+function CliDrawer({ view, agreement }: { view: GroupView; agreement: Agreement }) {
   const terms = agreement.terms!;
   const steps = cliPlan(terms);
   return (
@@ -348,7 +362,7 @@ function CliDrawer({ bundle, agreement }: { bundle: GroupBundle; agreement: Agre
           {s.note && <p className="small muted">{s.note}</p>}
         </div>
       ))}
-      <p className="small muted">Group {bundle.group.id}, terms revision {bundle.group.revision}.</p>
+      <p className="small muted">Group {view.group.id}, terms revision {view.group.termsRevision}.</p>
     </div>
   );
 }

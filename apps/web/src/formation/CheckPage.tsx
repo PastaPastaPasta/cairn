@@ -1,10 +1,14 @@
 // /check: the standalone message checker. Works without an account or a group; `?group=<id>` compares against that group's terms.
+import { coreNetwork } from '@cairn/contract';
+import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
+import { useGroupBundle } from '../data/cairn.ts';
+import { agreementOf } from '../matching/agreement.ts';
 import { PageHead } from '../ui/states.tsx';
 import { Checker } from './Checker.tsx';
-import { coreNetwork, useGroupBundle } from './data.ts';
+import { GroupTabs } from './parts.tsx';
 
 export function CheckPage() {
   const { registry } = useApp();
@@ -16,6 +20,7 @@ export function CheckPage() {
         title="Check a Dash Core message"
         lede="Paste anything Dash-Qt’s Shared Masternode wizard gives you and see what it is, which round it belongs to, and whether it is safe to act on. It works without an account."
       />
+      {groupId && registry.contractId && <GroupTabs id={groupId} />}
       <div className="check-layout">
         <div>{groupId && registry.contractId ? <GroupChecker groupId={groupId} /> : <Checker network={coreNetwork(registry.network)} title="Your message" />}</div>
         <aside className="check-aside" aria-label="About the checker">
@@ -49,29 +54,30 @@ export function CheckPage() {
 function GroupChecker({ groupId }: { groupId: string }) {
   const { registry } = useApp();
   const { session } = useAccount();
-  const { state } = useGroupBundle(groupId);
-  if (state.status === 'loading') return <p className="muted" role="status">Reading the group’s approved terms…</p>;
-  const a = state.status === 'ready' ? state.agreement : null;
-  if (state.status !== 'ready' || !a?.terms || !a.lockedHashOk || !a.allApproved || a.problems.length) {
+  const load = useGroupBundle(groupId);
+  const bundle = load.status === 'ready' ? load.data : null;
+  const a = useMemo(() => bundle && agreementOf(bundle.group, bundle.approvals, registry.network), [bundle, registry.network]);
+  if (load.status === 'loading') return <p className="muted" role="status">Reading the group’s approved terms…</p>;
+  if (!bundle || !a?.anchored || !a.terms) {
     return (
       <>
         <p className="notice-box small">
-          {state.status === 'ready' ? `“${state.bundle.group.title}” has no terms every member approved yet, so there is nothing to compare with.` : 'That group could not be read.'} The checker below reads messages
+          {bundle ? `“${bundle.group.title}” has no terms every member approved yet, so there is nothing to compare with.` : 'That group could not be read.'} The checker below reads messages
           on their own.
         </p>
         <Checker network={coreNetwork(registry.network)} title="Your message" />
       </>
     );
   }
-  const { group } = state.bundle;
+  const { group } = bundle;
   const mine = group.roster.find((r) => r.id === session?.identityId)?.label;
   return (
     <Checker
       network={coreNetwork(registry.network)}
-      terms={state.agreement.terms}
+      terms={a.terms}
       myLabel={mine}
       title={`Check against “${group.title}”`}
-      intro={`Compared with the terms every member approved, revision ${group.revision}.`}
+      intro={`Compared with the terms every member approved, revision ${group.termsRevision}.`}
     />
   );
 }

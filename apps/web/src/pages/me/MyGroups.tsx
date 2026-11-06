@@ -9,7 +9,7 @@ import type { Registry } from '../../config/registry.ts';
 import { loadGroupBundle, rawId, readAll, readNewest, useLoad } from '../../data/cairn.ts';
 import { groupView, type GroupView } from '../../matching/group.ts';
 import { DUFFS } from '../../matching/money.ts';
-import { ROLE_WORDS, nextSteps, type Step } from '../../matching/nextstep.ts';
+import { ROLE_WORDS, nextSteps, stepHref, type Step } from '../../matching/nextstep.ts';
 import { CairnStack } from '../../ui/CairnStack.tsx';
 import { Loaded } from '../../ui/Loaded.tsx';
 import { stonesOf } from '../group/GroupPage.tsx';
@@ -87,14 +87,22 @@ export function MyGroups({ me, isOperator }: { me: string; isOperator: boolean }
                   </li>
                 ))}
               </ul>
-              <Link to={`/g/${view.group.id}`} className="btn btn-s">
-                {steps.some((s) => s.tone === 'todo' || s.tone === 'warn') ? 'Do it' : 'Open'}
-              </Link>
+              <StepLink groupId={view.group.id} steps={steps} />
             </li>
           ))}
         </ul>
       )}
     </Loaded>
+  );
+}
+
+/** The button to where the most pressing step is done: the group, form or live page. */
+function StepLink({ groupId, steps }: { groupId: string; steps: Step[] }) {
+  const urgent = steps.find((s) => s.tone === 'todo' || s.tone === 'warn');
+  return (
+    <Link to={stepHref(urgent ?? steps[0]!, groupId)} className="btn btn-s">
+      {urgent ? 'Do it' : 'Open'}
+    </Link>
   );
 }
 

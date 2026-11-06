@@ -22,7 +22,8 @@ export function group(over: Partial<Group> = {}): Group {
   return {
     id: GID,
     ownerId: ORG,
-    revision: 1,
+    docRevision: 1,
+    termsRevision: 1,
     updatedAt: 1,
     title: 'Lisbon node',
     mnType: MN_TYPE.regular,
@@ -38,17 +39,17 @@ export function group(over: Partial<Group> = {}): Group {
 }
 
 export function seat(ownerId: string, amount: number, over: Partial<Seat> = {}): Seat {
-  return { id: id(100 + amount / DUFFS / 10), ownerId, revision: 1, groupId: GID, amount, status: SEAT_STATUS.requested, flags: 0, ...over } as Seat;
+  return { id: id(100 + amount / DUFFS / 10), ownerId, docRevision: 1, groupId: GID, amount, status: SEAT_STATUS.requested, flags: 0, ...over } as Seat;
 }
 
 export function looking(ownerId: string, amount: number, over: Partial<Looking> = {}): Looking {
-  return { id: id(200), ownerId, revision: 1, amount, maxRewardBps: 2000, earlyPref: { maxPeriodBlocks: null, maxPenalty: null }, canCoordinate: false, status: LOOKING_STATUS.open, ...over } as Looking;
+  return { id: id(200), ownerId, docRevision: 1, amount, maxRewardBps: 2000, earlyPref: { maxPeriodBlocks: null, maxPenalty: null }, canCoordinate: false, status: LOOKING_STATUS.open, ...over } as Looking;
 }
 
 export function opAccept(over: Partial<OpAccept> = {}): OpAccept {
-  return { id: id(50), ownerId: OPR, revision: 1, groupId: GID, status: OP_ACCEPT_STATUS.accepted, rewardBps: 1000, operatorPubKey: BLS, service: SERVICE, ...over } as OpAccept;
+  return { id: id(50), ownerId: OPR, docRevision: 1, groupId: GID, status: OP_ACCEPT_STATUS.accepted, rewardBps: 1000, operatorPubKey: BLS, service: SERVICE, ...over } as OpAccept;
 }
 
-export function approval(ownerId: string, termsHash: string, shareAmount: number, revision = 1): Approval {
-  return { id: id(60), ownerId, groupId: GID, termsHash, shareAmount, revision } as Approval;
+export function approval(ownerId: string, termsHash: string, shareAmount: number, termsRevision = 1): Approval {
+  return { id: id(60), ownerId, docRevision: 1, groupId: GID, termsHash, shareAmount, termsRevision } as Approval;
 }

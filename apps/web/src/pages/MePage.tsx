@@ -157,20 +157,20 @@ function ProfileEditor({ identityId }: { identityId: string }) {
         throw err instanceof DocError ? new Error(err.message) : err;
       }
       const contractId = registry.contractId!;
-      const op = profile ? replaceOp(contractId, 'profile', profile.id, profile.revision, data) : createOp(contractId, 'profile', data);
+      const op = profile ? replaceOp(contractId, 'profile', profile.id, profile.docRevision, data) : createOp(contractId, 'profile', data);
       const done = await write(op);
       // read it back with a proof: what Platform stores, not what this page sent; a lagging node may still serve the old revision
       const want = done.revision ?? 1;
       let back = await readProfile(registry, identityId);
-      for (let i = 0; i < 5 && (back.profile?.revision ?? 0) < want; i++) {
+      for (let i = 0; i < 5 && (back.profile?.docRevision ?? 0) < want; i++) {
         await new Promise((r) => setTimeout(r, 2000));
         back = await readProfile(registry, identityId);
       }
-      if (!back.profile || back.profile.revision < want) throw new Error('Platform confirmed the change, but the node read now does not show it yet. Reload in a minute.');
+      if (!back.profile || back.profile.docRevision < want) throw new Error('Platform confirmed the change, but the node read now does not show it yet. Reload in a minute.');
       if (!holdsWrite(back.profile, data)) throw new Error('Platform now holds a different profile than this page sent (another tab or app may have changed it). Reload before you edit again.');
       seedProfile(registry, identityId, back.profile);
       forgetPerson(registry, identityId);
-      setSaved({ revision: back.profile.revision, height: back.height });
+      setSaved({ revision: back.profile.docRevision, height: back.height });
     });
   };
 
@@ -277,7 +277,7 @@ function ProfileStatus({ profile, loading, failed }: { profile: Profile | null; 
   if (!profile) return <p className="small">No profile on Platform yet.</p>;
   return (
     <p className="small">
-      Profile on Platform, version {profile.revision}
+      Profile on Platform, version {profile.docRevision}
       {profile.updatedAt ? `, saved ${new Date(profile.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}.
     </p>
   );

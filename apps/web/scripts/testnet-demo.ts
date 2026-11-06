@@ -17,10 +17,9 @@ import { join } from 'node:path';
 import { KeyType, SeedWallet, discoverIdentities, redact, signInWithSeed, type PlatformPort, type Session } from '@cairn/auth';
 import { createEvoPlatform } from '@cairn/auth/evo';
 import {
-  GROUP_STATUS, MN_TYPE, SEAT_FLAG, SEAT_STATUS, approvalData, contractIdFor, createOp, groupData, replaceOp, seatData, toGroup, type DocOp, type Group, type GroupFields,
+  GROUP_STATUS, MN_TYPE, SEAT_FLAG, SEAT_STATUS, approvalData, contractIdFor, createOp, groupData, replaceOp, seatData, termSheetFromGroup, toGroup, type DocOp, type GroupFields,
 } from '@cairn/contract';
 import { bytesToHex, decodeSharedProRegTx, keyIdToAddress, termsHash } from '@cairn/shares';
-import { termSheetOf } from '../src/formation/data.ts';
 
 const DIR = join(homedir(), '.local/share/cairn');
 const STATE = join(DIR, 'testnet-demo.json');
@@ -109,12 +108,12 @@ async function main() {
     }
     const current = async () => {
       const raw = (await sdk.documents.getWithProof(CONTRACT, 'group', groupId)).data!.toJSON() as Record<string, unknown>;
-      return { group: toGroup(raw, 'testnet'), rev: Number(raw.$revision) };
+      return toGroup(raw, 'testnet');
     };
-    const hash = termsHash(termSheetOf({ ...fields, id: groupId, ownerId: ids.Alice! } as Group, 'testnet')!);
+    const hash = termsHash(termSheetFromGroup(groupId, fields, 'testnet'));
     if (!st.locked) {
-      const { rev } = await current();
-      await write('Alice', replaceOp(CONTRACT, 'group', groupId, rev, groupData({ ...fields, status: GROUP_STATUS.locked, lockedHash: hash }, 'testnet')));
+      const { docRevision } = await current();
+      await write('Alice', replaceOp(CONTRACT, 'group', groupId, docRevision, groupData({ ...fields, status: GROUP_STATUS.locked, lockedHash: hash }, 'testnet')));
       st.locked = true;
       save();
       log(`${key}: locked, termsHash ${hash}`);
@@ -123,21 +122,21 @@ async function main() {
     for (const x of PEOPLE) {
       if (st.approvals[x.label]) continue;
       const amount = fields.roster.find((r) => r.id === ids[x.label])!.amount;
-      st.approvals[x.label] = (await write(x.label, createOp(CONTRACT, 'approval', approvalData({ groupId, revision: fields.revision, termsHash: hash, shareAmount: amount })))).id;
+      st.approvals[x.label] = (await write(x.label, createOp(CONTRACT, 'approval', approvalData({ groupId, termsRevision: fields.termsRevision, termsHash: hash, shareAmount: amount })))).id;
       save();
     }
     if (proTxHash && !st.linked) {
-      const { rev } = await current();
-      await write('Alice', replaceOp(CONTRACT, 'group', groupId, rev, groupData({ ...fields, status: GROUP_STATUS.live, lockedHash: hash, proTxHash }, 'testnet')));
+      const { docRevision } = await current();
+      await write('Alice', replaceOp(CONTRACT, 'group', groupId, docRevision, groupData({ ...fields, status: GROUP_STATUS.live, lockedHash: hash, proTxHash }, 'testnet')));
       st.linked = true;
       save();
       log(`${key}: linked ${proTxHash}`);
     }
-    const { group } = await current();
+    const group = await current();
     log(`${key}: group ${groupId}, status ${group.status}, proTxHash ${group.proTxHash ?? '-'}, lockedHash ${group.lockedHash === hash ? 'matches' : 'DIFFERS'}`);
   }
 
-  const common = { mnType: MN_TYPE.regular, operatorId: ids.Carol!, coordinatorId: ids.Alice!, votingHolderId: ids.Alice!, revision: 1, status: GROUP_STATUS.full };
+  const common = { mnType: MN_TYPE.regular, operatorId: ids.Carol!, coordinatorId: ids.Alice!, votingHolderId: ids.Alice!, termsRevision: 1, status: GROUP_STATUS.full };
   if (cmd === 'demo') {
     const d = decodeSharedProRegTx(HEX);
     const p = d.payload;

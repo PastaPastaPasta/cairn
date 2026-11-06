@@ -1,20 +1,27 @@
 // /g/:id/live (DESIGN.md M11): the group's masternode as the chain shows it. Every status here is computed from chain data on this
-// read: the registration proven and compared with the approvals, the masternode list entry proven against the same chain.
+// read: the registration proven and compared with the approvals, the masternode list entry proven against the same chain. When the
+// chain shows the masternode dissolved, co-owners can reopen the group with the same terms (M12).
+import { coreNetwork } from '@cairn/contract';
 import { COIN, decodeSharedProRegTx, formatDash, type ChainShare } from '@cairn/shares';
 import { useMemo, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
+import { useGroupBundle } from '../data/cairn.ts';
+import { usePeople } from '../data/people.ts';
 import { personName, useProfile } from '../data/profile.ts';
+import type { Agreement } from '../matching/agreement.ts';
+import { groupView, type GroupBundle, type GroupView } from '../matching/group.ts';
+import { stageOf } from '../matching/stage.ts';
+import { RefillPanel } from '../pages/group/Organizer.tsx';
 import { PageHead } from '../ui/states.tsx';
 import { Checker } from './Checker.tsx';
 import { dash } from './checker.ts';
 import { percentString } from './cli.ts';
-import { coreNetwork, linkedProTx, useGroupBundle, type Agreement, type GroupBundle } from './data.ts';
 import { earlyView, labelChainShares, rewardSplit } from './live.ts';
 import { GroupGate, GroupTabs, RegistrationCard, RegProgress } from './parts.tsx';
 import { CodeBlock, CopyButton, Technical } from './ui.tsx';
-import { primaryOf, useRegistrations } from './useRegistration.ts';
+import { useGroupRegistrations } from './useRegistration.ts';
 import type { MnState, RegistrationJudgement } from './verify.ts';
 
 const n = (x: number) => x.toLocaleString('en-US');
@@ -22,27 +29,30 @@ const GOVERNANCE = 'https://gov.dashhq.org';
 
 export function GroupLivePage() {
   const { id = '' } = useParams();
-  const { state } = useGroupBundle(id);
+  const load = useGroupBundle(id);
   return (
-    <GroupGate title="Live masternode" id={id} state={state}>
-      {state.status === 'ready' && <LiveBody bundle={state.bundle} agreement={state.agreement} />}
+    <GroupGate title="Live masternode" id={id} load={load}>
+      {(bundle) => <LiveBody bundle={bundle} />}
     </GroupGate>
   );
 }
 
 const MN_WORDS: Record<MnState, string> = { valid: 'Valid', banned: 'PoSe-banned', dissolved: 'Dissolved', unknown: 'Unknown' };
 
-function LiveBody({ bundle, agreement }: { bundle: GroupBundle; agreement: Agreement }) {
-  const g = bundle.group;
-  const linked = useMemo(() => linkedProTx(g, bundle.seats).map((x) => x.hash), [g, bundle.seats]);
-  const { state, recheck } = useRegistrations(linked, agreement);
-  const j = state.status === 'done' ? primaryOf(state.results) : null;
+function LiveBody({ bundle }: { bundle: GroupBundle }) {
+  const { registry } = useApp();
+  const { session } = useAccount();
+  const view = useMemo(() => groupView(bundle, registry.network), [bundle, registry.network]);
+  const { group: g, agreement } = view;
+  const { state, recheck, primary: j } = useGroupRegistrations(view);
   const others = state.status === 'done' ? state.results.filter((r) => r !== j) : [];
+  const me = session?.identityId;
+  const refill = !!me && stageOf(view, j) === 'dissolved' && g.roster.some((r) => r.id === me);
   return (
     <div className="page live-page">
       <PageHead title="Live masternode" lede={<><b>{g.title}</b>: read from the chain on every visit, never from Cairn’s own records.</>} />
       <GroupTabs id={g.id} />
-      {!linked.length ? (
+      {!view.linked.length ? (
         <div className="empty-state" data-testid="not-linked">
           <p>
             <b>No registration is linked yet.</b> Once the coordinator broadcasts it, any co-owner pastes its ProTx hash on the <Link to={`/g/${g.id}/form`}>Form</Link> page.
@@ -58,8 +68,9 @@ function LiveBody({ bundle, agreement }: { bundle: GroupBundle; agreement: Agree
           )}
         </div>
       ) : (
-        <LiveRegistration j={j} bundle={bundle} agreement={agreement} />
+        <LiveRegistration j={j} view={view} agreement={agreement} />
       )}
+      {refill && <Refill view={view} me={me} />}
       {others.length > 0 && (
         <section className="form-section">
           <h2>Other linked registrations</h2>
@@ -73,10 +84,16 @@ function LiveBody({ bundle, agreement }: { bundle: GroupBundle; agreement: Agree
   );
 }
 
-function LiveRegistration({ j, bundle, agreement }: { j: RegistrationJudgement; bundle: GroupBundle; agreement: Agreement }) {
+/** M12: the chain shows the masternode dissolved, so its co-owners can reopen with the same terms. */
+function Refill({ view, me }: { view: GroupView; me: string }) {
+  const people = usePeople(view.group.roster.map((r) => r.id));
+  return <RefillPanel view={view} people={people} me={me} />;
+}
+
+function LiveRegistration({ j, view, agreement }: { j: RegistrationJudgement; view: GroupView; agreement: Agreement }) {
   const { registry } = useApp();
   const { session } = useAccount();
-  const g = bundle.group;
+  const g = view.group;
   const f = j.facts;
   const decoded = useMemo(() => {
     try {

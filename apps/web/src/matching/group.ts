@@ -3,18 +3,17 @@
 //   S1  a share counts only when the member's seat and the organizer's roster both list it, with the same amount;
 //   S3  locked terms are a term sheet at one revision; approvals count only for that revision and its recomputed hash.
 import {
-  GROUP_FLAG, GROUP_STATUS, INVITE_STATUS, OP_ACCEPT_STATUS, SEAT_FLAG, SEAT_STATUS,
+  GROUP_FLAG, GROUP_STATUS, INVITE_STATUS, OP_ACCEPT_STATUS, SEAT_FLAG, SEAT_STATUS, termSheetFromGroup,
   type Approval, type Group, type GroupFields, type Invite, type Network, type OpAccept, type RosterEntry, type Seat,
 } from '@cairn/contract';
 import {
-  REGULAR_COLLATERAL, areShareAmountsValid, canAddShare, remainingDuffs, termsHash, validateTermSheet,
+  REGULAR_COLLATERAL, areShareAmountsValid, canAddShare, canonicalize, remainingDuffs, termsHash, validateTermSheet,
   type CanAddResult, type TermIssue, type TermSheet,
 } from '@cairn/shares';
+import { agreementOf, type Agreement, type ApprovalState as MemberApprovalState } from './agreement.ts';
 
 export interface GroupBundle {
   group: Group;
-  /** The group document's own revision (`$revision`, what a replace needs); `group.revision` is the terms revision. */
-  docRevision: number;
   seats: Seat[];
   opAccepts: OpAccept[];
   invites: Invite[];
@@ -25,7 +24,7 @@ export interface GroupBundle {
 }
 
 export type ShareState = 'confirmed' | 'awaiting-seat' | 'amount-changed' | 'withdrawn';
-export type ApprovalState = 'approved' | 'missing' | 'mismatch' | 'none';
+export type ApprovalState = MemberApprovalState | 'none';
 
 export interface ShareRow extends RosterEntry {
   seat?: Seat;
@@ -75,6 +74,12 @@ export interface GroupView {
   coordinatorCandidates: string[];
   holderCandidates: string[];
   locked: boolean;
+  /** The approvals checked against the term sheet recomputed from the group (also before lock: the form and live pages read it). */
+  agreement: Agreement;
+  /** ProTx hashes linked to the group: the organizer's, then co-owners' own. */
+  linked: Array<{ hash: string; by: string }>;
+  /** The coordinator marked the Dash-Qt session as started, or the organizer moved the group on to forming on chain. */
+  sessionStarted: boolean;
   sheet: TermSheet | null;
   sheetIssues: TermIssue[];
   /** termsHash recomputed from the group document; null when the document cannot make a term sheet. */
@@ -87,26 +92,6 @@ export interface GroupView {
   ready: boolean;
   /** Why the locked group is not ready to form, in words; empty when ready (or not locked). */
   waitingFor: string[];
-}
-
-export const coreNetwork = (n: Network): 'main' | 'test' => (n === 'mainnet' ? 'main' : 'test');
-
-/** The term sheet a group document (or the fields about to be written) states. Missing values stay empty: validateTermSheet names them. */
-export function termSheetOf(groupId: string, f: Pick<GroupFields, 'roster' | 'revision' | 'operatorPubKey' | 'service' | 'votingAddress' | 'votingHolderId' | 'rewardBps' | 'earlyPeriodBlocks' | 'earlyPenalty' | 'coordinatorId'>, network: Network): TermSheet {
-  return {
-    network: coreNetwork(network),
-    groupId,
-    revision: f.revision,
-    shares: f.roster.map((r) => ({ memberId: r.id, label: r.label ?? '', amount: BigInt(r.amount) })),
-    operatorPubKey: (f.operatorPubKey ?? '').toLowerCase(),
-    service: f.service ?? '',
-    votingAddress: f.votingAddress ?? '',
-    votingHolderId: f.votingHolderId ?? '',
-    rewardBps: f.rewardBps,
-    earlyPeriodBlocks: f.earlyPeriodBlocks,
-    earlyPenalty: BigInt(f.earlyPenalty),
-    coordinatorId: f.coordinatorId ?? '',
-  };
 }
 
 const rosterSum = (roster: readonly RosterEntry[]) => roster.reduce((a, r) => a + r.amount, 0);
@@ -131,18 +116,17 @@ export function groupView(b: GroupBundle, network: Network): GroupView {
   const seatOf = new Map(b.seats.map((s) => [s.ownerId, s]));
   const inRoster = new Set(g.roster.map((r) => r.id));
   const locked = isLockedStatus(g.status);
-  const sheet = locked ? termSheetOf(g.id, g, network) : null;
-  const sheetIssues = sheet ? validateTermSheet(sheet) : [];
-  const hash = sheet && !sheetIssues.length ? termsHash(sheet) : null;
-  const hashOk = !!hash && g.lockedHash === hash;
-  const approvalOf = new Map(b.approvals.filter((a) => a.revision === g.revision).map((a) => [a.ownerId, a]));
+  const agreement = agreementOf(g, b.approvals, network);
+  const sheet = locked ? agreement.sheet : null;
+  const sheetIssues = locked ? agreement.issues : [];
+  const hash = locked ? agreement.hash : null;
+  const hashOk = locked && agreement.lockedHashOk;
 
-  const shares: ShareRow[] = g.roster.map((r) => {
+  const shares: ShareRow[] = g.roster.map((r, i) => {
     const seat = seatOf.get(r.id);
     const state: ShareState = !seat ? 'awaiting-seat' : seat.status !== SEAT_STATUS.requested ? 'withdrawn' : seat.amount !== r.amount ? 'amount-changed' : 'confirmed';
-    const doc = approvalOf.get(r.id);
-    const approval: ApprovalState = !locked ? 'none' : !doc ? 'missing' : doc.termsHash === hash && doc.shareAmount === r.amount ? 'approved' : 'mismatch';
-    return { ...r, seat, state, approval, approvalDoc: doc };
+    const member = agreement.members[i]!;
+    return { ...r, seat, state, approval: locked ? member.state : 'none', approvalDoc: member.approval ?? undefined };
   });
   const confirmed = shares.filter((s) => s.state === 'confirmed');
   const rosterDuffs = rosterSum(g.roster);
@@ -197,6 +181,9 @@ export function groupView(b: GroupBundle, network: Network): GroupView {
     coordinatorCandidates: flagged(SEAT_FLAG.canCoordinate),
     holderCandidates,
     locked,
+    agreement,
+    linked: linkedProTx(g, b.seats),
+    sessionStarted: sessionStarted(g, b.seats),
     sheet,
     sheetIssues,
     hash,
@@ -242,22 +229,48 @@ function readinessProblems(x: {
 
 const termsHashOrNull = (t: TermSheet): string | null => (validateTermSheet(t).length ? null : termsHash(t));
 
-/** The fields of a stored group, to change and write back (`revision` is the terms revision: the reader keeps that one). */
+/** ProTx hashes linked to the group: the organizer's, then each co-owner's own (seats of people not on the roster are ignored). */
+export function linkedProTx(g: Group, seats: readonly Seat[]): Array<{ hash: string; by: string }> {
+  const roster = new Set(g.roster.map((r) => r.id));
+  const out: Array<{ hash: string; by: string }> = [];
+  const add = (hash: string | undefined, by: string) => {
+    const h = hash?.toLowerCase();
+    if (h && !out.some((x) => x.hash === h)) out.push({ hash: h, by });
+  };
+  add(g.proTxHash, g.ownerId);
+  for (const s of seats) if (roster.has(s.ownerId) && s.groupId === g.id) add(s.proTxHash, s.ownerId);
+  return out;
+}
+
+/** The coordinator marked the Dash-Qt session as started (their seat flag), or the organizer moved the group on to forming on chain. */
+export function sessionStarted(g: Group, seats: readonly Seat[]): boolean {
+  if (g.status === GROUP_STATUS.formingOnchain || g.status === GROUP_STATUS.live) return true;
+  const seat = seats.find((s) => s.ownerId === g.coordinatorId && s.groupId === g.id);
+  return !!seat && ((seat.flags ?? 0) & SEAT_FLAG.sessionStarted) !== 0;
+}
+
+/** The fields of a stored group, to change and write back. */
 export function fieldsOf(g: Group): GroupFields {
-  const { id: _i, ownerId: _o, createdAt: _c, updatedAt: _u, ...f } = g;
+  const { id: _i, ownerId: _o, docRevision: _r, createdAt: _c, updatedAt: _u, ...f } = g;
   return f;
 }
 
+/** The terms a group states, network aside (both sides of a comparison are on one network), with the operator chosen. */
+const termsKey = (f: GroupFields) => `${f.operatorId ?? ''}|${canonicalize(termSheetFromGroup('', f, 'mainnet'))}`;
+
 /**
- * The organizer's change to a group. Changing a locked group bumps its revision (voiding every approval) and unlocks it; a roster
- * change moves an open group between forming and full.
+ * The organizer's change to a group. Changing the terms of a locked group bumps its revision (voiding every approval) and unlocks it;
+ * a change that leaves the term sheet and operator as they are (name, description, chat link, voting policy, closing it) keeps the
+ * lock, so a formed masternode stays verified. A roster change moves an open group between forming and full.
  */
 export function change(g: Group, next: Partial<GroupFields>): GroupFields {
   const f: GroupFields = { ...fieldsOf(g), ...next };
-  const wasLocked = isLockedStatus(g.status);
-  const status = CLOSED.includes(f.status) || (next.status !== undefined && isLockedStatus(next.status)) ? f.status : rosterStatus(f.roster);
-  if (wasLocked && !(next.status !== undefined && isLockedStatus(next.status))) return { ...f, status, revision: g.revision + 1, lockedHash: undefined };
-  return { ...f, status };
+  const relock = next.status !== undefined && isLockedStatus(next.status);
+  const closing = CLOSED.includes(f.status);
+  const status = closing || relock ? f.status : rosterStatus(f.roster);
+  if (!isLockedStatus(g.status) || relock) return { ...f, status };
+  if (termsKey(f) === termsKey(fieldsOf(g))) return { ...f, status: closing ? f.status : g.status };
+  return { ...f, status, termsRevision: g.termsRevision + 1, lockedHash: undefined };
 }
 
 export const acceptSeat = (g: Group, seat: Seat) => change(g, { roster: [...g.roster, { id: seat.ownerId, amount: seat.amount }] });
@@ -339,15 +352,15 @@ export function lockPlan(v: GroupView, c: LockChoices): LockPlan {
     lockedHash: undefined,
   };
   // re-locking different terms is a new revision: approvals of the old one are voided, not left to mismatch
-  if (v.locked && termsHashOrNull(termSheetOf(g.id, fields, v.network)) !== g.lockedHash) fields.revision = g.revision + 1;
-  const sheet = termSheetOf(g.id, fields, v.network);
+  if (v.locked && termsHashOrNull(termSheetFromGroup(g.id, fields, v.network)) !== g.lockedHash) fields.termsRevision = g.termsRevision + 1;
+  const sheet = termSheetFromGroup(g.id, fields, v.network);
   const issues = validateTermSheet(sheet);
   for (const i of issues) if (!problems.includes(i.message)) problems.push(i.message);
   const hash = issues.length ? null : termsHash(sheet);
   return { fields: { ...fields, lockedHash: hash ?? undefined }, sheet, hash, problems };
 }
 
-/** Choices saved before lock (so the chosen voting key holder knows to give their address). Unlocks a locked group. */
+/** Choices saved before lock (so the chosen voting key holder knows to give their address). Changed terms unlock a locked group. */
 export function saveChoices(g: Group, c: LockChoices): GroupFields {
   return change(g, {
     roster: g.roster.map((r, i) => ({ ...r, label: c.labels[i] || r.label })),
@@ -368,7 +381,7 @@ export function refillFields(old: Group, leaverIds: readonly string[]): GroupFie
   return {
     ...fieldsOf(old),
     roster,
-    revision: 1,
+    termsRevision: 1,
     status: GROUP_STATUS.forming,
     refillOf: old.id,
     lockedHash: undefined,

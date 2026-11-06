@@ -5,10 +5,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../app/context.tsx';
 import type { Registry } from '../config/registry.ts';
+import { loadGroupBundle } from '../data/cairn.ts';
 import { queryCairn } from '../data/platform.ts';
 import { errText } from '../lib/format.ts';
+import { agreementOf } from '../matching/agreement.ts';
+import { linkedProTx } from '../matching/group.ts';
 import { lookupRegistration } from './chain.ts';
-import { agreementOf, linkedProTx, readGroupBundle } from './data.ts';
 import { judgeRegistration, type MnState, type RegistrationJudgement } from './verify.ts';
 import './formation.css';
 
@@ -46,7 +48,7 @@ export async function readTrackRecord(r: Registry, operatorId: string, onProgres
   const counted = new Set<string>();
   let linked = 0;
   for (const g of groups.filter((x) => x.lockedHash)) {
-    const bundle = await readGroupBundle(r, g.id);
+    const bundle = await loadGroupBundle(r, g.id);
     if (!bundle || bundle.group.operatorId !== operatorId) continue;
     const hashes = linkedProTx(bundle.group, bundle.seats);
     if (!hashes.length) continue;

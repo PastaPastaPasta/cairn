@@ -1,7 +1,7 @@
 // M10: is a linked registration the masternode the group approved? Computed from chain facts and the approvals on every read; the
 // group's own status field is never consulted.
 import { type CheckResult, checkRegistrationAgainstTerms } from '@cairn/shares';
-import type { Agreement } from './data.ts';
+import type { Agreement } from '../matching/agreement.ts';
 
 /** What the chain says about a registration (chain.ts gathers it over DAPI). */
 export interface ChainFacts {

@@ -111,7 +111,7 @@ export function LookingEditor({ identityId, onChange, onSaved }: { identityId: s
           status,
         });
       const cid = registry.contractId!;
-      const back = await write(() => (current ? replaceOp(cid, 'looking', current.id, current.revision, data()) : createOp(cid, 'looking', data())));
+      const back = await write(() => (current ? replaceOp(cid, 'looking', current.id, current.docRevision, data()) : createOp(cid, 'looking', data())));
       const l = toLooking(back!);
       setSaved(status === LOOKING_STATUS.open ? 'Posted and read back from Dash Platform.' : 'Closed. Your post is no longer listed.');
       setEditing(false);

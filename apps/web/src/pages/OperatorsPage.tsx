@@ -15,6 +15,7 @@ import { PercentField } from '../ui/fields.tsx';
 import { Loaded } from '../ui/Loaded.tsx';
 import { ContactList, PersonName } from '../ui/Person.tsx';
 import { NotOpenHere, PageHead } from '../ui/states.tsx';
+import { OperatorTrackRecord } from '../formation/TrackRecord.tsx';
 import { GroupRows } from './GroupsPage.tsx';
 import '../styles/matching.css';
 
@@ -181,6 +182,8 @@ export function OperatorPage() {
                   <Link to="/operators">See every operator</Link>
                 </p>
               </div>
+              {/* the chain-verified record stands without a listing: groups name the operator, not their profile */}
+              <OperatorTrackRecord operatorId={id} />
             </>
           ) : (
             <>
@@ -217,7 +220,7 @@ export function OperatorPage() {
                   </section>
                 </div>
                 <aside className="side-card">
-                  <TrackRecordSlot operatorId={id} />
+                  <OperatorTrackRecord operatorId={id} />
                   <h2 className="h3">Masternodes they say they run</h2>
                   {op.claimedProTx.length ? (
                     <ul className="claimed" data-testid="claimed-protx">
@@ -245,17 +248,5 @@ export function OperatorPage() {
         }
       </Loaded>
     </div>
-  );
-}
-
-/** Where the chain-verified track record (DESIGN O6) goes; computed from live, verified Cairn groups. */
-function TrackRecordSlot({ operatorId }: { operatorId: string }) {
-  return (
-    <section className="track-slot" data-testid="track-record-slot" data-operator={operatorId} aria-labelledby="track-title">
-      <h2 id="track-title" className="h3">
-        Track record
-      </h2>
-      <p className="small muted">Masternodes formed through Cairn and verified on chain, with their current state. Cairn computes it from chain data, never from what an operator says.</p>
-    </section>
   );
 }

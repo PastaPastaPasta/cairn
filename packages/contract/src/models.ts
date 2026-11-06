@@ -8,9 +8,10 @@
 import { base58, base64, hex } from '@scure/base';
 import {
   MAX_EARLY_PERIOD_BLOCKS, MIN_SHARE_AMOUNT, REGULAR_COLLATERAL, areShareAmountsValid, isCompletable, isEarlyPenaltyValid, isEarlyPeriodValid, minAmount,
-  decodeAddress, remainingDuffs, validateCoreService, type Network as CoreNetwork,
+  decodeAddress, remainingDuffs, validateCoreService,
 } from '@cairn/shares';
 import { CAIRN_SCHEMAS, GROUP_STATUS, MAX_AMOUNT_DUFFS, MN_TYPE, OP_ACCEPT_STATUS, prop, type DocType, type Network } from './schema.ts';
+import { coreNetwork } from './terms.ts';
 import { badgeLike, cleanName, nameProblem } from './text.ts';
 
 export type RawDoc = Record<string, unknown>;
@@ -30,11 +31,14 @@ export class DocError extends Error {
   }
 }
 
-/** System fields every model carries. Times are milliseconds (block time, set by Drive). */
+/**
+ * System fields every model carries. Times are milliseconds (block time, set by Drive). `docRevision` is the document's own
+ * `$revision` (what a replace needs); it never shares a name with a data field, so no model can shadow it.
+ */
 export interface DocMeta {
   id: string;
   ownerId: string;
-  revision: number;
+  docRevision: number;
   createdAt?: number;
   updatedAt?: number;
 }
@@ -95,7 +99,7 @@ const json = <T>(d: RawDoc, k: string, parse: (v: unknown) => T): T => {
 };
 
 function meta(d: RawDoc): DocMeta {
-  return { id: ident(d, '$id'), ownerId: ident(d, '$ownerId'), revision: optNum(d, '$revision') ?? 1, createdAt: optNum(d, '$createdAt'), updatedAt: optNum(d, '$updatedAt') };
+  return { id: ident(d, '$id'), ownerId: ident(d, '$ownerId'), docRevision: optNum(d, '$revision') ?? 1, createdAt: optNum(d, '$createdAt'), updatedAt: optNum(d, '$updatedAt') };
 }
 
 // ---- writing ---------------------------------------------------------------------------------------------------------------
@@ -264,7 +268,6 @@ export function parseRoster(v: unknown, earlyPenalty = 0): RosterEntry[] {
   return roster;
 }
 
-const coreNetwork = (n: Network): CoreNetwork => (n === 'mainnet' ? 'main' : 'test');
 
 /**
  * A masternode service as Dash Core accepts it for a shared (ProTx v3) registration: public IPv4, a port Core allows, 9999 on
@@ -474,7 +477,8 @@ export interface GroupFields {
   /** Unix seconds. */
   formBy?: number;
   roster: RosterEntry[];
-  revision: number;
+  /** The terms revision (document field `revision`): bumped by every change to locked terms, which voids their approvals. */
+  termsRevision: number;
   /** termsHash of the locked revision (hex). */
   lockedHash?: string;
   /** BLS operator public key, 48 bytes (96 hex). */
@@ -520,7 +524,7 @@ export function groupData(f: GroupFields, network: Network): DocData {
     }),
     formBy: opt(f.formBy, (v) => checkInt('group', 'formBy', v)),
     roster: jsonStr('group', 'roster', roster),
-    revision: checkInt('group', 'revision', f.revision),
+    revision: checkInt('group', 'revision', f.termsRevision),
     lockedHash: opt(f.lockedHash, (v) => hexBytes('group', 'lockedHash', v, 32)),
     operatorPubKey: opt(f.operatorPubKey, (v) => hexBytes('group', 'operatorPubKey', v, 48)),
     service: opt(f.service?.trim(), (v) => checkStr('group', 'service', parseService(v, network).canonical)),
@@ -560,7 +564,7 @@ export function toGroup(d: RawDoc, network?: Network): Group {
     chatUrl: chat ? (httpsUrl(chat) ?? undefined) : undefined,
     formBy: optNum(d, 'formBy'),
     roster,
-    revision: num(d, 'revision'),
+    termsRevision: num(d, 'revision'),
     lockedHash: optHex(d, 'lockedHash', 32),
     operatorPubKey: optHex(d, 'operatorPubKey', 48),
     service: serviceOrUndefined(optStr(d, 'service'), network),
@@ -631,7 +635,8 @@ export const toInvite = (d: RawDoc): Invite => ({ ...meta(d), groupId: ident(d, 
 
 export interface ApprovalFields {
   groupId: string;
-  revision: number;
+  /** The group's terms revision approved (document field `revision`). */
+  termsRevision: number;
   /** sha256 term-sheet hash (hex). */
   termsHash: string;
   shareAmount: number;
@@ -640,7 +645,7 @@ export type Approval = DocMeta & ApprovalFields;
 export function approvalData(f: ApprovalFields): DocData {
   return {
     groupId: idBytes(f.groupId, 'groupId'),
-    revision: checkInt('approval', 'revision', f.revision),
+    revision: checkInt('approval', 'revision', f.termsRevision),
     termsHash: hexBytes('approval', 'termsHash', f.termsHash, 32),
     shareAmount: checkShare('approval', 'shareAmount', f.shareAmount),
   };
@@ -648,7 +653,7 @@ export function approvalData(f: ApprovalFields): DocData {
 export const toApproval = (d: RawDoc): Approval => ({
   ...meta(d),
   groupId: ident(d, 'groupId'),
-  revision: num(d, 'revision'),
+  termsRevision: num(d, 'revision'),
   termsHash: hex.encode(bytes(d, 'termsHash', 32)),
   shareAmount: num(d, 'shareAmount'),
 });

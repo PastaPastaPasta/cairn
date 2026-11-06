@@ -1,19 +1,19 @@
 // "Your next step": one panel per role the viewer has in the group, each with the one thing to do now. Member and operator steps
 // are done right here; the organizer's point to the section that does them.
-import { OP_ACCEPT_STATUS, SEAT_STATUS, type Seat } from '@cairn/contract';
+import { OP_ACCEPT_STATUS, SEAT_STATUS } from '@cairn/contract';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../app/context.tsx';
 import { fitsAsChange, fitsRoster, type GroupView } from '../../matching/group.ts';
 import { blsPointProblem, blsFormatProblem, serviceProblem, votingAddressProblem } from '../../matching/keys.ts';
 import { DUFFS, bpsInput, dash, dashNum, parseDashInput, parsePercentInput, pct } from '../../matching/money.ts';
-import { ROLE_WORDS, seatFlags, seatOffers, type Step } from '../../matching/nextstep.ts';
+import { ROLE_WORDS, seatFlags, seatOffers, stepHref, type Step } from '../../matching/nextstep.ts';
 import { openSignIn } from '../../ui/Account.tsx';
 import { DashField, Field, PercentField, Warnings } from '../../ui/fields.tsx';
 import { WriteStatus } from '../../ui/Loaded.tsx';
 import { useAction } from '../../ui/useAction.ts';
 import { termWarnings } from '../../matching/exit.ts';
-import type { GroupOps } from './ops.ts';
+import { seatFieldsOf, type GroupOps } from './ops.ts';
 
 interface Props {
   view: GroupView;
@@ -74,10 +74,24 @@ function StepAction({ step, view, ops, me, done }: { step: Step; view: GroupView
       return jump('terms', 'Read the terms');
     case 'form':
       return (
-        <Link className="btn btn-primary" to={`/g/${g.id}/form`} data-testid="next-form">
+        <Link className="btn btn-primary" to={stepHref(step, g.id)} data-testid="next-form">
           Next: form it in Dash Core →
         </Link>
       );
+    case 'check':
+      return (
+        <Link className="btn btn-primary" to={stepHref(step, g.id)} data-testid="next-check">
+          Open the message checker →
+        </Link>
+      );
+    case 'live':
+      return (
+        <Link className="btn btn-s" to={stepHref(step, g.id)} data-testid="next-live">
+          See it on the live page →
+        </Link>
+      );
+    case 'refill':
+      return jump('refill', 'Reopen with the same terms');
     case 'review-requests':
       return jump('requests', 'See the requests');
     case 'fix-roster':
@@ -111,7 +125,7 @@ export function SeatForm({ view, ops, me, done, mode }: { view: GroupView; ops: 
   const duffs = parseDashInput(amount);
   const fit = duffs === null ? null : share ? fitsAsChange(g, share.id, duffs) : fitsRoster(g.roster, duffs, g.earlyPenalty);
   const problem = !amount.trim() ? null : duffs === null ? 'Enter an amount in DASH.' : duffs < 100 * DUFFS ? 'A share is at least 100 DASH.' : fit && !fit.ok ? fit.message : null;
-  const flags = seatFlags(coordinate, holdKey);
+  const flags = seatFlags(coordinate, holdKey, seat?.flags);
   const save = (status: number, amt: number) =>
     run(async () => {
       await ops.seat({ amount: amt, message, status, flags, votingAddress: seat?.votingAddress, proTxHash: seat?.proTxHash });
@@ -226,8 +240,7 @@ function VotingAddressForm({ view, ops, me, done }: { view: GroupView; ops: Grou
         const a = ops.myAnswer!;
         await ops.answer({ status: a.status, rewardBps: a.rewardBps, operatorPubKey: a.operatorPubKey, service: a.service, message: a.message, votingAddress: addr.trim() });
       } else {
-        const s: Seat = ops.mySeat!;
-        await ops.seat({ amount: s.amount, message: s.message, status: s.status, flags: s.flags, proTxHash: s.proTxHash, votingAddress: addr.trim() });
+        await ops.seat({ ...seatFieldsOf(ops.mySeat!), votingAddress: addr.trim() });
       }
       done();
     });

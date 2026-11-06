@@ -13,7 +13,7 @@ const profile = (revision: number, displayName: string) => toProfile({ $id: ID, 
 
 function Probe() {
   const { profile: p, loading } = useProfile(ID);
-  return <output>{loading ? 'loading' : `${p?.displayName} v${p?.revision}`}</output>;
+  return <output>{loading ? 'loading' : `${p?.displayName} v${p?.docRevision}`}</output>;
 }
 
 describe('seedProfile', () => {

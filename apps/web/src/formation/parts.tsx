@@ -1,17 +1,19 @@
-// Pieces the form and live pages share: the group's sub-navigation, page states, the registration card and the link form.
-import type { Seat } from '@cairn/contract';
+// Pieces the group's pages share: the group's sub-navigation, page states, the registration card and the link form.
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
+import type { Load } from '../data/cairn.ts';
+import type { GroupBundle, GroupView } from '../matching/group.ts';
+import type { GroupOps } from '../pages/group/ops.ts';
 import { openSignIn } from '../ui/Account.tsx';
 import { NotOpenHere, PageHead } from '../ui/states.tsx';
 import { useAction } from '../ui/useAction.ts';
-import { linkProTxOp, type Agreement, type BundleState, type GroupRecord } from './data.ts';
 import { FindingList, Technical } from './ui.tsx';
 import { useRegistrationCheck, type RegState } from './useRegistration.ts';
 import type { RegistrationJudgement } from './verify.ts';
 
+/** The group's pages: matching and terms, forming, the live masternode, and the message checker against its approved terms. */
 export function GroupTabs({ id }: { id: string }) {
   const cls = ({ isActive }: { isActive: boolean }) => (isActive ? 'on' : '');
   return (
@@ -25,12 +27,15 @@ export function GroupTabs({ id }: { id: string }) {
       <NavLink to={`/g/${id}/live`} className={cls}>
         Live
       </NavLink>
+      <NavLink to={`/check?group=${id}`} className={cls}>
+        Check a message
+      </NavLink>
     </nav>
   );
 }
 
-/** Loading, missing and error states of a group page; renders `children` only when the group is ready. */
-export function GroupGate({ title, id, state, children }: { title: string; id: string; state: BundleState; children: ReactNode }) {
+/** Loading, missing and error states of a group page; renders `children` with the group once it is read. */
+export function GroupGate({ title, id, load, children }: { title: string; id: string; load: Load<GroupBundle | null>; children(bundle: GroupBundle): ReactNode }) {
   const { registry } = useApp();
   if (!registry.contractId)
     return (
@@ -39,18 +44,18 @@ export function GroupGate({ title, id, state, children }: { title: string; id: s
         <NotOpenHere />
       </div>
     );
-  if (state.status === 'ready') return <>{children}</>;
+  if (load.status === 'ready' && load.data) return <>{children(load.data)}</>;
   return (
     <div className="page">
       <PageHead title={title} />
       <GroupTabs id={id} />
-      {state.status === 'loading' ? (
+      {load.status === 'loading' ? (
         <p className="list-status muted" role="status">
           <span className="spinner" aria-hidden="true" /> Reading the group from Dash Platform…
         </p>
       ) : (
-        <div className="empty-state" role={state.status === 'error' ? 'alert' : undefined}>
-          <p>{state.status === 'missing' ? `There is no group ${id} on ${registry.label}.` : `The group could not be read: ${state.error}`}</p>
+        <div className="empty-state" role={load.status === 'error' ? 'alert' : undefined}>
+          <p>{load.status === 'error' ? `The group could not be read: ${load.error}` : `There is no group ${id} on ${registry.label}.`}</p>
           <p>
             <Link to="/groups">See open groups</Link>
           </p>
@@ -126,16 +131,14 @@ export function RegProgress({ state }: { state: RegState }) {
 const HASH = /^[0-9a-fA-F]{64}$/;
 
 /** M10: paste the ProTx hash, see it checked against the approvals, then link it (organizer: the group; member: their own seat). */
-export function LinkRegistration({ rec, seats, agreement, onLinked }: { rec: GroupRecord; seats: readonly Seat[]; agreement: Agreement; onLinked(): void }) {
-  const { registry } = useApp();
-  const { session, write } = useAccount();
+export function LinkRegistration({ view, ops, onLinked }: { view: GroupView; ops: GroupOps; onLinked(): void }) {
+  const { session } = useAccount();
   const [hash, setHash] = useState('');
-  const { state, check, reset } = useRegistrationCheck(agreement);
+  const { state, check, reset } = useRegistrationCheck(view.agreement);
   const action = useAction();
   const [done, setDone] = useState(false);
   const clean = hash.trim().toLowerCase();
-  const me = session?.identityId;
-  const canWrite = !!me && (rec.group.ownerId === me || seats.some((s) => s.ownerId === me && rec.group.roster.some((r) => r.id === me)));
+  const g = view.group;
   const result = state.status === 'done' ? state.results[0] : null;
   const linkable = result && (result.state === 'verified' || result.state === 'unproven' || result.state === 'unconfirmed');
   const submit = (e: FormEvent) => {
@@ -147,9 +150,7 @@ export function LinkRegistration({ rec, seats, agreement, onLinked }: { rec: Gro
   };
   const link = () =>
     action.run(async () => {
-      const op = linkProTxOp(registry, rec, seats, me!, clean);
-      if (!op) throw new Error('Only the organizer or a co-owner with a seat can link the registration.');
-      await write(op);
+      await ops.linkRegistration(clean);
       setDone(true);
       onLinked();
     });
@@ -177,9 +178,9 @@ export function LinkRegistration({ rec, seats, agreement, onLinked }: { rec: Gro
       {result && <RegistrationCard j={result} />}
       {linkable && !done && (
         <div className="form-actions">
-          {canWrite ? (
+          {ops.canLink ? (
             <button type="button" className="btn btn-primary" onClick={link} disabled={action.busy} data-testid="link-button">
-              {action.busy ? 'Linking…' : rec.group.ownerId === me ? 'Link it to this group' : 'Link it from my seat'}
+              {action.busy ? 'Linking…' : g.ownerId === session?.identityId ? 'Link it to this group' : 'Link it from my seat'}
             </button>
           ) : session ? (
             <p className="small muted">Only the organizer or a co-owner can link it.</p>
@@ -197,7 +198,7 @@ export function LinkRegistration({ rec, seats, agreement, onLinked }: { rec: Gro
       )}
       {done && (
         <p className="notice-ok small" role="status">
-          Linked. Everyone now sees it on the <Link to={`/g/${rec.group.id}/live`}>live page</Link>, checked again from the chain on every visit.
+          Linked. Everyone now sees it on the <Link to={`/g/${g.id}/live`}>live page</Link>, checked again from the chain on every visit.
         </p>
       )}
     </div>

@@ -61,7 +61,7 @@ describe('confirmed writes', () => {
   });
 
   it('compares a group through its reader, with the network’s rules', () => {
-    const g = groupData({ title: 'x', mnType: MN_TYPE.regular, operatorId: ORG, rewardBps: 1000, earlyPeriodBlocks: 0, earlyPenalty: 0, roster: [{ id: A, amount: 500e8 }], revision: 3, status: GROUP_STATUS.forming }, 'testnet');
+    const g = groupData({ title: 'x', mnType: MN_TYPE.regular, operatorId: ORG, rewardBps: 1000, earlyPeriodBlocks: 0, earlyPenalty: 0, roster: [{ id: A, amount: 500e8 }], termsRevision: 3, status: GROUP_STATUS.forming }, 'testnet');
     const back = { ...g, $id: GID, $ownerId: ORG, $revision: 7, operatorId: ORG, roster: g.roster };
     expect(holdsData('group', back, g, 'testnet')).toBe(true);
     expect(holdsData('group', { ...back, revision: 4 }, g, 'testnet')).toBe(false);

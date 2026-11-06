@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { envelopeFingerprint, readUniValue } from '@cairn/shares';
+import { DEMO_GROUP as MATCHING_DEMO } from './demo.ts';
 import { CHECKER_GROUP, DEMO_GROUP, collectErrors, stubActivation } from './helpers.ts';
 
 const vectors = new URL('../../../packages/shares/test/vectors/', import.meta.url);
@@ -130,4 +131,27 @@ test('the live page verifies the demo group against real testnet chain data', as
   await expect(page.getByTestId('mn-state')).toHaveAttribute('data-state', /valid|banned/);
   await expect(page.getByTestId('early-period')).toContainText('ends at block 1,635,878');
   await expect(page.getByTestId('reward-split')).toContainText('48.5%');
+});
+
+test('the group, form and live pages tell one lifecycle, from the documents and the chain', async ({ page }) => {
+  test.setTimeout(240_000);
+  await stubActivation(page);
+  // locked and approved by every member, nothing linked: ready to form
+  await page.goto(`/g/${MATCHING_DEMO}`);
+  await expect(page.getByTestId('group-status')).toHaveText('Ready to form', { timeout: 90_000 });
+  await expect(page.getByRole('navigation', { name: 'This group' })).toBeVisible();
+  // a linked registration: the group page asks the chain, not the organizer's "live" claim
+  await page.goto(`/g/${DEMO_GROUP}`);
+  await expect(page.getByTestId('group-status')).toHaveText('Live (verified)', { timeout: 150_000 });
+  await expect(page.getByTestId('step-visitor')).toContainText('This masternode is live');
+  await page.getByRole('navigation', { name: 'This group' }).getByRole('link', { name: 'Form' }).click();
+  const status = page.getByTestId('form-status');
+  await expect(status).toContainText('Ready to form', { timeout: 90_000 });
+  await expect(status.getByRole('link', { name: 'Live (verified)' })).toBeVisible({ timeout: 150_000 });
+  await page.getByRole('navigation', { name: 'This group' }).getByRole('link', { name: 'Check a message' }).click();
+  await expect(page).toHaveURL(new RegExp(`/check\\?group=${DEMO_GROUP}$`));
+  await expect(page.getByTestId('checker-my-row')).toBeVisible({ timeout: 90_000 });
+  // the checker fixture: approved by all three, so /check compares against it, but its operator never accepted, so not ready
+  await page.goto(`/g/${CHECKER_GROUP}`);
+  await expect(page.getByTestId('group-status')).toHaveText('Terms locked · 3 of 3 approved', { timeout: 90_000 });
 });

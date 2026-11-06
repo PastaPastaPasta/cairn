@@ -108,7 +108,10 @@ const ofGroup = (groupId: string) => (raw: RawDoc) => rawId(raw, 'groupId') === 
 
 export class GroupUnreadable extends Error {}
 
-/** A group with everything its page needs: seats, the operator's answer, invites, approvals for this revision and the one before. */
+/**
+ * A group with everything its pages need (the group, form and live pages, /check, /me and the operator track record): seats, the
+ * operator's answer, invites, approvals for this terms revision and the one before.
+ */
 export async function loadGroupBundle(r: Registry, groupId: string): Promise<GroupBundle | null> {
   const raw = await readDoc(r, 'group', groupId);
   if (!raw) return null;
@@ -124,10 +127,12 @@ export async function loadGroupBundle(r: Registry, groupId: string): Promise<Gro
     readAll(r, 'seat', (a) => seatsOfGroup(groupId, a), toSeat, belongs),
     readAll(r, 'opAccept', (a) => opAcceptsOfGroup(groupId, a), toOpAccept, belongs),
     readAll(r, 'invite', (a) => invitesOfGroup(groupId, a), (d) => toInvite(d), belongs),
-    readAll(r, 'approval', (a) => approvalsOf(groupId, group.revision, a), (d) => toApproval(d), sameRevision(group.revision)),
-    group.revision > 1 ? readAll(r, 'approval', (a) => approvalsOf(groupId, group.revision - 1, a), (d) => toApproval(d), sameRevision(group.revision - 1)) : Promise.resolve([]),
+    readAll(r, 'approval', (a) => approvalsOf(groupId, group.termsRevision, a), (d) => toApproval(d), sameRevision(group.termsRevision)),
+    group.termsRevision > 1
+      ? readAll(r, 'approval', (a) => approvalsOf(groupId, group.termsRevision - 1, a), (d) => toApproval(d), sameRevision(group.termsRevision - 1))
+      : Promise.resolve([]),
   ]);
-  return { group, docRevision: revOf(raw), seats, opAccepts, invites, approvals, voided };
+  return { group, seats, opAccepts, invites, approvals, voided };
 }
 
 // ---- a load as React state ---------------------------------------------------------------------------------------------------
@@ -165,6 +170,9 @@ export function useLoad<T>(key: string | null, load: (r: Registry) => Promise<T>
   const reload = useCallback(() => setTick((n) => n + 1), []);
   return { ...state, reload };
 }
+
+/** A group's bundle as React state (null: no such group), re-read on reload(). */
+export const useGroupBundle = (groupId: string) => useLoad(`group:${groupId}`, (r) => loadGroupBundle(r, groupId));
 
 /** The identity's one document of a type unique per owner (looking post, operator listing), or the newer version this tab wrote. */
 export async function readOwn<T>(r: Registry, type: DocType, query: CairnQuery, ownerId: string, read: Reader<T>): Promise<T | null> {

@@ -130,7 +130,7 @@ export function OperatorEditor({ identityId }: { identityId: string }) {
       setSaved(null);
       const data = () => operatorData({ name, rewardBps: bps!, rewardMinBps: minBps ?? undefined, rewardMaxBps: maxBps ?? undefined, regions: regionList, hosting, capacity: capN, claimedProTx: proTx, status });
       const cid = registry.contractId!;
-      await write(() => (current ? replaceOp(cid, 'operator', current.id, current.revision, data()) : createOp(cid, 'operator', data())));
+      await write(() => (current ? replaceOp(cid, 'operator', current.id, current.docRevision, data()) : createOp(cid, 'operator', data())));
       setSaved('Saved and read back from Dash Platform.');
       setEditing(false);
       mine.reload();

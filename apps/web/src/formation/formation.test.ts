@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs';
-import { GROUP_STATUS, MN_TYPE, type Approval, type Group } from '@cairn/contract';
-import { COIN, decodeSharedProRegTx, termsHash, type TermSheet } from '@cairn/shares';
+import { GROUP_STATUS, MN_TYPE, termSheetFromGroup, type Approval, type Group } from '@cairn/contract';
+import { COIN, decodeSharedProRegTx, termsHash, validateTermSheet, type TermSheet } from '@cairn/shares';
 import { describe, expect, it } from 'vitest';
+import { agreementOf } from '../matching/agreement.ts';
+import { linkedProTx } from '../matching/group.ts';
 import { checkMessage } from './checker.ts';
 import { cliPlan, fillArgs, percentString, renderPlan, shareTokens } from './cli.ts';
-import { agreementOf, linkedProTx, termSheetOf } from './data.ts';
 import { earlyView, labelChainShares, rewardSplit } from './live.ts';
 import { setupSheet } from './setup.ts';
 import { judgeRegistration, type ChainFacts } from './verify.ts';
@@ -47,17 +48,18 @@ const CAROL = '4EfA9Jrvv3nnCFdSf7fad59851iiTRZ6Wcu6YVJ4iSeF';
 const GROUP_ID = '9Zv3f6uyGfrnCsqNLUajVmJ5AWwjKLwpt31sBQZm3TUz';
 const d400Group = (patch: Partial<Group> = {}): Group => {
   const g: Group = {
-    id: GROUP_ID, ownerId: ALICE, revision: 1, title: 'd400', mnType: MN_TYPE.regular, operatorId: CAROL, rewardBps: 300, earlyPeriodBlocks: 52560,
+    id: GROUP_ID, ownerId: ALICE, docRevision: 1, termsRevision: 1, title: 'd400', mnType: MN_TYPE.regular, operatorId: CAROL, rewardBps: 300, earlyPeriodBlocks: 52560,
     earlyPenalty: 5 * 100_000_000, coordinatorId: ALICE, votingHolderId: ALICE,
     roster: [{ id: ALICE, amount: 500e8, label: 'Alice' }, { id: BOB, amount: 300e8, label: 'Bob' }, { id: CAROL, amount: 200e8, label: 'Carol' }],
     operatorPubKey: '8ca1de0998a6d21724322b77bbe0adcb524c0aa276a6554a1fc66993b63aff8a327b5ebef76e83a6ccaeac3d9ff5f1c6',
     votingAddress: 'ygtn5nLwguprM3A49sjSzhZrHjUMqVywby', status: GROUP_STATUS.live, proTxHash: D400_HASH, ...patch,
   };
-  const sheet = termSheetOf(g, 'testnet');
-  return { ...g, lockedHash: patch.lockedHash ?? (sheet ? termsHash(sheet) : undefined) };
+  const sheet = termSheetOf(g);
+  return { ...g, lockedHash: patch.lockedHash ?? (validateTermSheet(sheet).length ? undefined : termsHash(sheet)) };
 };
+const termSheetOf = (g: Group) => termSheetFromGroup(g.id, g, 'testnet');
 const approvalsFor = (g: Group, patch: (a: Approval) => Approval = (a) => a): Approval[] =>
-  g.roster.map((r, i) => patch({ id: `ap${i}`, ownerId: r.id, revision: g.revision, groupId: g.id, termsHash: g.lockedHash!, shareAmount: r.amount }));
+  g.roster.map((r, i) => patch({ id: `ap${i}`, ownerId: r.id, docRevision: 1, termsRevision: g.termsRevision, groupId: g.id, termsHash: g.lockedHash!, shareAmount: r.amount }));
 const facts = (patch: Partial<ChainFacts> = {}): ChainFacts => ({
   proTxHash: D400_HASH, hex: D400, height: 1583318, mined: true, chainLocked: 'verified', trust: 'quorum-proof', weak: null, tip: 1586757, mn: { isValid: false }, listTrust: 'proven', notes: [], ...patch,
 });
@@ -142,11 +144,11 @@ describe('message checker, against the approved terms', () => {
 
   it('checks a registration hex: the real testnet d400c120 against its terms', () => {
     const g = d400Group();
-    const v = checkMessage(D400, { terms: termSheetOf(g, 'testnet') });
+    const v = checkMessage(D400, { terms: termSheetOf(g) });
     expect(v.kind).toBe('registration');
     expect(v.verdict).toBe('warn');
     expect(v.findings.find((f) => f.level === 'warn')!.code).toBe('no-service');
-    expect(checkMessage(D400, { terms: termSheetOf(d400Group({ rewardBps: 500 }), 'testnet') }).verdict).toBe('stop');
+    expect(checkMessage(D400, { terms: termSheetOf(d400Group({ rewardBps: 500 })) }).verdict).toBe('stop');
   });
 });
 
@@ -260,14 +262,14 @@ describe('dash-cli commands', () => {
   });
 
   it('renders the whole sequence for the d400c120 terms', () => {
-    const terms = termSheetOf(d400Group(), 'testnet')!;
+    const terms = termSheetOf(d400Group());
     expect(renderPlan(cliPlan(terms), terms.network)).toMatchSnapshot();
   });
 });
 
 describe('coordinator setup sheet', () => {
   it('follows Dash-Qt’s page order and fields', () => {
-    const pages = setupSheet(termSheetOf(d400Group(), 'testnet')!, { operatorName: 'Carol' });
+    const pages = setupSheet(termSheetOf(d400Group()), { operatorName: 'Carol' });
     expect(pages.map((p) => p.title)).toEqual([
       'Shared masternode', 'Participants', 'Masternode settings', 'Exit terms', 'Your contribution', 'Invite participants', 'Approvals', 'Signatures', 'Shared masternode registered',
     ]);
@@ -285,10 +287,11 @@ describe('coordinator setup sheet', () => {
 
 describe('agreement and registration (M10)', () => {
   it('builds the term sheet from the group in roster order', () => {
-    const t = termSheetOf(d400Group(), 'testnet')!;
+    const t = termSheetOf(d400Group());
     expect(t.shares.map((s) => [s.label, s.amount])).toEqual([['Alice', 500n * COIN], ['Bob', 300n * COIN], ['Carol', 200n * COIN]]);
     expect(t).toMatchObject({ network: 'test', service: '', rewardBps: 300, earlyPenalty: 5n * COIN });
-    expect(termSheetOf(d400Group({ votingAddress: undefined }), 'testnet')).toBeNull();
+    const incomplete = d400Group({ votingAddress: undefined, lockedHash: 'aa'.repeat(32) });
+    expect(agreementOf(incomplete, approvalsFor(incomplete), 'testnet')).toMatchObject({ terms: null, hash: null, anchored: false });
   });
 
   it('is Live (verified) only when every approval names the locked hash and the chain matches', () => {
@@ -330,7 +333,7 @@ describe('agreement and registration (M10)', () => {
 
   it('collects linked hashes from the organizer and roster members only', () => {
     const g = d400Group();
-    const seat = (ownerId: string, proTxHash?: string) => ({ id: `s-${ownerId}`, ownerId, revision: 1, groupId: g.id, amount: 1, status: 1, flags: 0, proTxHash });
+    const seat = (ownerId: string, proTxHash?: string) => ({ id: `s-${ownerId}`, ownerId, docRevision: 1, groupId: g.id, amount: 1, status: 1, flags: 0, proTxHash });
     expect(linkedProTx(g, [seat(BOB, D400_HASH), seat(GROUP_ID, 'ee'.repeat(32)), seat(CAROL, 'cc'.repeat(32))])).toEqual([
       { hash: D400_HASH, by: ALICE },
       { hash: 'cc'.repeat(32), by: CAROL },

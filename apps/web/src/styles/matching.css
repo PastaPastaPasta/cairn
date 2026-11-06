@@ -855,10 +855,17 @@ input[inputmode='numeric'] {
   gap: var(--s-2);
   margin-bottom: var(--s-3);
 }
-.track-slot {
-  padding-bottom: var(--s-4);
+/* the operator page's side card holds the chain-verified track record (formation/TrackRecord.tsx) as one of its sections */
+.side-card > .track {
+  padding: 0 0 var(--s-4);
   margin-bottom: var(--s-4);
+  background: none;
+  border: 0;
   border-bottom: 1px solid var(--line);
+  border-radius: 0;
+}
+.side-card > .track h2 {
+  font-size: var(--t-l);
 }
 
 /* ---- me -------------------------------------------------------------------------------------- */

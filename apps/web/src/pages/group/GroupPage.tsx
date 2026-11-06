@@ -1,19 +1,24 @@
 // /g/:id: one group. Its cairn made of the real shares, the roster, the terms, and one clear next step per role the viewer has
 // (DESIGN M7). Members request, change and withdraw seats (M5); the organizer accepts into the roster (S1), invites, locks (S3);
-// the operator of a member-led group answers and gives their key (O3, O4); members approve the locked term sheet (M8).
+// the operator of a member-led group answers and gives their key (O3, O4); members approve the locked term sheet (M8). Once a
+// registration is linked, its status comes from the chain (M10), and a dissolved masternode offers the refill (M12).
 import { GROUP_STATUS } from '@cairn/contract';
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAccount } from '../../app/account.tsx';
 import { useApp } from '../../app/context.tsx';
-import { loadGroupBundle, useLoad } from '../../data/cairn.ts';
+import { useGroupBundle } from '../../data/cairn.ts';
 import { usePeople } from '../../data/people.ts';
+import { GroupTabs } from '../../formation/parts.tsx';
+import { useGroupRegistrations, type GroupRegistrations } from '../../formation/useRegistration.ts';
 import { groupView, type GroupBundle, type GroupView } from '../../matching/group.ts';
 import { DUFFS, dash, shortId } from '../../matching/money.ts';
 import { nextSteps } from '../../matching/nextstep.ts';
+import { isFormed, isUnderway, stageOf, type Stage } from '../../matching/stage.ts';
 import { GROUP_STATUS_WORDS } from '../../matching/words.ts';
 import { CairnStack, type Stone } from '../../ui/CairnStack.tsx';
 import { Loaded } from '../../ui/Loaded.tsx';
+import { useScrollToHash } from '../../ui/useScrollToHash.ts';
 import { NotOpenHere, PageHead } from '../../ui/states.tsx';
 import { NextSteps } from './NextStep.tsx';
 import { useGroupOps } from './ops.ts';
@@ -26,7 +31,7 @@ import '../../styles/matching.css';
 export function GroupPage() {
   const { id = '' } = useParams();
   const { registry } = useApp();
-  const load = useLoad(`group:${id}`, (r) => loadGroupBundle(r, id));
+  const load = useGroupBundle(id);
   if (!registry.contractId)
     return (
       <div className="page">
@@ -72,12 +77,31 @@ export function stonesOf(view: GroupView, me: string | null, nameOf: (id: string
   return stones;
 }
 
-function statusLine(v: GroupView): { text: string; tone: string } {
-  if (v.closed) return { text: GROUP_STATUS_WORDS[v.group.status] ?? 'Closed', tone: 'muted' };
-  if (v.ready) return { text: 'Ready to form', tone: 'ok' };
-  if (v.locked) return { text: v.hashOk ? `Terms locked · ${v.approvedCount} of ${v.shares.length} approved` : 'Locked terms do not match', tone: v.hashOk ? 'wait' : 'bad' };
-  if (v.full) return { text: 'Full · agreeing terms', tone: 'wait' };
-  return { text: v.remaining ? `${dash(v.remaining)} still open` : 'Shares complete · waiting for seats', tone: 'ok' };
+function statusLine(v: GroupView, stage: Stage, reg: GroupRegistrations): { text: string; tone: string } {
+  const chain = reg.primary;
+  switch (stage) {
+    case 'live':
+      return { text: chain!.headline, tone: 'ok' };
+    case 'mismatch':
+      return { text: chain!.headline, tone: 'bad' };
+    case 'linked':
+      if (chain) return { text: chain.headline, tone: 'wait' };
+      return { text: reg.state.status === 'error' ? 'Registration linked · the chain could not be read' : 'Registration linked · checking the chain…', tone: 'wait' };
+    case 'dissolved':
+      return { text: chain ? 'Dissolved (the chain shows it left the masternode list)' : (GROUP_STATUS_WORDS[GROUP_STATUS.dissolved] ?? 'Dissolved'), tone: 'muted' };
+    case 'closed':
+      return { text: GROUP_STATUS_WORDS[v.group.status] ?? 'Closed', tone: 'muted' };
+    case 'session-started':
+      return { text: 'Ready to form · Dash-Qt session started', tone: 'ok' };
+    case 'ready':
+      return { text: 'Ready to form', tone: 'ok' };
+    case 'locked':
+      return { text: v.hashOk ? `Terms locked · ${v.approvedCount} of ${v.shares.length} approved` : 'Locked terms do not match', tone: v.hashOk ? 'wait' : 'bad' };
+    case 'full':
+      return { text: 'Full · agreeing terms', tone: 'wait' };
+    case 'open':
+      return { text: v.remaining ? `${dash(v.remaining)} still open` : 'Shares complete · waiting for seats', tone: 'ok' };
+  }
 }
 
 function GroupBody({ bundle, reload, refreshing }: { bundle: GroupBundle; reload(): void; refreshing: boolean }) {
@@ -92,10 +116,15 @@ function GroupBody({ bundle, reload, refreshing }: { bundle: GroupBundle; reload
   );
   const people = usePeople(ids);
   const myListing = useMyOperator(me);
-  const steps = nextSteps(view, { id: me, isOperator: myListing.status === 'ready' && !!myListing.data });
+  const reg = useGroupRegistrations(view);
+  const stage = stageOf(view, reg.primary);
+  const steps = nextSteps(view, { id: me, isOperator: myListing.status === 'ready' && !!myListing.data }, stage);
   const ops = useGroupOps(bundle, me);
   const organizer = me === g.ownerId;
-  const status = statusLine(view);
+  const status = statusLine(view, stage, reg);
+  const forming = isUnderway(stage);
+  const formed = isFormed(stage);
+  useScrollToHash(stage);
   const nameOf = (id: string) => people.get(id)?.name ?? null;
   return (
     <>
@@ -120,10 +149,11 @@ function GroupBody({ bundle, reload, refreshing }: { bundle: GroupBundle; reload
           )}
         </p>
       </PageHead>
+      {(view.locked || view.linked.length > 0) && <GroupTabs id={g.id} />}
       {view.voided.length > 0 && !view.ready && (
         <p className="voided" role="note" data-testid="voided">
-          {view.voided.length === 1 ? 'One approval' : `${view.voided.length} approvals`} of revision {g.revision - 1} no longer count: the terms changed after
-          {view.voided.length === 1 ? ' it' : ' them'}. {view.locked ? 'Members approve revision ' + g.revision + ' again.' : 'Members approve again once the organizer locks the new terms.'}
+          {view.voided.length === 1 ? 'One approval' : `${view.voided.length} approvals`} of revision {g.termsRevision - 1} no longer count: the terms changed after
+          {view.voided.length === 1 ? ' it' : ' them'}. {view.locked ? 'Members approve revision ' + g.termsRevision + ' again.' : 'Members approve again once the organizer locks the new terms.'}
         </p>
       )}
       <div className="group-top">
@@ -133,18 +163,18 @@ function GroupBody({ bundle, reload, refreshing }: { bundle: GroupBundle; reload
         </div>
       </div>
       <div className="group-main">
-        <Roster view={view} people={people} me={me} ops={ops} done={reload} />
-        {view.locked ? <TermSheetSection view={view} people={people} me={me} ops={ops} done={reload} /> : <Terms view={view} people={people} me={me} />}
+        <Roster view={view} people={people} me={me} ops={ops} done={reload} frozen={formed} />
+        {view.locked ? <TermSheetSection view={view} people={people} me={me} ops={ops} done={reload} formed={formed} /> : <Terms view={view} people={people} me={me} />}
         {organizer && !view.closed && (
           <>
             {view.remaining > 0 && !view.locked && <InviteSection view={view} people={people} ops={ops} done={reload} />}
             {!view.operatorLed && !view.locked && <OperatorSection view={view} people={people} ops={ops} done={reload} />}
-            {(view.full || view.locked) && <LockSection view={view} people={people} ops={ops} done={reload} />}
-            <EditTerms view={view} ops={ops} done={reload} />
+            {(view.full || view.locked) && !forming && <LockSection view={view} people={people} ops={ops} done={reload} />}
+            <EditTerms view={view} ops={ops} done={reload} frozen={formed} />
           </>
         )}
-        {me && g.status === GROUP_STATUS.dissolved && g.roster.some((r) => r.id === me) && <RefillPanel view={view} people={people} me={me} />}
-        {view.locked && !view.ready && (
+        {me && stage === 'dissolved' && g.roster.some((r) => r.id === me) && <RefillPanel view={view} people={people} me={me} />}
+        {view.locked && !view.ready && !forming && (
           <p className="small muted form-link">
             Formation opens here once everyone has approved: <Link to={`/g/${g.id}/form`}>Next: form it in Dash Core →</Link>
           </p>

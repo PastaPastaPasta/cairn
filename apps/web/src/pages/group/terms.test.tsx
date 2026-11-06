@@ -11,7 +11,7 @@ import { TermSheetSection } from './Terms.tsx';
 
 function lockedBundle(): { b: GroupBundle; hash: string } {
   const g = group({ roster: [{ id: A, amount: D(600) }, { id: B, amount: D(400) }], status: GROUP_STATUS.full });
-  const b: GroupBundle = { group: g, docRevision: 2, seats: [seat(A, D(600), { flags: SEAT_FLAG.canCoordinate, votingAddress: VOTING }), seat(B, D(400))], opAccepts: [opAccept()], invites: [], approvals: [], voided: [] };
+  const b: GroupBundle = { group: g, seats: [seat(A, D(600), { flags: SEAT_FLAG.canCoordinate, votingAddress: VOTING }), seat(B, D(400))], opAccepts: [opAccept()], invites: [], approvals: [], voided: [] };
   const p = lockPlan(groupView(b, 'testnet'), { coordinatorId: A, votingHolderId: A, labels: ['Ana', 'Bo'] });
   return { b: { ...b, group: { ...g, ...p.fields } }, hash: p.hash! };
 }

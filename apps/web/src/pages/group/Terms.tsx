@@ -72,7 +72,8 @@ export function Terms({ view, people, me }: { view: GroupView; people: Map<strin
   );
 }
 
-export function TermSheetSection({ view, people, me, ops, done }: { view: GroupView; people: Map<string, Person>; me: string | null; ops: GroupOps; done(): void }) {
+/** `formed`: a registration is linked (or the masternode dissolved), so readiness to form is history and is not shown. */
+export function TermSheetSection({ view, people, me, ops, done, formed = false }: { view: GroupView; people: Map<string, Person>; me: string | null; ops: GroupOps; done(): void; formed?: boolean }) {
   const g = view.group;
   const sheet = view.sheet!;
   const mine = me ? view.shares.find((s) => s.id === me) : undefined;
@@ -96,7 +97,7 @@ export function TermSheetSection({ view, people, me, ops, done }: { view: GroupV
     <section className="section term-sheet" id="terms" aria-labelledby="sheet-title" data-testid="term-sheet">
       <h2 id="sheet-title">The locked terms</h2>
       <p className="lede-s">
-        Revision {g.revision}. This is what each co-owner approves, and what every Dash Core message is later checked against. Your addresses are not here: you enter them in Dash Core.
+        Revision {g.termsRevision}. This is what each co-owner approves, and what every Dash Core message is later checked against. Your addresses are not here: you enter them in Dash Core.
       </p>
       <div className={`hash-check ${view.hashOk ? 'ok' : 'bad'}`} role={view.hashOk ? undefined : 'alert'} data-testid="hash-check">
         {view.hashOk
@@ -165,7 +166,12 @@ export function TermSheetSection({ view, people, me, ops, done }: { view: GroupV
         <p className="small">Canonical term sheet (sha256 of “cairn-terms-v1” and this):</p>
         <pre className="canonical">{canonicalize(sheet)}</pre>
       </details>
-      {mine && (
+      {mine && formed && (
+        <p className="small muted" data-testid="approval-kept">
+          The masternode is registered, so your approval stays as the record the chain is checked against. To leave, dissolve in Dash-Qt (see the live page).
+        </p>
+      )}
+      {mine && !formed && (
         <div className="approve-box" data-testid="approve-box">
           {mine.approval === 'approved' ? (
             <>
@@ -198,7 +204,7 @@ export function TermSheetSection({ view, people, me, ops, done }: { view: GroupV
           <WriteStatus busy={busy} error={error} />
         </div>
       )}
-      {view.ready ? (
+      {formed ? null : view.ready ? (
         <div className="ready-banner" data-testid="ready">
           <p>
             <b>Ready to form.</b> Every co-owner approved these exact terms.

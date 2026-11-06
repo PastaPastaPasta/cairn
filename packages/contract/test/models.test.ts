@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { base58, base64 } from '@scure/base';
-import { keyIdToAddress } from '@cairn/shares';
+import { keyIdToAddress, validateTermSheet } from '@cairn/shares';
 import {
   CAIRN_SCHEMAS, DocError, GROUP_STATUS, OP_ACCEPT_STATUS, SEAT_FLAG, approvalData, createOp, deleteOp, groupData, inviteData, lookingData, opAcceptData,
   operatorData, parseService, profileData, replaceOp, seatData, toApproval, toGroup, toInvite, toLooking, toOpAccept, toOperator, toProfile, toSeat,
-  type DocData, type DocType, type GroupFields, type RawDoc,
+  termSheetFromGroup, type DocData, type DocType, type GroupFields, type RawDoc,
 } from '../src/index.ts';
 
 const A = base58.encode(new Uint8Array(32).fill(1));
@@ -99,7 +99,7 @@ describe('operator and looking', () => {
       expect(() => lookingData({ ...f, amount })).toThrow(/100 to 900/);
       expect(() => seatData({ groupId: C, amount, status: 1 }, 'testnet')).toThrow(/100 to 900/);
       expect(() => inviteData({ groupId: C, toId: B, amount, status: 1 })).toThrow(/100 to 900/);
-      expect(() => approvalData({ groupId: C, revision: 1, termsHash: 'aa'.repeat(32), shareAmount: amount })).toThrow(/100 to 900/);
+      expect(() => approvalData({ groupId: C, termsRevision: 1, termsHash: 'aa'.repeat(32), shareAmount: amount })).toThrow(/100 to 900/);
     }
   });
 });
@@ -107,7 +107,7 @@ describe('operator and looking', () => {
 describe('group', () => {
   const base: GroupFields = {
     title: "Lena's node", mnType: 1, operatorId: B, rewardBps: 500, earlyPeriodBlocks: 52_560, earlyPenalty: 10 * DASH,
-    roster: [{ id: A, amount: 400 * DASH }, { id: B, amount: 250 * DASH }], revision: 0, status: GROUP_STATUS.forming,
+    roster: [{ id: A, amount: 400 * DASH }, { id: B, amount: 250 * DASH }], termsRevision: 0, status: GROUP_STATUS.forming,
   };
 
   it('round-trips every field', () => {
@@ -244,7 +244,7 @@ describe('seat, invite, approval, opAccept', () => {
     expect(() => seatData({ ...seat, votingAddress: VOTE_MAIN }, 'testnet')).toThrow(/P2PKH/);
     expect(() => seatData({ ...seat, flags: 70_000 }, 'testnet')).toThrow(DocError);
     expect(toInvite(stored('invite', inviteData({ groupId: C, toId: B, amount: 200 * DASH, status: 1 })))).toMatchObject({ groupId: C, toId: B, amount: 200 * DASH, status: 1 });
-    expect(toApproval(stored('approval', approvalData({ groupId: C, revision: 2, termsHash: 'aa'.repeat(32), shareAmount: 300 * DASH })))).toMatchObject({ groupId: C, revision: 2, termsHash: 'aa'.repeat(32) });
+    expect(toApproval(stored('approval', approvalData({ groupId: C, termsRevision: 2, termsHash: 'aa'.repeat(32), shareAmount: 300 * DASH })))).toMatchObject({ groupId: C, termsRevision: 2, termsHash: 'aa'.repeat(32) });
   });
 
   it('opAccept: the operator\'s answer, with the key, service and reward the organizer copies into the group', () => {
@@ -258,6 +258,42 @@ describe('seat, invite, approval, opAccept', () => {
     expect(() => opAcceptData({ ...f, rewardBps: 10_001 }, 'mainnet')).toThrow(DocError);
     expect(() => opAcceptData({ ...f, votingAddress: VOTE_TEST }, 'mainnet')).toThrow(/P2PKH/);
     expect(toOpAccept({ ...stored('opAccept', opAcceptData(f, 'mainnet')), service: 'javascript:alert(1)' }).service).toBeUndefined();
+  });
+});
+
+describe('document revision vs terms revision', () => {
+  // toGroup once spread the terms `revision` over the document's `$revision`, so a group replace sent the wrong revision
+  it('keeps the document $revision apart from every data field, in every model', () => {
+    const group = groupData({ title: 'g', mnType: 1, operatorId: B, rewardBps: 0, earlyPeriodBlocks: 0, earlyPenalty: 0, roster: [{ id: A, amount: 400 * DASH }], termsRevision: 3, status: GROUP_STATUS.forming }, 'testnet');
+    const g = toGroup(stored('group', group, 7), 'testnet');
+    expect(g.docRevision).toBe(7);
+    expect(g.termsRevision).toBe(3);
+    expect(replaceOp('X', 'group', g.id, g.docRevision, groupData(g, 'testnet'))).toMatchObject({ revision: 7, data: { revision: 3 } });
+    const a = toApproval(stored('approval', approvalData({ groupId: C, termsRevision: 4, termsHash: 'aa'.repeat(32), shareAmount: 300 * DASH }), 1));
+    expect(a).toMatchObject({ docRevision: 1, termsRevision: 4 });
+    // no model has a field named like a system one, so none can shadow it
+    for (const type of Object.keys(CAIRN_SCHEMAS) as DocType[]) {
+      const props = Object.keys(CAIRN_SCHEMAS[type]!.properties);
+      expect(props.filter((k) => ['id', 'ownerId', 'docRevision', 'createdAt', 'updatedAt'].includes(k)), type).toEqual([]);
+    }
+  });
+});
+
+describe('termSheetFromGroup', () => {
+  it('builds the canonical sheet from the group fields, with empty strings for what is missing', () => {
+    const f = {
+      roster: [{ id: A, amount: 600 * DASH, label: 'Ana' }, { id: B, amount: 400 * DASH, label: 'Bo' }], termsRevision: 2, operatorPubKey: 'AB'.repeat(48), service: '34.212.1.7:19999',
+      votingAddress: VOTE_TEST, votingHolderId: A, rewardBps: 500, earlyPeriodBlocks: 10, earlyPenalty: DASH, coordinatorId: A,
+    };
+    const t = termSheetFromGroup(C, f, 'testnet');
+    expect(t).toEqual({
+      network: 'test', groupId: C, revision: 2, shares: [{ memberId: A, label: 'Ana', amount: 600n * BigInt(DASH) }, { memberId: B, label: 'Bo', amount: 400n * BigInt(DASH) }],
+      operatorPubKey: 'ab'.repeat(48), service: '34.212.1.7:19999', votingAddress: VOTE_TEST, votingHolderId: A, rewardBps: 500, earlyPeriodBlocks: 10, earlyPenalty: BigInt(DASH), coordinatorId: A,
+    });
+    expect(validateTermSheet(t)).toEqual([]);
+    const bare = termSheetFromGroup(C, { ...f, operatorPubKey: undefined, votingAddress: undefined, coordinatorId: undefined, roster: [{ id: A, amount: 600 * DASH }, f.roster[1]!] }, 'mainnet');
+    expect(bare).toMatchObject({ network: 'main', operatorPubKey: '', votingAddress: '', coordinatorId: '', shares: [{ label: '' }, { label: 'Bo' }] });
+    expect(validateTermSheet(bare).length).toBeGreaterThan(0);
   });
 });
 

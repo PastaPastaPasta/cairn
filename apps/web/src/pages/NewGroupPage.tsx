@@ -146,7 +146,7 @@ function NewGroupForm({ identityId }: { identityId: string }) {
     chatUrl: chat.trim() || undefined,
     formBy: formBy ? Math.floor(new Date(`${formBy}T23:59:59`).getTime() / 1000) : undefined,
     roster: ownRoster,
-    revision: 1,
+    termsRevision: 1,
     status: GROUP_STATUS.forming,
     flags: openAmounts ? GROUP_FLAG.openAmounts : 0,
   });

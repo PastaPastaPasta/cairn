@@ -10,7 +10,7 @@ const PAGES = [
   { name: 'groups-new', path: '/groups/new' },
   { name: 'looking', path: '/looking', settle: listSettled },
   { name: 'operators', path: '/operators', settle: listSettled },
-  { name: 'operator', path: `/operators/${DEMO_OPERATOR}`, testId: 'track-record-slot' },
+  { name: 'operator', path: `/operators/${DEMO_OPERATOR}`, testId: 'track-summary' },
   { name: 'group', path: `/g/${DEMO_GROUP}`, testId: 'group-status' },
   { name: 'me', path: '/me' },
 ];

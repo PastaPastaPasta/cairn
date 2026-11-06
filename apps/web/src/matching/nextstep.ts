@@ -1,7 +1,9 @@
-// "Your next step" on a group page: one step per role the viewer has in the group (DESIGN M7: one clear next step for me).
+// "Your next step" on a group page: one step per role the viewer has in the group (DESIGN M7: one clear next step for me), through
+// the whole life of the group: matching and agreeing here, forming on /g/:id/form, the masternode on /g/:id/live.
 import { OP_ACCEPT_STATUS, SEAT_FLAG } from '@cairn/contract';
 import type { GroupView } from './group.ts';
 import { dash, pct } from './money.ts';
+import { isFormed, isUnderway, stageOf, type Stage } from './stage.ts';
 
 export type Role = 'visitor' | 'requester' | 'invitee' | 'member' | 'organizer' | 'operator';
 
@@ -16,6 +18,9 @@ export type StepAction =
   | 'approve'
   | 'reapprove'
   | 'form'
+  | 'check'
+  | 'live'
+  | 'refill'
   | 'review-requests'
   | 'fix-roster'
   | 'invite'
@@ -63,17 +68,37 @@ export function rolesOf(v: GroupView, viewerId: string | null): Role[] {
 
 const waitingFor = (n: number, of: number) => `${of - n} of ${of} still to approve.`;
 
-export function nextSteps(v: GroupView, viewer: Viewer): Step[] {
+/** `stage` defaults to what the documents alone say; pages that checked the linked registration on chain pass that stage. */
+export function nextSteps(v: GroupView, viewer: Viewer, stage: Stage = stageOf(v, null)): Step[] {
   return rolesOf(v, viewer.id).flatMap((role) => {
-    const s = stepFor(role, v, viewer);
+    const s = stepFor(role, v, viewer, stage);
     return s ? [s] : [];
   });
 }
 
-function stepFor(role: Role, v: GroupView, viewer: Viewer): Step | null {
+/** Where a step is done: the group page, the form page (and its checker), the live page, or the refill panel. */
+export function stepHref(step: Pick<Step, 'action'>, groupId: string): string {
+  const base = `/g/${groupId}`;
+  switch (step.action) {
+    case 'form':
+      return `${base}/form`;
+    case 'check':
+      return `${base}/form#checker`;
+    case 'live':
+      return `${base}/live`;
+    case 'refill':
+      return `${base}#refill`;
+    default:
+      return base;
+  }
+}
+
+function stepFor(role: Role, v: GroupView, viewer: Viewer, stage: Stage): Step | null {
   const g = v.group;
   const me = viewer.id;
   const step = (tone: Step['tone'], title: string, text: string, action: StepAction): Step => ({ role, tone, title, text, action });
+  const later = laterStep(role, v, me, stage, step);
+  if (later !== undefined) return later;
   if (v.closed) return role === 'visitor' ? null : step('done', 'This group is closed', 'The organizer closed this group. Nothing more to do here.', 'none');
 
   switch (role) {
@@ -104,6 +129,36 @@ function stepFor(role: Role, v: GroupView, viewer: Viewer): Step | null {
 }
 
 type Make = (tone: Step['tone'], title: string, text: string, action: StepAction) => Step;
+
+/** Steps once the group is ready to form and after; undefined hands earlier stages to the per-role steps below. */
+function laterStep(role: Role, v: GroupView, me: string | null, stage: Stage, step: Make): Step | null | undefined {
+  const g = v.group;
+  const coOwner = !!me && v.shares.some((s) => s.id === me);
+  // an organizer who co-owns or operates gets one step, in that role
+  if (role === 'organizer' && (coOwner || g.operatorId === me) && isUnderway(stage)) return null;
+  switch (stage) {
+    case 'session-started':
+      if (role === 'member')
+        return g.coordinatorId === me
+          ? step('todo', 'Collect the replies in Dash-Qt', 'You started the session. Paste each reply into the checker before you go on; after broadcast, link the ProTx hash here.', 'form')
+          : step('todo', 'Check each message before you act', 'The coordinator started the Dash-Qt session. Paste every message into the checker before you reply or sign in your wallet.', 'check');
+      if (role === 'organizer' || role === 'operator') return step('wait', 'Forming in Dash-Qt', 'The coordinator started the session. Once the registration is broadcast, its ProTx hash is linked on the form page.', 'form');
+      return undefined;
+    case 'linked':
+      return step('wait', 'Registration linked', 'Cairn checks it against the chain and every approval on the live page.', 'live');
+    case 'live':
+      if (role === 'operator') return step('done', 'Live (verified): keep the node running', 'Put the BLS secret key on the node and send a service update with your payout address; without it the operator reward is not paid.', 'live');
+      if (role === 'member') return step('done', 'Live (verified)', 'The chain shows exactly the masternode everyone approved. Save your standby dissolution and keep it offline.', 'live');
+      return step('done', role === 'visitor' ? 'This masternode is live' : 'Live (verified)', 'The chain shows exactly the masternode every member approved.', 'live');
+    case 'mismatch':
+      return step('warn', 'The linked registration does not match', 'It is not what every member approved. Nobody should treat it as this group’s masternode; the live page shows what differs.', 'live');
+    case 'dissolved':
+      if (role === 'member') return step('todo', 'The masternode was dissolved', 'Every share went back to its refund address. Reopen with the same terms; only the leavers’ amount needs filling.', 'refill');
+      return role === 'visitor' ? null : step('done', 'The masternode was dissolved', 'Every share went back to its refund address.', v.linked.length ? 'live' : 'none');
+    default:
+      return undefined;
+  }
+}
 
 function memberStep(v: GroupView, me: string, step: Make): Step {
   const g = v.group;
@@ -159,4 +214,6 @@ function operatorStep(v: GroupView, step: Make): Step | null {
 /** Whether a seat offers to coordinate or hold the voting key. */
 export const seatOffers = (flags: number | undefined) => ({ coordinate: !!((flags ?? 0) & SEAT_FLAG.canCoordinate), holdKey: !!((flags ?? 0) & SEAT_FLAG.votingKeyHolder) });
 
-export const seatFlags = (coordinate: boolean, holdKey: boolean) => (coordinate ? SEAT_FLAG.canCoordinate : 0) | (holdKey ? SEAT_FLAG.votingKeyHolder : 0);
+/** A seat's flags with these two offers; other bits the seat already has (the coordinator's session start) are kept. */
+export const seatFlags = (coordinate: boolean, holdKey: boolean, prev = 0) =>
+  (prev & ~(SEAT_FLAG.canCoordinate | SEAT_FLAG.votingKeyHolder)) | (coordinate ? SEAT_FLAG.canCoordinate : 0) | (holdKey ? SEAT_FLAG.votingKeyHolder : 0);
