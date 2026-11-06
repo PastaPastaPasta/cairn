@@ -1,0 +1,76 @@
+// /check: the standalone message checker. Works without an account or a group; `?group=<id>` compares against that group's terms.
+import { Link, useSearchParams } from 'react-router-dom';
+import { useAccount } from '../app/account.tsx';
+import { useApp } from '../app/context.tsx';
+import { PageHead } from '../ui/states.tsx';
+import { Checker } from './Checker.tsx';
+import { coreNetwork, useGroupBundle } from './data.ts';
+
+export function CheckPage() {
+  const { registry } = useApp();
+  const [params] = useSearchParams();
+  const groupId = params.get('group') ?? undefined;
+  return (
+    <div className="page check-page">
+      <PageHead
+        title="Check a Dash Core message"
+        lede="Paste anything Dash-Qt’s Shared Masternode wizard gives you and see what it is, which round it belongs to, and whether it is safe to act on. It works without an account."
+      />
+      <div className="check-layout">
+        <div>{groupId && registry.contractId ? <GroupChecker groupId={groupId} /> : <Checker network={coreNetwork(registry.network)} title="Your message" />}</div>
+        <aside className="check-aside" aria-label="About the checker">
+          <h2>What it reads</h2>
+          <ul className="ticks small">
+            <li>
+              <b>Session messages</b> from all three rounds: Invitation and Details, Locked Terms and Approval, Signing Request and Signed Contribution, and the
+              Final Record.
+            </li>
+            <li>
+              <b>Approval requests</b> for dissolving together or changing the operator or voting key.
+            </li>
+            <li>
+              <b>Standby dissolution files</b> and bare transaction hex: a registration or a dissolution.
+            </li>
+          </ul>
+          <h2>Against what you agreed</h2>
+          <p className="small">
+            On its own the checker can only tell whether Dash Core would accept a message. Open it from your group’s <b>Form</b> page and it compares every share, the
+            operator, the reward, the IP address and the exit terms with the terms you approved on Cairn, and says whether it is safe to continue.
+          </p>
+          <p className="small">
+            <Link to="/learn">How forming a shared masternode works</Link>
+          </p>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function GroupChecker({ groupId }: { groupId: string }) {
+  const { registry } = useApp();
+  const { session } = useAccount();
+  const { state } = useGroupBundle(groupId);
+  if (state.status === 'loading') return <p className="muted" role="status">Reading the group’s approved terms…</p>;
+  if (state.status !== 'ready' || !state.agreement.terms || !state.agreement.lockedHashOk) {
+    return (
+      <>
+        <p className="notice-box small">
+          {state.status === 'ready' ? `“${state.bundle.group.title}” has no locked terms to compare with yet.` : 'That group could not be read.'} The checker below reads messages
+          on their own.
+        </p>
+        <Checker network={coreNetwork(registry.network)} title="Your message" />
+      </>
+    );
+  }
+  const { group } = state.bundle;
+  const mine = group.roster.find((r) => r.id === session?.identityId)?.label;
+  return (
+    <Checker
+      network={coreNetwork(registry.network)}
+      terms={state.agreement.terms}
+      myLabel={mine}
+      title={`Check against “${group.title}”`}
+      intro={`Compared with the terms every member approved, revision ${group.revision}.`}
+    />
+  );
+}
