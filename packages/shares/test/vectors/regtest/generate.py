@@ -108,13 +108,13 @@ def write_json(path, obj):
 
 def activate_v24(node, miner):
     while True:
-        info = node.json("getblockchaininfo")
-        v24 = info["softforks"]["v24"]
+        v24 = node.json("getdeploymentinfo")["deployments"]["v24"]
+        height = node.json("getblockcount")
         if v24.get("active"):
-            return info["blocks"], to_plain(v24)
-        if info["blocks"] > 3000:
+            return height, to_plain(v24)
+        if height > 1000:
             raise RuntimeError("v24 did not activate")
-        node.mine(50, miner)
+        node.mine(10, miner)
 
 
 def register(node, miner, wallets, labels, contrib, shares_rpc, service, op_pub, voting, reward_pct, period, penalty):

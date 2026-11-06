@@ -1,0 +1,982 @@
+{
+  "labels": [
+    "Alice",
+    "Bob",
+    "Carol",
+    "Alice-2"
+  ],
+  "contributions": [
+    {
+      "label": "Alice",
+      "inputs": [
+        {
+          "txid": "13b14712c5698d1707b9b649bcba160881aca851df83913b2ca0872372b2a58b",
+          "vout": 1,
+          "sequence": 4294967295
+        }
+      ],
+      "change": {
+        "address": "yTew6D5FZe96MKRZRaJu1iTQLtfpXpn7p6",
+        "amount": 2099900000
+      },
+      "changeIndex": 0
+    },
+    {
+      "label": "Bob",
+      "inputs": [
+        {
+          "txid": "d40685228f8df22837cb17310daa7b50fb073a5834ee0f54d47c96b66f56e05d",
+          "vout": 1,
+          "sequence": 4294967295
+        }
+      ],
+      "change": {
+        "address": "yNxjvzK5pMyPqpeF5ZfT9YuV9cDzKiPNFe",
+        "amount": 1000000000
+      },
+      "changeIndex": 1
+    },
+    {
+      "label": "Carol",
+      "inputs": [
+        {
+          "txid": "74fdd2f7cfb79e5dfd88e0e6fb9ebb8c450c0f1d6c0638401e4c2cbc963d0e39",
+          "vout": 0,
+          "sequence": 4294967295
+        }
+      ],
+      "change": {
+        "address": "ydHVqYwKJ5Zpbuuv4QV9HzBvwytEo5T7vZ",
+        "amount": 1000000000
+      },
+      "changeIndex": 2
+    }
+  ],
+  "fundingTx": "02000000038ba5b2722387a02c3b9183df51a8ac810816babc49b6b907178d69c51247b1130100000000ffffffff5de0566fb6967cd4540fee34583a07fb507baa0d3117cb3728f28d8f228506d40100000000ffffffff390e3d96bc2c4c1e4038066c1d0f0c458cbb9efbe6e088fd5d9eb7cff7d2fd740000000000ffffffff0360ee297d000000001976a91450785bcab62b44ba7c6104c2ecf73fc6ce92347688ac00ca9a3b000000001976a9141cfde6e4327ef81adaea0d47705b83104e7f9dea88ac00ca9a3b000000001976a914ba1bcd21c108cc9fafdc21dab5e0360e00ac5d7a88ac00000000",
+  "fundingDecoded": {
+    "txid": "e9c711f54e20ad7d72723245852ea03687d11731c5f75661f9e65fee44239d20",
+    "version": 2,
+    "type": 0,
+    "size": 235,
+    "locktime": 0,
+    "vin": [
+      {
+        "txid": "13b14712c5698d1707b9b649bcba160881aca851df83913b2ca0872372b2a58b",
+        "vout": 1,
+        "scriptSig": {
+          "asm": "",
+          "hex": ""
+        },
+        "sequence": 4294967295
+      },
+      {
+        "txid": "d40685228f8df22837cb17310daa7b50fb073a5834ee0f54d47c96b66f56e05d",
+        "vout": 1,
+        "scriptSig": {
+          "asm": "",
+          "hex": ""
+        },
+        "sequence": 4294967295
+      },
+      {
+        "txid": "74fdd2f7cfb79e5dfd88e0e6fb9ebb8c450c0f1d6c0638401e4c2cbc963d0e39",
+        "vout": 0,
+        "scriptSig": {
+          "asm": "",
+          "hex": ""
+        },
+        "sequence": 4294967295
+      }
+    ],
+    "vout": [
+      {
+        "value": "20.99900000",
+        "valueSat": 2099900000,
+        "n": 0,
+        "scriptPubKey": {
+          "asm": "OP_DUP OP_HASH160 50785bcab62b44ba7c6104c2ecf73fc6ce923476 OP_EQUALVERIFY OP_CHECKSIG",
+          "desc": "addr(yTew6D5FZe96MKRZRaJu1iTQLtfpXpn7p6)#63c9hkan",
+          "hex": "76a91450785bcab62b44ba7c6104c2ecf73fc6ce92347688ac",
+          "address": "yTew6D5FZe96MKRZRaJu1iTQLtfpXpn7p6",
+          "type": "pubkeyhash"
+        }
+      },
+      {
+        "value": "10.00000000",
+        "valueSat": 1000000000,
+        "n": 1,
+        "scriptPubKey": {
+          "asm": "OP_DUP OP_HASH160 1cfde6e4327ef81adaea0d47705b83104e7f9dea OP_EQUALVERIFY OP_CHECKSIG",
+          "desc": "addr(yNxjvzK5pMyPqpeF5ZfT9YuV9cDzKiPNFe)#qy252yrv",
+          "hex": "76a9141cfde6e4327ef81adaea0d47705b83104e7f9dea88ac",
+          "address": "yNxjvzK5pMyPqpeF5ZfT9YuV9cDzKiPNFe",
+          "type": "pubkeyhash"
+        }
+      },
+      {
+        "value": "10.00000000",
+        "valueSat": 1000000000,
+        "n": 2,
+        "scriptPubKey": {
+          "asm": "OP_DUP OP_HASH160 ba1bcd21c108cc9fafdc21dab5e0360e00ac5d7a OP_EQUALVERIFY OP_CHECKSIG",
+          "desc": "addr(ydHVqYwKJ5Zpbuuv4QV9HzBvwytEo5T7vZ)#8cf2glk9",
+          "hex": "76a914ba1bcd21c108cc9fafdc21dab5e0360e00ac5d7a88ac",
+          "address": "ydHVqYwKJ5Zpbuuv4QV9HzBvwytEo5T7vZ",
+          "type": "pubkeyhash"
+        }
+      }
+    ]
+  },
+  "prepareArgs": {
+    "fundingTx": "02000000038ba5b2722387a02c3b9183df51a8ac810816babc49b6b907178d69c51247b1130100000000ffffffff5de0566fb6967cd4540fee34583a07fb507baa0d3117cb3728f28d8f228506d40100000000ffffffff390e3d96bc2c4c1e4038066c1d0f0c458cbb9efbe6e088fd5d9eb7cff7d2fd740000000000ffffffff0360ee297d000000001976a91450785bcab62b44ba7c6104c2ecf73fc6ce92347688ac00ca9a3b000000001976a9141cfde6e4327ef81adaea0d47705b83104e7f9dea88ac00ca9a3b000000001976a914ba1bcd21c108cc9fafdc21dab5e0360e00ac5d7a88ac00000000",
+    "shares": [
+      {
+        "amount": 40000000000,
+        "refundAddress": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+        "ownerAddress": "yZrBtj4Zw9M8ZKnxve3r2nPUAN4RuUSt6P"
+      },
+      {
+        "amount": 30000000000,
+        "refundAddress": "yZoHCyYyhTci47b2cWVUdXXc4ixVTxYVow",
+        "rewardAddress": "8fJMQPwrhs75xg4fSdT2QQCgh6EnkoSSsj",
+        "ownerAddress": "yWVR9tJUZubVo6HJvuFNsWFPUvvfDTj2KE"
+      },
+      {
+        "amount": 20000000000,
+        "refundAddress": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+        "ownerAddress": "yP9ZErcg5GxXaVqQwkeiaq9FkEsukUwUo3"
+      },
+      {
+        "amount": 10000000000,
+        "refundAddress": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+        "ownerAddress": "yZNsUG3Q41AgBohPKpc4mnfJHKnBPYgDaq"
+      }
+    ],
+    "coreP2PAddrs": "",
+    "operatorPubKey": "a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf575",
+    "votingAddress": "yYLT19cFAeST4hKZFwLcfZHwXqowcynYfv",
+    "operatorReward": "0",
+    "earlyPeriodBlocks": 0,
+    "earlyPenalty": 0
+  },
+  "prepared": {
+    "tx": "03000100038ba5b2722387a02c3b9183df51a8ac810816babc49b6b907178d69c51247b1130100000000ffffffff5de0566fb6967cd4540fee34583a07fb507baa0d3117cb3728f28d8f228506d40100000000ffffffff390e3d96bc2c4c1e4038066c1d0f0c458cbb9efbe6e088fd5d9eb7cff7d2fd740000000000ffffffff0460ee297d000000001976a91450785bcab62b44ba7c6104c2ecf73fc6ce92347688ac00ca9a3b000000001976a9141cfde6e4327ef81adaea0d47705b83104e7f9dea88ac00ca9a3b000000001976a914ba1bcd21c108cc9fafdc21dab5e0360e00ac5d7a88ac00e8764817000000070444534843755100000000fdaa0203000000000000000000000000000000000000000000000000000000000000000000000000000300000001000000000000000000000000000000000000000000a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf57583d20ddb0e05af3cfc48403b57141aaf57455d1b0000000400902f50090000001976a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac00946a0b819d93e6179cd7277b50863654fb4f14ba00ac23fc060000001976a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac17a914099ff38383b92ac24ec0b788b0224d296dbfd8f8876f94009f39fe76105b21f581f24c8087c4606b4900c817a80400000017a914b89fae87286cae959f3d1d58c9720ea8d7345d5387001f098d647c3c912cde7aa70c4e2ebc7a73c1665600e40b54020000001976a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac008f3f6faba627fd48dcfcb753cba0a18fde5fed04000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000052c8726cbddaec5ef524f99e5eaa33be56d6b50ec659c0bc0bb252bfc92d9ca300",
+    "collateralIndex": 3,
+    "consentHash": "90c04f526790d0dc37d4a00c6bc1f71fa18653e89cdb4c4ace9d999a18b1e1e9",
+    "terms": {
+      "version": 3,
+      "type": 0,
+      "collateralHash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "collateralIndex": 3,
+      "addresses": {},
+      "votingAddress": "yYLT19cFAeST4hKZFwLcfZHwXqowcynYfv",
+      "shares": [
+        {
+          "amount": 40000000000,
+          "refundAddress": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+          "refundScript": "76a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac",
+          "rewardAddress": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+          "rewardScript": "76a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac",
+          "ownerAddress": "yZrBtj4Zw9M8ZKnxve3r2nPUAN4RuUSt6P"
+        },
+        {
+          "amount": 30000000000,
+          "refundAddress": "yZoHCyYyhTci47b2cWVUdXXc4ixVTxYVow",
+          "refundScript": "76a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac",
+          "rewardAddress": "8fJMQPwrhs75xg4fSdT2QQCgh6EnkoSSsj",
+          "rewardScript": "a914099ff38383b92ac24ec0b788b0224d296dbfd8f887",
+          "ownerAddress": "yWVR9tJUZubVo6HJvuFNsWFPUvvfDTj2KE"
+        },
+        {
+          "amount": 20000000000,
+          "refundAddress": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+          "refundScript": "a914b89fae87286cae959f3d1d58c9720ea8d7345d5387",
+          "rewardAddress": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+          "rewardScript": "a914b89fae87286cae959f3d1d58c9720ea8d7345d5387",
+          "ownerAddress": "yP9ZErcg5GxXaVqQwkeiaq9FkEsukUwUo3"
+        },
+        {
+          "amount": 10000000000,
+          "refundAddress": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+          "refundScript": "76a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac",
+          "rewardAddress": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+          "rewardScript": "76a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac",
+          "ownerAddress": "yZNsUG3Q41AgBohPKpc4mnfJHKnBPYgDaq"
+        }
+      ],
+      "earlyPeriodBlocks": 0,
+      "earlyPenalty": 0,
+      "pubKeyOperator": "a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf575",
+      "operatorReward": 0,
+      "inputsHash": "a39c2dc9bf52b20bbcc059c60eb5d656be33aa5e9ef924f55eecdabd6c72c852"
+    },
+    "warning": "earlyPenalty is zero: any participant can force an early exit at no cost beyond the transaction fee"
+  },
+  "preparedDecoded": {
+    "txid": "346686972aad788f9a3b11d1d540e6ee4d6f5ead64c0cbd4b9d07b3dcc237aea",
+    "version": 3,
+    "type": 1,
+    "size": 936,
+    "locktime": 0,
+    "vin": [
+      {
+        "txid": "13b14712c5698d1707b9b649bcba160881aca851df83913b2ca0872372b2a58b",
+        "vout": 1,
+        "scriptSig": {
+          "asm": "",
+          "hex": ""
+        },
+        "sequence": 4294967295
+      },
+      {
+        "txid": "d40685228f8df22837cb17310daa7b50fb073a5834ee0f54d47c96b66f56e05d",
+        "vout": 1,
+        "scriptSig": {
+          "asm": "",
+          "hex": ""
+        },
+        "sequence": 4294967295
+      },
+      {
+        "txid": "74fdd2f7cfb79e5dfd88e0e6fb9ebb8c450c0f1d6c0638401e4c2cbc963d0e39",
+        "vout": 0,
+        "scriptSig": {
+          "asm": "",
+          "hex": ""
+        },
+        "sequence": 4294967295
+      }
+    ],
+    "vout": [
+      {
+        "value": "20.99900000",
+        "valueSat": 2099900000,
+        "n": 0,
+        "scriptPubKey": {
+          "asm": "OP_DUP OP_HASH160 50785bcab62b44ba7c6104c2ecf73fc6ce923476 OP_EQUALVERIFY OP_CHECKSIG",
+          "desc": "addr(yTew6D5FZe96MKRZRaJu1iTQLtfpXpn7p6)#63c9hkan",
+          "hex": "76a91450785bcab62b44ba7c6104c2ecf73fc6ce92347688ac",
+          "address": "yTew6D5FZe96MKRZRaJu1iTQLtfpXpn7p6",
+          "type": "pubkeyhash"
+        }
+      },
+      {
+        "value": "10.00000000",
+        "valueSat": 1000000000,
+        "n": 1,
+        "scriptPubKey": {
+          "asm": "OP_DUP OP_HASH160 1cfde6e4327ef81adaea0d47705b83104e7f9dea OP_EQUALVERIFY OP_CHECKSIG",
+          "desc": "addr(yNxjvzK5pMyPqpeF5ZfT9YuV9cDzKiPNFe)#qy252yrv",
+          "hex": "76a9141cfde6e4327ef81adaea0d47705b83104e7f9dea88ac",
+          "address": "yNxjvzK5pMyPqpeF5ZfT9YuV9cDzKiPNFe",
+          "type": "pubkeyhash"
+        }
+      },
+      {
+        "value": "10.00000000",
+        "valueSat": 1000000000,
+        "n": 2,
+        "scriptPubKey": {
+          "asm": "OP_DUP OP_HASH160 ba1bcd21c108cc9fafdc21dab5e0360e00ac5d7a OP_EQUALVERIFY OP_CHECKSIG",
+          "desc": "addr(ydHVqYwKJ5Zpbuuv4QV9HzBvwytEo5T7vZ)#8cf2glk9",
+          "hex": "76a914ba1bcd21c108cc9fafdc21dab5e0360e00ac5d7a88ac",
+          "address": "ydHVqYwKJ5Zpbuuv4QV9HzBvwytEo5T7vZ",
+          "type": "pubkeyhash"
+        }
+      },
+      {
+        "value": "1000.00000000",
+        "valueSat": 100000000000,
+        "n": 3,
+        "scriptPubKey": {
+          "asm": "1128813380 OP_DROP 1",
+          "desc": "raw(04445348437551)#r4kf3m9f",
+          "hex": "04445348437551",
+          "type": "nonstandard"
+        }
+      }
+    ],
+    "extraPayloadSize": 682,
+    "extraPayload": "03000000000000000000000000000000000000000000000000000000000000000000000000000300000001000000000000000000000000000000000000000000a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf57583d20ddb0e05af3cfc48403b57141aaf57455d1b0000000400902f50090000001976a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac00946a0b819d93e6179cd7277b50863654fb4f14ba00ac23fc060000001976a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac17a914099ff38383b92ac24ec0b788b0224d296dbfd8f8876f94009f39fe76105b21f581f24c8087c4606b4900c817a80400000017a914b89fae87286cae959f3d1d58c9720ea8d7345d5387001f098d647c3c912cde7aa70c4e2ebc7a73c1665600e40b54020000001976a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac008f3f6faba627fd48dcfcb753cba0a18fde5fed04000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000052c8726cbddaec5ef524f99e5eaa33be56d6b50ec659c0bc0bb252bfc92d9ca300",
+    "proRegTx": {
+      "version": 3,
+      "type": 0,
+      "collateralHash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "collateralIndex": 3,
+      "addresses": {},
+      "votingAddress": "yYLT19cFAeST4hKZFwLcfZHwXqowcynYfv",
+      "shares": [
+        {
+          "amount": 40000000000,
+          "refundAddress": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+          "refundScript": "76a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac",
+          "rewardAddress": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+          "rewardScript": "76a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac",
+          "ownerAddress": "yZrBtj4Zw9M8ZKnxve3r2nPUAN4RuUSt6P"
+        },
+        {
+          "amount": 30000000000,
+          "refundAddress": "yZoHCyYyhTci47b2cWVUdXXc4ixVTxYVow",
+          "refundScript": "76a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac",
+          "rewardAddress": "8fJMQPwrhs75xg4fSdT2QQCgh6EnkoSSsj",
+          "rewardScript": "a914099ff38383b92ac24ec0b788b0224d296dbfd8f887",
+          "ownerAddress": "yWVR9tJUZubVo6HJvuFNsWFPUvvfDTj2KE"
+        },
+        {
+          "amount": 20000000000,
+          "refundAddress": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+          "refundScript": "a914b89fae87286cae959f3d1d58c9720ea8d7345d5387",
+          "rewardAddress": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+          "rewardScript": "a914b89fae87286cae959f3d1d58c9720ea8d7345d5387",
+          "ownerAddress": "yP9ZErcg5GxXaVqQwkeiaq9FkEsukUwUo3"
+        },
+        {
+          "amount": 10000000000,
+          "refundAddress": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+          "refundScript": "76a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac",
+          "rewardAddress": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+          "rewardScript": "76a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac",
+          "ownerAddress": "yZNsUG3Q41AgBohPKpc4mnfJHKnBPYgDaq"
+        }
+      ],
+      "earlyPeriodBlocks": 0,
+      "earlyPenalty": 0,
+      "pubKeyOperator": "a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf575",
+      "operatorReward": 0,
+      "inputsHash": "a39c2dc9bf52b20bbcc059c60eb5d656be33aa5e9ef924f55eecdabd6c72c852"
+    }
+  },
+  "sharedSign": {
+    "w1": {
+      "type": "registration",
+      "terms": {
+        "version": 3,
+        "type": 0,
+        "collateralHash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "collateralIndex": 3,
+        "addresses": {},
+        "votingAddress": "yYLT19cFAeST4hKZFwLcfZHwXqowcynYfv",
+        "shares": [
+          {
+            "amount": 40000000000,
+            "refundAddress": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+            "refundScript": "76a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac",
+            "rewardAddress": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+            "rewardScript": "76a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac",
+            "ownerAddress": "yZrBtj4Zw9M8ZKnxve3r2nPUAN4RuUSt6P"
+          },
+          {
+            "amount": 30000000000,
+            "refundAddress": "yZoHCyYyhTci47b2cWVUdXXc4ixVTxYVow",
+            "refundScript": "76a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac",
+            "rewardAddress": "8fJMQPwrhs75xg4fSdT2QQCgh6EnkoSSsj",
+            "rewardScript": "a914099ff38383b92ac24ec0b788b0224d296dbfd8f887",
+            "ownerAddress": "yWVR9tJUZubVo6HJvuFNsWFPUvvfDTj2KE"
+          },
+          {
+            "amount": 20000000000,
+            "refundAddress": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+            "refundScript": "a914b89fae87286cae959f3d1d58c9720ea8d7345d5387",
+            "rewardAddress": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+            "rewardScript": "a914b89fae87286cae959f3d1d58c9720ea8d7345d5387",
+            "ownerAddress": "yP9ZErcg5GxXaVqQwkeiaq9FkEsukUwUo3"
+          },
+          {
+            "amount": 10000000000,
+            "refundAddress": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+            "refundScript": "76a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac",
+            "rewardAddress": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+            "rewardScript": "76a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac",
+            "ownerAddress": "yZNsUG3Q41AgBohPKpc4mnfJHKnBPYgDaq"
+          }
+        ],
+        "earlyPeriodBlocks": 0,
+        "earlyPenalty": 0,
+        "pubKeyOperator": "a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf575",
+        "operatorReward": 0,
+        "inputsHash": "a39c2dc9bf52b20bbcc059c60eb5d656be33aa5e9ef924f55eecdabd6c72c852"
+      },
+      "warning": "earlyPenalty is zero: any participant can force an early exit at no cost beyond the transaction fee",
+      "signatures": [
+        {
+          "shareIndex": 0,
+          "signature": "IF1mBiwyutqOh4dwLhhyU/5P/DzIvdsvBhra10WRtTj+e2GpoxqjKkpNw9DBkkPBeDH+qTITlApQIdtzgGmkkbI="
+        },
+        {
+          "shareIndex": 3,
+          "signature": "Hyt9zeZXv1EyLToiHljYi7OtNUpLMT0uA4zgVDnr7lb6ABXMvkpterJwmP+6A7xgCobh7u8T9JZAUhB3+Ahtobc="
+        }
+      ]
+    },
+    "w2": {
+      "type": "registration",
+      "terms": {
+        "version": 3,
+        "type": 0,
+        "collateralHash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "collateralIndex": 3,
+        "addresses": {},
+        "votingAddress": "yYLT19cFAeST4hKZFwLcfZHwXqowcynYfv",
+        "shares": [
+          {
+            "amount": 40000000000,
+            "refundAddress": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+            "refundScript": "76a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac",
+            "rewardAddress": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+            "rewardScript": "76a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac",
+            "ownerAddress": "yZrBtj4Zw9M8ZKnxve3r2nPUAN4RuUSt6P"
+          },
+          {
+            "amount": 30000000000,
+            "refundAddress": "yZoHCyYyhTci47b2cWVUdXXc4ixVTxYVow",
+            "refundScript": "76a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac",
+            "rewardAddress": "8fJMQPwrhs75xg4fSdT2QQCgh6EnkoSSsj",
+            "rewardScript": "a914099ff38383b92ac24ec0b788b0224d296dbfd8f887",
+            "ownerAddress": "yWVR9tJUZubVo6HJvuFNsWFPUvvfDTj2KE"
+          },
+          {
+            "amount": 20000000000,
+            "refundAddress": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+            "refundScript": "a914b89fae87286cae959f3d1d58c9720ea8d7345d5387",
+            "rewardAddress": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+            "rewardScript": "a914b89fae87286cae959f3d1d58c9720ea8d7345d5387",
+            "ownerAddress": "yP9ZErcg5GxXaVqQwkeiaq9FkEsukUwUo3"
+          },
+          {
+            "amount": 10000000000,
+            "refundAddress": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+            "refundScript": "76a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac",
+            "rewardAddress": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+            "rewardScript": "76a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac",
+            "ownerAddress": "yZNsUG3Q41AgBohPKpc4mnfJHKnBPYgDaq"
+          }
+        ],
+        "earlyPeriodBlocks": 0,
+        "earlyPenalty": 0,
+        "pubKeyOperator": "a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf575",
+        "operatorReward": 0,
+        "inputsHash": "a39c2dc9bf52b20bbcc059c60eb5d656be33aa5e9ef924f55eecdabd6c72c852"
+      },
+      "warning": "earlyPenalty is zero: any participant can force an early exit at no cost beyond the transaction fee",
+      "signatures": [
+        {
+          "shareIndex": 1,
+          "signature": "H83PkTvceBPk/M0PRauo+k2KWL3dKakxKjAh43Y0Xf1LHQcAxjvhyUSb9vRK1rh6hbFcD5a8hw4oZDlA16b4Rsc="
+        }
+      ]
+    },
+    "w3": {
+      "type": "registration",
+      "terms": {
+        "version": 3,
+        "type": 0,
+        "collateralHash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "collateralIndex": 3,
+        "addresses": {},
+        "votingAddress": "yYLT19cFAeST4hKZFwLcfZHwXqowcynYfv",
+        "shares": [
+          {
+            "amount": 40000000000,
+            "refundAddress": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+            "refundScript": "76a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac",
+            "rewardAddress": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+            "rewardScript": "76a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac",
+            "ownerAddress": "yZrBtj4Zw9M8ZKnxve3r2nPUAN4RuUSt6P"
+          },
+          {
+            "amount": 30000000000,
+            "refundAddress": "yZoHCyYyhTci47b2cWVUdXXc4ixVTxYVow",
+            "refundScript": "76a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac",
+            "rewardAddress": "8fJMQPwrhs75xg4fSdT2QQCgh6EnkoSSsj",
+            "rewardScript": "a914099ff38383b92ac24ec0b788b0224d296dbfd8f887",
+            "ownerAddress": "yWVR9tJUZubVo6HJvuFNsWFPUvvfDTj2KE"
+          },
+          {
+            "amount": 20000000000,
+            "refundAddress": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+            "refundScript": "a914b89fae87286cae959f3d1d58c9720ea8d7345d5387",
+            "rewardAddress": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+            "rewardScript": "a914b89fae87286cae959f3d1d58c9720ea8d7345d5387",
+            "ownerAddress": "yP9ZErcg5GxXaVqQwkeiaq9FkEsukUwUo3"
+          },
+          {
+            "amount": 10000000000,
+            "refundAddress": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+            "refundScript": "76a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac",
+            "rewardAddress": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+            "rewardScript": "76a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac",
+            "ownerAddress": "yZNsUG3Q41AgBohPKpc4mnfJHKnBPYgDaq"
+          }
+        ],
+        "earlyPeriodBlocks": 0,
+        "earlyPenalty": 0,
+        "pubKeyOperator": "a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf575",
+        "operatorReward": 0,
+        "inputsHash": "a39c2dc9bf52b20bbcc059c60eb5d656be33aa5e9ef924f55eecdabd6c72c852"
+      },
+      "warning": "earlyPenalty is zero: any participant can force an early exit at no cost beyond the transaction fee",
+      "signatures": [
+        {
+          "shareIndex": 2,
+          "signature": "IFVBflPXQERzM/NRg21lNTP7/ZfTT5BjQ6qBZ6ns3is7Ut7WO0IIz0mnwY2pzWhzNBcTFi+ULbJ4Lmmukvp2fRM="
+        }
+      ]
+    }
+  },
+  "signatures": [
+    {
+      "shareIndex": 0,
+      "signature": "IF1mBiwyutqOh4dwLhhyU/5P/DzIvdsvBhra10WRtTj+e2GpoxqjKkpNw9DBkkPBeDH+qTITlApQIdtzgGmkkbI="
+    },
+    {
+      "shareIndex": 1,
+      "signature": "H83PkTvceBPk/M0PRauo+k2KWL3dKakxKjAh43Y0Xf1LHQcAxjvhyUSb9vRK1rh6hbFcD5a8hw4oZDlA16b4Rsc="
+    },
+    {
+      "shareIndex": 2,
+      "signature": "IFVBflPXQERzM/NRg21lNTP7/ZfTT5BjQ6qBZ6ns3is7Ut7WO0IIz0mnwY2pzWhzNBcTFi+ULbJ4Lmmukvp2fRM="
+    },
+    {
+      "shareIndex": 3,
+      "signature": "Hyt9zeZXv1EyLToiHljYi7OtNUpLMT0uA4zgVDnr7lb6ABXMvkpterJwmP+6A7xgCobh7u8T9JZAUhB3+Ahtobc="
+    }
+  ],
+  "combined": "03000100038ba5b2722387a02c3b9183df51a8ac810816babc49b6b907178d69c51247b1130100000000ffffffff5de0566fb6967cd4540fee34583a07fb507baa0d3117cb3728f28d8f228506d40100000000ffffffff390e3d96bc2c4c1e4038066c1d0f0c458cbb9efbe6e088fd5d9eb7cff7d2fd740000000000ffffffff0460ee297d000000001976a91450785bcab62b44ba7c6104c2ecf73fc6ce92347688ac00ca9a3b000000001976a9141cfde6e4327ef81adaea0d47705b83104e7f9dea88ac00ca9a3b000000001976a914ba1bcd21c108cc9fafdc21dab5e0360e00ac5d7a88ac00e8764817000000070444534843755100000000fdaa0203000000000000000000000000000000000000000000000000000000000000000000000000000300000001000000000000000000000000000000000000000000a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf57583d20ddb0e05af3cfc48403b57141aaf57455d1b0000000400902f50090000001976a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac00946a0b819d93e6179cd7277b50863654fb4f14ba00ac23fc060000001976a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac17a914099ff38383b92ac24ec0b788b0224d296dbfd8f8876f94009f39fe76105b21f581f24c8087c4606b4900c817a80400000017a914b89fae87286cae959f3d1d58c9720ea8d7345d5387001f098d647c3c912cde7aa70c4e2ebc7a73c1665600e40b54020000001976a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac008f3f6faba627fd48dcfcb753cba0a18fde5fed04205d66062c32bada8e8787702e187253fe4ffc3cc8bddb2f061adad74591b538fe7b61a9a31aa32a4a4dc3d0c19243c17831fea93213940a5021db738069a491b21fcdcf913bdc7813e4fccd0f45aba8fa4d8a58bddd29a9312a3021e376345dfd4b1d0700c63be1c9449bf6f44ad6b87a85b15c0f96bc870e28643940d7a6f846c72055417e53d740447333f351836d653533fbfd97d34f906343aa8167a9ecde2b3b52ded63b4208cf49a7c18da9cd6873341713162f942db2782e69ae92fa767d131f2b7dcde657bf51322d3a221e58d88bb3ad354a4b313d2e038ce05439ebee56fa0015ccbe4a6d7ab27098ffba03bc600a86e1eeef13f49640521077f8086da1b700000000000000000000000052c8726cbddaec5ef524f99e5eaa33be56d6b50ec659c0bc0bb252bfc92d9ca300",
+  "fundingSigned": [
+    {
+      "wallet": "w1",
+      "hex": "03000100038ba5b2722387a02c3b9183df51a8ac810816babc49b6b907178d69c51247b113010000006a473044022032890d1f39b944987e3725c18dc0154b10d61715a30c6b4502991a6e78b878f702206542a43d71c0dec92ca1b696732a4b44562e048d6c6813000cfbc103999ee98c012102af0857ee9bdc7b3ecc641a9c232eba1837a5aa8ffefaa2bbb159428c52b39bc7ffffffff5de0566fb6967cd4540fee34583a07fb507baa0d3117cb3728f28d8f228506d40100000000ffffffff390e3d96bc2c4c1e4038066c1d0f0c458cbb9efbe6e088fd5d9eb7cff7d2fd740000000000ffffffff0460ee297d000000001976a91450785bcab62b44ba7c6104c2ecf73fc6ce92347688ac00ca9a3b000000001976a9141cfde6e4327ef81adaea0d47705b83104e7f9dea88ac00ca9a3b000000001976a914ba1bcd21c108cc9fafdc21dab5e0360e00ac5d7a88ac00e8764817000000070444534843755100000000fdaa0203000000000000000000000000000000000000000000000000000000000000000000000000000300000001000000000000000000000000000000000000000000a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf57583d20ddb0e05af3cfc48403b57141aaf57455d1b0000000400902f50090000001976a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac00946a0b819d93e6179cd7277b50863654fb4f14ba00ac23fc060000001976a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac17a914099ff38383b92ac24ec0b788b0224d296dbfd8f8876f94009f39fe76105b21f581f24c8087c4606b4900c817a80400000017a914b89fae87286cae959f3d1d58c9720ea8d7345d5387001f098d647c3c912cde7aa70c4e2ebc7a73c1665600e40b54020000001976a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac008f3f6faba627fd48dcfcb753cba0a18fde5fed04205d66062c32bada8e8787702e187253fe4ffc3cc8bddb2f061adad74591b538fe7b61a9a31aa32a4a4dc3d0c19243c17831fea93213940a5021db738069a491b21fcdcf913bdc7813e4fccd0f45aba8fa4d8a58bddd29a9312a3021e376345dfd4b1d0700c63be1c9449bf6f44ad6b87a85b15c0f96bc870e28643940d7a6f846c72055417e53d740447333f351836d653533fbfd97d34f906343aa8167a9ecde2b3b52ded63b4208cf49a7c18da9cd6873341713162f942db2782e69ae92fa767d131f2b7dcde657bf51322d3a221e58d88bb3ad354a4b313d2e038ce05439ebee56fa0015ccbe4a6d7ab27098ffba03bc600a86e1eeef13f49640521077f8086da1b700000000000000000000000052c8726cbddaec5ef524f99e5eaa33be56d6b50ec659c0bc0bb252bfc92d9ca300",
+      "complete": false
+    },
+    {
+      "wallet": "w2",
+      "hex": "03000100038ba5b2722387a02c3b9183df51a8ac810816babc49b6b907178d69c51247b113010000006a473044022032890d1f39b944987e3725c18dc0154b10d61715a30c6b4502991a6e78b878f702206542a43d71c0dec92ca1b696732a4b44562e048d6c6813000cfbc103999ee98c012102af0857ee9bdc7b3ecc641a9c232eba1837a5aa8ffefaa2bbb159428c52b39bc7ffffffff5de0566fb6967cd4540fee34583a07fb507baa0d3117cb3728f28d8f228506d4010000006a47304402201cd5ed1d39ff4e47078b5eeb9e47e6c0fb676664b0b088ffbb0bbfe2741df92902200a47805d02fe3b8cef8aaa8158da45d0294e2d73e57192816454ef4ad830f691012102c5944b381f11127aa90b57d6321db2e1b2130562dec58ddb272fc2564c658c3effffffff390e3d96bc2c4c1e4038066c1d0f0c458cbb9efbe6e088fd5d9eb7cff7d2fd740000000000ffffffff0460ee297d000000001976a91450785bcab62b44ba7c6104c2ecf73fc6ce92347688ac00ca9a3b000000001976a9141cfde6e4327ef81adaea0d47705b83104e7f9dea88ac00ca9a3b000000001976a914ba1bcd21c108cc9fafdc21dab5e0360e00ac5d7a88ac00e8764817000000070444534843755100000000fdaa0203000000000000000000000000000000000000000000000000000000000000000000000000000300000001000000000000000000000000000000000000000000a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf57583d20ddb0e05af3cfc48403b57141aaf57455d1b0000000400902f50090000001976a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac00946a0b819d93e6179cd7277b50863654fb4f14ba00ac23fc060000001976a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac17a914099ff38383b92ac24ec0b788b0224d296dbfd8f8876f94009f39fe76105b21f581f24c8087c4606b4900c817a80400000017a914b89fae87286cae959f3d1d58c9720ea8d7345d5387001f098d647c3c912cde7aa70c4e2ebc7a73c1665600e40b54020000001976a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac008f3f6faba627fd48dcfcb753cba0a18fde5fed04205d66062c32bada8e8787702e187253fe4ffc3cc8bddb2f061adad74591b538fe7b61a9a31aa32a4a4dc3d0c19243c17831fea93213940a5021db738069a491b21fcdcf913bdc7813e4fccd0f45aba8fa4d8a58bddd29a9312a3021e376345dfd4b1d0700c63be1c9449bf6f44ad6b87a85b15c0f96bc870e28643940d7a6f846c72055417e53d740447333f351836d653533fbfd97d34f906343aa8167a9ecde2b3b52ded63b4208cf49a7c18da9cd6873341713162f942db2782e69ae92fa767d131f2b7dcde657bf51322d3a221e58d88bb3ad354a4b313d2e038ce05439ebee56fa0015ccbe4a6d7ab27098ffba03bc600a86e1eeef13f49640521077f8086da1b700000000000000000000000052c8726cbddaec5ef524f99e5eaa33be56d6b50ec659c0bc0bb252bfc92d9ca300",
+      "complete": false
+    },
+    {
+      "wallet": "w3",
+      "hex": "03000100038ba5b2722387a02c3b9183df51a8ac810816babc49b6b907178d69c51247b113010000006a473044022032890d1f39b944987e3725c18dc0154b10d61715a30c6b4502991a6e78b878f702206542a43d71c0dec92ca1b696732a4b44562e048d6c6813000cfbc103999ee98c012102af0857ee9bdc7b3ecc641a9c232eba1837a5aa8ffefaa2bbb159428c52b39bc7ffffffff5de0566fb6967cd4540fee34583a07fb507baa0d3117cb3728f28d8f228506d4010000006a47304402201cd5ed1d39ff4e47078b5eeb9e47e6c0fb676664b0b088ffbb0bbfe2741df92902200a47805d02fe3b8cef8aaa8158da45d0294e2d73e57192816454ef4ad830f691012102c5944b381f11127aa90b57d6321db2e1b2130562dec58ddb272fc2564c658c3effffffff390e3d96bc2c4c1e4038066c1d0f0c458cbb9efbe6e088fd5d9eb7cff7d2fd74000000006a47304402205f9ae24605b6f603e011871bc5ff741401b7576e4e01d0f86bd17323f15041a102204dcae87114ddefddddeede737ec772f04261c8e421ce06f67ed0345e47aaf4880121027d04db10e124f298d9cd16b966ee514a30ab3be59d9248ef1851d5aceebfc37fffffffff0460ee297d000000001976a91450785bcab62b44ba7c6104c2ecf73fc6ce92347688ac00ca9a3b000000001976a9141cfde6e4327ef81adaea0d47705b83104e7f9dea88ac00ca9a3b000000001976a914ba1bcd21c108cc9fafdc21dab5e0360e00ac5d7a88ac00e8764817000000070444534843755100000000fdaa0203000000000000000000000000000000000000000000000000000000000000000000000000000300000001000000000000000000000000000000000000000000a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf57583d20ddb0e05af3cfc48403b57141aaf57455d1b0000000400902f50090000001976a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac00946a0b819d93e6179cd7277b50863654fb4f14ba00ac23fc060000001976a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac17a914099ff38383b92ac24ec0b788b0224d296dbfd8f8876f94009f39fe76105b21f581f24c8087c4606b4900c817a80400000017a914b89fae87286cae959f3d1d58c9720ea8d7345d5387001f098d647c3c912cde7aa70c4e2ebc7a73c1665600e40b54020000001976a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac008f3f6faba627fd48dcfcb753cba0a18fde5fed04205d66062c32bada8e8787702e187253fe4ffc3cc8bddb2f061adad74591b538fe7b61a9a31aa32a4a4dc3d0c19243c17831fea93213940a5021db738069a491b21fcdcf913bdc7813e4fccd0f45aba8fa4d8a58bddd29a9312a3021e376345dfd4b1d0700c63be1c9449bf6f44ad6b87a85b15c0f96bc870e28643940d7a6f846c72055417e53d740447333f351836d653533fbfd97d34f906343aa8167a9ecde2b3b52ded63b4208cf49a7c18da9cd6873341713162f942db2782e69ae92fa767d131f2b7dcde657bf51322d3a221e58d88bb3ad354a4b313d2e038ce05439ebee56fa0015ccbe4a6d7ab27098ffba03bc600a86e1eeef13f49640521077f8086da1b700000000000000000000000052c8726cbddaec5ef524f99e5eaa33be56d6b50ec659c0bc0bb252bfc92d9ca300",
+      "complete": true
+    }
+  ],
+  "final": "03000100038ba5b2722387a02c3b9183df51a8ac810816babc49b6b907178d69c51247b113010000006a473044022032890d1f39b944987e3725c18dc0154b10d61715a30c6b4502991a6e78b878f702206542a43d71c0dec92ca1b696732a4b44562e048d6c6813000cfbc103999ee98c012102af0857ee9bdc7b3ecc641a9c232eba1837a5aa8ffefaa2bbb159428c52b39bc7ffffffff5de0566fb6967cd4540fee34583a07fb507baa0d3117cb3728f28d8f228506d4010000006a47304402201cd5ed1d39ff4e47078b5eeb9e47e6c0fb676664b0b088ffbb0bbfe2741df92902200a47805d02fe3b8cef8aaa8158da45d0294e2d73e57192816454ef4ad830f691012102c5944b381f11127aa90b57d6321db2e1b2130562dec58ddb272fc2564c658c3effffffff390e3d96bc2c4c1e4038066c1d0f0c458cbb9efbe6e088fd5d9eb7cff7d2fd74000000006a47304402205f9ae24605b6f603e011871bc5ff741401b7576e4e01d0f86bd17323f15041a102204dcae87114ddefddddeede737ec772f04261c8e421ce06f67ed0345e47aaf4880121027d04db10e124f298d9cd16b966ee514a30ab3be59d9248ef1851d5aceebfc37fffffffff0460ee297d000000001976a91450785bcab62b44ba7c6104c2ecf73fc6ce92347688ac00ca9a3b000000001976a9141cfde6e4327ef81adaea0d47705b83104e7f9dea88ac00ca9a3b000000001976a914ba1bcd21c108cc9fafdc21dab5e0360e00ac5d7a88ac00e8764817000000070444534843755100000000fdaa0203000000000000000000000000000000000000000000000000000000000000000000000000000300000001000000000000000000000000000000000000000000a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf57583d20ddb0e05af3cfc48403b57141aaf57455d1b0000000400902f50090000001976a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac00946a0b819d93e6179cd7277b50863654fb4f14ba00ac23fc060000001976a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac17a914099ff38383b92ac24ec0b788b0224d296dbfd8f8876f94009f39fe76105b21f581f24c8087c4606b4900c817a80400000017a914b89fae87286cae959f3d1d58c9720ea8d7345d5387001f098d647c3c912cde7aa70c4e2ebc7a73c1665600e40b54020000001976a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac008f3f6faba627fd48dcfcb753cba0a18fde5fed04205d66062c32bada8e8787702e187253fe4ffc3cc8bddb2f061adad74591b538fe7b61a9a31aa32a4a4dc3d0c19243c17831fea93213940a5021db738069a491b21fcdcf913bdc7813e4fccd0f45aba8fa4d8a58bddd29a9312a3021e376345dfd4b1d0700c63be1c9449bf6f44ad6b87a85b15c0f96bc870e28643940d7a6f846c72055417e53d740447333f351836d653533fbfd97d34f906343aa8167a9ecde2b3b52ded63b4208cf49a7c18da9cd6873341713162f942db2782e69ae92fa767d131f2b7dcde657bf51322d3a221e58d88bb3ad354a4b313d2e038ce05439ebee56fa0015ccbe4a6d7ab27098ffba03bc600a86e1eeef13f49640521077f8086da1b700000000000000000000000052c8726cbddaec5ef524f99e5eaa33be56d6b50ec659c0bc0bb252bfc92d9ca300",
+  "finalDecoded": {
+    "txid": "a4c6f3f6875f13c895ded57c50a021f2f279be4dc36717398eb1eea9119d7912",
+    "version": 3,
+    "type": 1,
+    "size": 1254,
+    "locktime": 0,
+    "vin": [
+      {
+        "txid": "13b14712c5698d1707b9b649bcba160881aca851df83913b2ca0872372b2a58b",
+        "vout": 1,
+        "scriptSig": {
+          "asm": "3044022032890d1f39b944987e3725c18dc0154b10d61715a30c6b4502991a6e78b878f702206542a43d71c0dec92ca1b696732a4b44562e048d6c6813000cfbc103999ee98c[ALL] 02af0857ee9bdc7b3ecc641a9c232eba1837a5aa8ffefaa2bbb159428c52b39bc7",
+          "hex": "473044022032890d1f39b944987e3725c18dc0154b10d61715a30c6b4502991a6e78b878f702206542a43d71c0dec92ca1b696732a4b44562e048d6c6813000cfbc103999ee98c012102af0857ee9bdc7b3ecc641a9c232eba1837a5aa8ffefaa2bbb159428c52b39bc7"
+        },
+        "sequence": 4294967295
+      },
+      {
+        "txid": "d40685228f8df22837cb17310daa7b50fb073a5834ee0f54d47c96b66f56e05d",
+        "vout": 1,
+        "scriptSig": {
+          "asm": "304402201cd5ed1d39ff4e47078b5eeb9e47e6c0fb676664b0b088ffbb0bbfe2741df92902200a47805d02fe3b8cef8aaa8158da45d0294e2d73e57192816454ef4ad830f691[ALL] 02c5944b381f11127aa90b57d6321db2e1b2130562dec58ddb272fc2564c658c3e",
+          "hex": "47304402201cd5ed1d39ff4e47078b5eeb9e47e6c0fb676664b0b088ffbb0bbfe2741df92902200a47805d02fe3b8cef8aaa8158da45d0294e2d73e57192816454ef4ad830f691012102c5944b381f11127aa90b57d6321db2e1b2130562dec58ddb272fc2564c658c3e"
+        },
+        "sequence": 4294967295
+      },
+      {
+        "txid": "74fdd2f7cfb79e5dfd88e0e6fb9ebb8c450c0f1d6c0638401e4c2cbc963d0e39",
+        "vout": 0,
+        "scriptSig": {
+          "asm": "304402205f9ae24605b6f603e011871bc5ff741401b7576e4e01d0f86bd17323f15041a102204dcae87114ddefddddeede737ec772f04261c8e421ce06f67ed0345e47aaf488[ALL] 027d04db10e124f298d9cd16b966ee514a30ab3be59d9248ef1851d5aceebfc37f",
+          "hex": "47304402205f9ae24605b6f603e011871bc5ff741401b7576e4e01d0f86bd17323f15041a102204dcae87114ddefddddeede737ec772f04261c8e421ce06f67ed0345e47aaf4880121027d04db10e124f298d9cd16b966ee514a30ab3be59d9248ef1851d5aceebfc37f"
+        },
+        "sequence": 4294967295
+      }
+    ],
+    "vout": [
+      {
+        "value": "20.99900000",
+        "valueSat": 2099900000,
+        "n": 0,
+        "scriptPubKey": {
+          "asm": "OP_DUP OP_HASH160 50785bcab62b44ba7c6104c2ecf73fc6ce923476 OP_EQUALVERIFY OP_CHECKSIG",
+          "desc": "addr(yTew6D5FZe96MKRZRaJu1iTQLtfpXpn7p6)#63c9hkan",
+          "hex": "76a91450785bcab62b44ba7c6104c2ecf73fc6ce92347688ac",
+          "address": "yTew6D5FZe96MKRZRaJu1iTQLtfpXpn7p6",
+          "type": "pubkeyhash"
+        }
+      },
+      {
+        "value": "10.00000000",
+        "valueSat": 1000000000,
+        "n": 1,
+        "scriptPubKey": {
+          "asm": "OP_DUP OP_HASH160 1cfde6e4327ef81adaea0d47705b83104e7f9dea OP_EQUALVERIFY OP_CHECKSIG",
+          "desc": "addr(yNxjvzK5pMyPqpeF5ZfT9YuV9cDzKiPNFe)#qy252yrv",
+          "hex": "76a9141cfde6e4327ef81adaea0d47705b83104e7f9dea88ac",
+          "address": "yNxjvzK5pMyPqpeF5ZfT9YuV9cDzKiPNFe",
+          "type": "pubkeyhash"
+        }
+      },
+      {
+        "value": "10.00000000",
+        "valueSat": 1000000000,
+        "n": 2,
+        "scriptPubKey": {
+          "asm": "OP_DUP OP_HASH160 ba1bcd21c108cc9fafdc21dab5e0360e00ac5d7a OP_EQUALVERIFY OP_CHECKSIG",
+          "desc": "addr(ydHVqYwKJ5Zpbuuv4QV9HzBvwytEo5T7vZ)#8cf2glk9",
+          "hex": "76a914ba1bcd21c108cc9fafdc21dab5e0360e00ac5d7a88ac",
+          "address": "ydHVqYwKJ5Zpbuuv4QV9HzBvwytEo5T7vZ",
+          "type": "pubkeyhash"
+        }
+      },
+      {
+        "value": "1000.00000000",
+        "valueSat": 100000000000,
+        "n": 3,
+        "scriptPubKey": {
+          "asm": "1128813380 OP_DROP 1",
+          "desc": "raw(04445348437551)#r4kf3m9f",
+          "hex": "04445348437551",
+          "type": "nonstandard"
+        }
+      }
+    ],
+    "extraPayloadSize": 682,
+    "extraPayload": "03000000000000000000000000000000000000000000000000000000000000000000000000000300000001000000000000000000000000000000000000000000a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf57583d20ddb0e05af3cfc48403b57141aaf57455d1b0000000400902f50090000001976a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac00946a0b819d93e6179cd7277b50863654fb4f14ba00ac23fc060000001976a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac17a914099ff38383b92ac24ec0b788b0224d296dbfd8f8876f94009f39fe76105b21f581f24c8087c4606b4900c817a80400000017a914b89fae87286cae959f3d1d58c9720ea8d7345d5387001f098d647c3c912cde7aa70c4e2ebc7a73c1665600e40b54020000001976a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac008f3f6faba627fd48dcfcb753cba0a18fde5fed04205d66062c32bada8e8787702e187253fe4ffc3cc8bddb2f061adad74591b538fe7b61a9a31aa32a4a4dc3d0c19243c17831fea93213940a5021db738069a491b21fcdcf913bdc7813e4fccd0f45aba8fa4d8a58bddd29a9312a3021e376345dfd4b1d0700c63be1c9449bf6f44ad6b87a85b15c0f96bc870e28643940d7a6f846c72055417e53d740447333f351836d653533fbfd97d34f906343aa8167a9ecde2b3b52ded63b4208cf49a7c18da9cd6873341713162f942db2782e69ae92fa767d131f2b7dcde657bf51322d3a221e58d88bb3ad354a4b313d2e038ce05439ebee56fa0015ccbe4a6d7ab27098ffba03bc600a86e1eeef13f49640521077f8086da1b700000000000000000000000052c8726cbddaec5ef524f99e5eaa33be56d6b50ec659c0bc0bb252bfc92d9ca300",
+    "proRegTx": {
+      "version": 3,
+      "type": 0,
+      "collateralHash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "collateralIndex": 3,
+      "addresses": {},
+      "votingAddress": "yYLT19cFAeST4hKZFwLcfZHwXqowcynYfv",
+      "shares": [
+        {
+          "amount": 40000000000,
+          "refundAddress": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+          "refundScript": "76a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac",
+          "rewardAddress": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+          "rewardScript": "76a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac",
+          "ownerAddress": "yZrBtj4Zw9M8ZKnxve3r2nPUAN4RuUSt6P"
+        },
+        {
+          "amount": 30000000000,
+          "refundAddress": "yZoHCyYyhTci47b2cWVUdXXc4ixVTxYVow",
+          "refundScript": "76a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac",
+          "rewardAddress": "8fJMQPwrhs75xg4fSdT2QQCgh6EnkoSSsj",
+          "rewardScript": "a914099ff38383b92ac24ec0b788b0224d296dbfd8f887",
+          "ownerAddress": "yWVR9tJUZubVo6HJvuFNsWFPUvvfDTj2KE"
+        },
+        {
+          "amount": 20000000000,
+          "refundAddress": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+          "refundScript": "a914b89fae87286cae959f3d1d58c9720ea8d7345d5387",
+          "rewardAddress": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+          "rewardScript": "a914b89fae87286cae959f3d1d58c9720ea8d7345d5387",
+          "ownerAddress": "yP9ZErcg5GxXaVqQwkeiaq9FkEsukUwUo3"
+        },
+        {
+          "amount": 10000000000,
+          "refundAddress": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+          "refundScript": "76a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac",
+          "rewardAddress": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+          "rewardScript": "76a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac",
+          "ownerAddress": "yZNsUG3Q41AgBohPKpc4mnfJHKnBPYgDaq"
+        }
+      ],
+      "earlyPeriodBlocks": 0,
+      "earlyPenalty": 0,
+      "pubKeyOperator": "a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf575",
+      "operatorReward": 0,
+      "inputsHash": "a39c2dc9bf52b20bbcc059c60eb5d656be33aa5e9ef924f55eecdabd6c72c852"
+    }
+  },
+  "proTxHash": "a4c6f3f6875f13c895ded57c50a021f2f279be4dc36717398eb1eea9119d7912",
+  "registeredBlock": {
+    "hash": "3018c69df35e6558e65dcacdd9e1b7320e2a5713aa8fe36c3c1a167d239f273e",
+    "height": 118
+  },
+  "protxInfo": {
+    "type": "Regular",
+    "proTxHash": "a4c6f3f6875f13c895ded57c50a021f2f279be4dc36717398eb1eea9119d7912",
+    "collateralHash": "a4c6f3f6875f13c895ded57c50a021f2f279be4dc36717398eb1eea9119d7912",
+    "collateralIndex": 3,
+    "operatorReward": 0,
+    "state": {
+      "version": 3,
+      "addresses": {},
+      "registeredHeight": 118,
+      "lastPaidHeight": 0,
+      "consecutivePayments": 0,
+      "PoSePenalty": 0,
+      "PoSeRevivedHeight": -1,
+      "PoSeBanHeight": 118,
+      "revocationReason": 0,
+      "votingAddress": "yYLT19cFAeST4hKZFwLcfZHwXqowcynYfv",
+      "shares": [
+        {
+          "amount": 40000000000,
+          "refundAddress": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+          "refundScript": "76a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac",
+          "rewardAddress": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+          "rewardScript": "76a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac",
+          "ownerAddress": "yZrBtj4Zw9M8ZKnxve3r2nPUAN4RuUSt6P"
+        },
+        {
+          "amount": 30000000000,
+          "refundAddress": "yZoHCyYyhTci47b2cWVUdXXc4ixVTxYVow",
+          "refundScript": "76a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac",
+          "rewardAddress": "8fJMQPwrhs75xg4fSdT2QQCgh6EnkoSSsj",
+          "rewardScript": "a914099ff38383b92ac24ec0b788b0224d296dbfd8f887",
+          "ownerAddress": "yWVR9tJUZubVo6HJvuFNsWFPUvvfDTj2KE"
+        },
+        {
+          "amount": 20000000000,
+          "refundAddress": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+          "refundScript": "a914b89fae87286cae959f3d1d58c9720ea8d7345d5387",
+          "rewardAddress": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+          "rewardScript": "a914b89fae87286cae959f3d1d58c9720ea8d7345d5387",
+          "ownerAddress": "yP9ZErcg5GxXaVqQwkeiaq9FkEsukUwUo3"
+        },
+        {
+          "amount": 10000000000,
+          "refundAddress": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+          "refundScript": "76a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac",
+          "rewardAddress": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+          "rewardScript": "76a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac",
+          "ownerAddress": "yZNsUG3Q41AgBohPKpc4mnfJHKnBPYgDaq"
+        }
+      ],
+      "earlyPeriodBlocks": 0,
+      "earlyPenalty": 0,
+      "pubKeyOperator": "a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf575"
+    },
+    "confirmations": 1,
+    "metaInfo": {
+      "lastDSQ": 0,
+      "mixingTxCount": 0,
+      "outboundAttemptCount": 0,
+      "lastOutboundAttempt": 0,
+      "lastOutboundAttemptElapsed": 1793986295,
+      "lastOutboundSuccess": 0,
+      "lastOutboundSuccessElapsed": 1793986295,
+      "is_platform_banned": false,
+      "platform_ban_height_updated": 0
+    }
+  },
+  "unanimousDissolve": {
+    "prepared": {
+      "tx": "03000a000112799d11a9eeb18e391767c34dbe79f2f221a0507cd5de95c8135f87f6f3c6a40300000000ffffffff0400902f50090000001976a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac00ac23fc060000001976a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac00c817a80400000017a914b89fae87286cae959f3d1d58c9720ea8d7345d5387605d0a54020000001976a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac0000000025010012799d11a9eeb18e391767c34dbe79f2f221a0507cd5de95c8135f87f6f3c6a4030000",
+      "signHash": "b8f9bb5b558cd6215c9fa2d2bf1b1f95219e7a527047ab81085bc67023e14c93"
+    },
+    "sharedSign": {
+      "w1": {
+        "type": "dissolution",
+        "terms": {
+          "version": 1,
+          "proTxHash": "a4c6f3f6875f13c895ded57c50a021f2f279be4dc36717398eb1eea9119d7912",
+          "actorIndex": 3,
+          "sigCount": 0,
+          "outputs": [
+            {
+              "address": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+              "amount": "400.00000000"
+            },
+            {
+              "address": "yZoHCyYyhTci47b2cWVUdXXc4ixVTxYVow",
+              "amount": "300.00000000"
+            },
+            {
+              "address": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+              "amount": "200.00000000"
+            },
+            {
+              "address": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+              "amount": "99.99900000"
+            }
+          ]
+        },
+        "signatures": [
+          {
+            "shareIndex": 0,
+            "signature": "IJyOTSK9oGRbIXaXTe3E8cIFMSq5auyebISxSsM+ttaiBdGvK6Ixo7cRb9n9D2PVZQNbwvcbBa5gx9doVhTau9Y="
+          },
+          {
+            "shareIndex": 3,
+            "signature": "H1xkc+4KllrLMyDzzPK+NkgAOfLcP6tIQgYs2xcrO9hYcSLBp3lq+SSK6OgNZsTnqKnVAB8wh77+8YBFHGX1KBE="
+          }
+        ]
+      },
+      "w2": {
+        "type": "dissolution",
+        "terms": {
+          "version": 1,
+          "proTxHash": "a4c6f3f6875f13c895ded57c50a021f2f279be4dc36717398eb1eea9119d7912",
+          "actorIndex": 3,
+          "sigCount": 0,
+          "outputs": [
+            {
+              "address": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+              "amount": "400.00000000"
+            },
+            {
+              "address": "yZoHCyYyhTci47b2cWVUdXXc4ixVTxYVow",
+              "amount": "300.00000000"
+            },
+            {
+              "address": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+              "amount": "200.00000000"
+            },
+            {
+              "address": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+              "amount": "99.99900000"
+            }
+          ]
+        },
+        "signatures": [
+          {
+            "shareIndex": 1,
+            "signature": "IPR+F8fBKqSEOEmuifw4nU1Vwwi3xdZyOqh8x/aGzLqXd07oJIC+C3Geuq2pVRsFUyvh17jyJp60Qnpp0xDonks="
+          }
+        ]
+      },
+      "w3": {
+        "type": "dissolution",
+        "terms": {
+          "version": 1,
+          "proTxHash": "a4c6f3f6875f13c895ded57c50a021f2f279be4dc36717398eb1eea9119d7912",
+          "actorIndex": 3,
+          "sigCount": 0,
+          "outputs": [
+            {
+              "address": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+              "amount": "400.00000000"
+            },
+            {
+              "address": "yZoHCyYyhTci47b2cWVUdXXc4ixVTxYVow",
+              "amount": "300.00000000"
+            },
+            {
+              "address": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+              "amount": "200.00000000"
+            },
+            {
+              "address": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+              "amount": "99.99900000"
+            }
+          ]
+        },
+        "signatures": [
+          {
+            "shareIndex": 2,
+            "signature": "H+b5RibR978W4yr95SZVp+2nKjW2hL0DudPCA3TX6M1ESAKTOrA1fc+5THxIhoMz6yGsR6Ar36mobJDPtIjaxiA="
+          }
+        ]
+      }
+    },
+    "signatures": [
+      {
+        "shareIndex": 0,
+        "signature": "IJyOTSK9oGRbIXaXTe3E8cIFMSq5auyebISxSsM+ttaiBdGvK6Ixo7cRb9n9D2PVZQNbwvcbBa5gx9doVhTau9Y="
+      },
+      {
+        "shareIndex": 1,
+        "signature": "IPR+F8fBKqSEOEmuifw4nU1Vwwi3xdZyOqh8x/aGzLqXd07oJIC+C3Geuq2pVRsFUyvh17jyJp60Qnpp0xDonks="
+      },
+      {
+        "shareIndex": 2,
+        "signature": "H+b5RibR978W4yr95SZVp+2nKjW2hL0DudPCA3TX6M1ESAKTOrA1fc+5THxIhoMz6yGsR6Ar36mobJDPtIjaxiA="
+      },
+      {
+        "shareIndex": 3,
+        "signature": "H1xkc+4KllrLMyDzzPK+NkgAOfLcP6tIQgYs2xcrO9hYcSLBp3lq+SSK6OgNZsTnqKnVAB8wh77+8YBFHGX1KBE="
+      }
+    ],
+    "combined": "03000a000112799d11a9eeb18e391767c34dbe79f2f221a0507cd5de95c8135f87f6f3c6a40300000000ffffffff0400902f50090000001976a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac00ac23fc060000001976a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac00c817a80400000017a914b89fae87286cae959f3d1d58c9720ea8d7345d5387605d0a54020000001976a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac00000000fd2901010012799d11a9eeb18e391767c34dbe79f2f221a0507cd5de95c8135f87f6f3c6a4030004209c8e4d22bda0645b2176974dedc4f1c205312ab96aec9e6c84b14ac33eb6d6a205d1af2ba231a3b7116fd9fd0f63d565035bc2f71b05ae60c7d7685614dabbd620f47e17c7c12aa4843849ae89fc389d4d55c308b7c5d6723aa87cc7f686ccba97774ee82480be0b719ebaada9551b05532be1d7b8f2269eb4427a69d310e89e4b1fe6f94626d1f7bf16e32afde52655a7eda72a35b684bd03b9d3c20374d7e8cd444802933ab0357dcfb94c7c48868333eb21ac47a02bdfa9a86c90cfb488dac6201f5c6473ee0a965acb3320f3ccf2be36480039f2dc3fab4842062cdb172b3bd8587122c1a7796af9248ae8e80d66c4e7a8a9d5001f3087befef180451c65f52811",
+    "txid": "7708806e7c765cc477a020da27db711473f0509f4da3fc50e7326bdb20642ba4",
+    "decoded": {
+      "txid": "7708806e7c765cc477a020da27db711473f0509f4da3fc50e7326bdb20642ba4",
+      "version": 3,
+      "type": 10,
+      "size": 485,
+      "locktime": 0,
+      "vin": [
+        {
+          "txid": "a4c6f3f6875f13c895ded57c50a021f2f279be4dc36717398eb1eea9119d7912",
+          "vout": 3,
+          "scriptSig": {
+            "asm": "",
+            "hex": ""
+          },
+          "sequence": 4294967295
+        }
+      ],
+      "vout": [
+        {
+          "value": "400.00000000",
+          "valueSat": 40000000000,
+          "n": 0,
+          "scriptPubKey": {
+            "asm": "OP_DUP OP_HASH160 f3086d674de18c4fd348773ddee09fe75eb9addc OP_EQUALVERIFY OP_CHECKSIG",
+            "desc": "addr(yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG)#n4u4hhax",
+            "hex": "76a914f3086d674de18c4fd348773ddee09fe75eb9addc88ac",
+            "address": "yiUV9MtNi2EpCYMretFBdQvknxNFhEEptG",
+            "type": "pubkeyhash"
+          }
+        },
+        {
+          "value": "300.00000000",
+          "valueSat": 30000000000,
+          "n": 1,
+          "scriptPubKey": {
+            "asm": "OP_DUP OP_HASH160 93dd3bc744d9818e7d2daa45876f07b85a9ff92d OP_EQUALVERIFY OP_CHECKSIG",
+            "desc": "addr(yZoHCyYyhTci47b2cWVUdXXc4ixVTxYVow)#hxxqvpxn",
+            "hex": "76a91493dd3bc744d9818e7d2daa45876f07b85a9ff92d88ac",
+            "address": "yZoHCyYyhTci47b2cWVUdXXc4ixVTxYVow",
+            "type": "pubkeyhash"
+          }
+        },
+        {
+          "value": "200.00000000",
+          "valueSat": 20000000000,
+          "n": 2,
+          "scriptPubKey": {
+            "asm": "OP_HASH160 b89fae87286cae959f3d1d58c9720ea8d7345d53 OP_EQUAL",
+            "desc": "addr(8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr)#tzjev5dq",
+            "hex": "a914b89fae87286cae959f3d1d58c9720ea8d7345d5387",
+            "address": "8wFfLF4ajJjQDgLZi5BLmAA2nF2sVU6Gkr",
+            "type": "scripthash"
+          }
+        },
+        {
+          "value": "99.99900000",
+          "valueSat": 9999900000,
+          "n": 3,
+          "scriptPubKey": {
+            "asm": "OP_DUP OP_HASH160 037a1bff8df41beea0e5c6cccd506c54063e4de2 OP_EQUALVERIFY OP_CHECKSIG",
+            "desc": "addr(yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8)#dy85zq5c",
+            "hex": "76a914037a1bff8df41beea0e5c6cccd506c54063e4de288ac",
+            "address": "yLdqA5xCR3Si2UTPbkm1xXcz1eEa89hJj8",
+            "type": "pubkeyhash"
+          }
+        }
+      ],
+      "extraPayloadSize": 297,
+      "extraPayload": "010012799d11a9eeb18e391767c34dbe79f2f221a0507cd5de95c8135f87f6f3c6a4030004209c8e4d22bda0645b2176974dedc4f1c205312ab96aec9e6c84b14ac33eb6d6a205d1af2ba231a3b7116fd9fd0f63d565035bc2f71b05ae60c7d7685614dabbd620f47e17c7c12aa4843849ae89fc389d4d55c308b7c5d6723aa87cc7f686ccba97774ee82480be0b719ebaada9551b05532be1d7b8f2269eb4427a69d310e89e4b1fe6f94626d1f7bf16e32afde52655a7eda72a35b684bd03b9d3c20374d7e8cd444802933ab0357dcfb94c7c48868333eb21ac47a02bdfa9a86c90cfb488dac6201f5c6473ee0a965acb3320f3ccf2be36480039f2dc3fab4842062cdb172b3bd8587122c1a7796af9248ae8e80d66c4e7a8a9d5001f3087befef180451c65f52811",
+      "proDisTx": {
+        "version": 1,
+        "proTxHash": "a4c6f3f6875f13c895ded57c50a021f2f279be4dc36717398eb1eea9119d7912",
+        "actorIndex": 3,
+        "sigCount": 4
+      }
+    },
+    "protxInfoError": "protx info failed: error code: -8\nerror message:\na4c6f3f6875f13c895ded57c50a021f2f279be4dc36717398eb1eea9119d7912 not found"
+  },
+  "operator": {
+    "public": "a381d1b53ece4724511df304a9edc75d030314327a0d9c5d7e8e52f179ce127c1ab550ebb85e6c939f9d37a1edfdf575",
+    "votingAddress": "yYLT19cFAeST4hKZFwLcfZHwXqowcynYfv"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "network": "regtest",
+  "image": "dashpay/dashd:24.0.0",
+  "version": "/Dash Core:24.0.0/",
+  "v24": {
+    "type": "bip9",
+    "height": 30,
+    "active": true,
+    "bip9": {
+      "start_time": 0,
+      "timeout": 999999999999,
+      "ehf": false,
+      "min_activation_height": 0,
+      "status": "active",
+      "since": 30,
+      "status_next": "active"
+    }
+  },
+  "tip": 119
+}
