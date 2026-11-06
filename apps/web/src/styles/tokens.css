@@ -1,0 +1,168 @@
+/* Cairn tokens. Stone neutrals, lichen green for the one accent, ochre for progress and "your next step", Dash blue only where
+   we mean Dash itself. The names of govhub's tokens are kept so the vendored sign-in styles (govhub-auth.css) pick these up. */
+:root {
+  --font: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', var(--font);
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* type: a 1.25 scale on a 1rem body */
+  --t-xs: 0.8rem;
+  --t-s: 0.875rem;
+  --t-m: 1rem;
+  --t-l: 1.25rem;
+  --t-xl: 1.5625rem;
+  --t-2xl: 1.953rem;
+  --t-3xl: 2.441rem;
+  --t-4xl: 3.052rem;
+
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+  --s-8: 4rem;
+  --s-9: 6rem;
+
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --radius-l: 14px;
+  --radius-xl: 20px;
+
+  --measure: 68ch;
+  --page: 1120px;
+
+  /* stone */
+  --paper: #f5f2ec;
+  --surface: #fbfaf6;
+  --sunk: #ece7dd;
+  --ink: #1e2226;
+  --ink-2: #474d53;
+  --ink-3: #5c636a; /* granite: muted text, AA on paper, surface and sunk */
+  --line: #ddd6c9;
+  --line-strong: #bfb6a6;
+
+  /* lichen: links, focus, primary actions */
+  --lichen: #2f6b57;
+  --accent: #2f6b57;
+  --accent-ink: #2f6b57;
+  --accent-wash: #e1ebe4;
+  --accent-fill: #2f6b57;
+  --accent-fill-hover: #255645;
+  --on-accent: #ffffff;
+
+  /* ochre: progress and the next step (fills); --ochre-ink for text */
+  --ochre: #c2832b;
+  --ochre-ink: #85550f;
+  --ochre-wash: #f4e6cf;
+
+  /* Dash itself */
+  --dash: #008de4;
+  --dash-ink: #006cb0;
+
+  /* stones of the cairn, by share state */
+  --stone-requested: transparent;
+  --stone-in: #8d8a80;
+  --stone-approved: #5f8f7b;
+  --stone-signed: #2f6b57;
+  --stone-edge: #1e2226;
+  --stone-open: #bfb6a6;
+
+  --pass: #2f6b57;
+  --pass-fill: #3f8a6f;
+  --warn: #85550f;
+  --warn-fill: #c2832b;
+  --fail: #a8382d;
+  --fail-fill: #c8493c;
+  --slate: #5c636a;
+  --track: #e4ded2;
+  --disabled-bg: #ebe6dc;
+  --disabled-ink: #6c7177;
+
+  --float-shadow: 0 14px 40px rgb(30 34 38 / 0.16), 0 2px 6px rgb(30 34 38 / 0.08);
+  color-scheme: light;
+}
+
+/* Wet slate. */
+:root[data-theme='dark'] {
+  --paper: #151b1f;
+  --surface: #1c2429;
+  --sunk: #11171a;
+  --ink: #ebe7df;
+  --ink-2: #c4c1b9;
+  --ink-3: #a3a6a2;
+  --line: #2d383e;
+  --line-strong: #46535a;
+  --lichen: #7cc2a6;
+  --accent: #7cc2a6;
+  --accent-ink: #8fcdb3;
+  --accent-wash: #1f332c;
+  --accent-fill: #6fb698;
+  --accent-fill-hover: #8ccbb0;
+  --on-accent: #0d1915;
+  --ochre: #e1a94e;
+  --ochre-ink: #e9b968;
+  --ochre-wash: #3a2e1c;
+  --dash: #3aa9f0;
+  --dash-ink: #6cc0f5;
+  --stone-in: #77756d;
+  --stone-approved: #4f8a73;
+  --stone-signed: #7cc2a6;
+  --stone-edge: #ebe7df;
+  --stone-open: #46535a;
+  --pass: #7cc2a6;
+  --pass-fill: #4f9a7e;
+  --warn: #e9b968;
+  --warn-fill: #e1a94e;
+  --fail: #ff8a7d;
+  --fail-fill: #d9594c;
+  --slate: #a3a6a2;
+  --track: #263136;
+  --disabled-bg: #222b30;
+  --disabled-ink: #8f9599;
+  --float-shadow: 0 14px 40px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --paper: #151b1f;
+    --surface: #1c2429;
+    --sunk: #11171a;
+    --ink: #ebe7df;
+    --ink-2: #c4c1b9;
+    --ink-3: #a3a6a2;
+    --line: #2d383e;
+    --line-strong: #46535a;
+    --lichen: #7cc2a6;
+    --accent: #7cc2a6;
+    --accent-ink: #8fcdb3;
+    --accent-wash: #1f332c;
+    --accent-fill: #6fb698;
+    --accent-fill-hover: #8ccbb0;
+    --on-accent: #0d1915;
+    --ochre: #e1a94e;
+    --ochre-ink: #e9b968;
+    --ochre-wash: #3a2e1c;
+    --dash: #3aa9f0;
+    --dash-ink: #6cc0f5;
+    --stone-in: #77756d;
+    --stone-approved: #4f8a73;
+    --stone-signed: #7cc2a6;
+    --stone-edge: #ebe7df;
+    --stone-open: #46535a;
+    --pass: #7cc2a6;
+    --pass-fill: #4f9a7e;
+    --warn: #e9b968;
+    --warn-fill: #e1a94e;
+    --fail: #ff8a7d;
+    --fail-fill: #d9594c;
+    --slate: #a3a6a2;
+    --track: #263136;
+    --disabled-bg: #222b30;
+    --disabled-ink: #8f9599;
+    --float-shadow: 0 14px 40px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
+    color-scheme: dark;
+  }
+}

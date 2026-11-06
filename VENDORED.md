@@ -270,4 +270,30 @@ Divergences:
 govhub `packages/contracts-v1/queryLint.ts`, unchanged. The rules it encodes are documented in govhub
 `packages/contracts-v1/README.md` ("Writing and querying").
 
-<!-- apps/web -->
+## apps/web (govhub `apps/web`)
+
+Copied:
+- `src/auth/`: `AuthSheet.tsx`, `AuthSheet.test.tsx`, `FundingPanel.tsx`, `FundingPanel.test.tsx`, `Passkeys.tsx`, `Passkeys.test.tsx`,
+  `Qr.tsx`, `Recover.tsx`, `Recover.test.tsx`, `Recover.retry.test.tsx`, `RecoverLink.tsx`, `SecretField.tsx`, `context.tsx`,
+  `leaveWarning.ts`, `runtime.ts`, `usePasskeyCreate.ts`
+- `src/session/`: `session.ts`, `authSession.ts`, `end.ts`, `tabShare.ts`, `tabShare.test.ts`
+- `src/app/frame.tsx`, `src/lib/format.ts`, `src/ui/useAction.ts`, `src/test/render.tsx`, `src/vite-env.d.ts`
+- `src/data/dapi.ts` (the `createWebDapi` factory only) and `getSdk` / `preloadSdk` / the proved query of `src/data/platform.ts`
+- `src/styles/govhub-auth.css`: govhub `src/styles.css` lines 426-492, 594-706 and 1905-2566 (menus, buttons and tags, settings
+  fields, sign-in, account, funding, recover, passkeys, dialog), unchanged; Cairn's `tokens.css` keeps govhub's token names
+- `vite.config.ts` (CSP injection, evo-sdk WASM aliasing), `tsconfig.json`, `public/_headers`; `playwright.config.ts` and the Pages
+  workflow follow govhub's
+
+Divergences:
+- `@govhub/` scope renamed; user-facing "govhub" is "Cairn" (sheet copy, passkey `rpName` and user name, Recover tool), and the copy
+  about comments and votes speaks of profiles and listings. The sign-in event is `cairn:signin`; the tab-sharing BroadcastChannel is
+  `cairn.session`; the theme key is `cairn.theme`.
+- `auth/context.tsx`: `useForum()` became `useAccount()` (`app/account.tsx`, govhub's ForumProvider without forum data or moderation);
+  `useApp()` is Cairn's (`app/context.tsx`: network profile and theme); the masternode keyring lock API is gone (no keyring), and
+  `forumContractId` is `contractId` (the cairn contract holds the vault). Fixture mode is gone.
+- `auth/runtime.ts`: no `markWrites` (govhub's MN badge hook); one network per profile (no Dev profile mixing Core and Platform networks).
+- `auth/AuthSheet.tsx`: no fixture sample identities. `auth/Passkeys.tsx`: no keyring PRF stash.
+- `session/session.ts`: the op types are `@cairn/auth`'s `DocumentWrite` / `DocumentWritten` (structurally govhub's forum `DocumentOp`).
+- `ui/useAction.ts`: `TopUpError` comes from `app/funds.ts` (Cairn's write-cost pre-check, after govhub's `voting/funds.ts`).
+- `config/registry.ts` is a smaller registry after govhub's pattern: Testnet and Mainnet profiles, only the choice persisted.
+- Tests: `Passkeys.test.tsx` drops the keyring stash assertions; `Recover.test.tsx` uses Cairn's start height.

@@ -1,0 +1,843 @@
+/* Vendored from govhub apps/web/src/styles.css @ fa04bea (menus, buttons and tags, settings fields, sign-in, account, funding, recover, passkeys, dialog). Colours and type come from Cairn's tokens (tokens.css), which keep govhub's token names. */
+/* Menus float: the one place (with sheets) that casts a shadow. */
+.account-menu {
+  position: fixed;
+  inset: 3.875rem max(var(--s-4), calc((100vw - var(--page)) / 2 + var(--s-5))) auto auto;
+  margin: 0;
+  inline-size: min(20rem, calc(100vw - 2rem));
+  padding: var(--s-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--float-shadow);
+}
+.account-menu:popover-open {
+  display: grid;
+  gap: 2px;
+}
+.menu-id {
+  padding: var(--s-2) var(--s-3) var(--s-3);
+  border-block-end: 1px solid var(--line);
+  margin-block-end: var(--s-1);
+  display: grid;
+  gap: var(--s-1);
+}
+.menu-name {
+  font-weight: 650;
+}
+.menu-item {
+  font: inherit;
+  font-size: var(--t-s);
+  text-align: start;
+  display: block;
+  padding: 0.5rem var(--s-3);
+  border-radius: var(--radius-m);
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
+}
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--sunk);
+}
+.menu-theme {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-block: 1px solid var(--line);
+  margin-block: var(--s-1);
+}
+
+.main {
+  flex: 1;
+  inline-size: 100%;
+  padding-block: var(--s-6) var(--s-7);
+}
+.page-narrow {
+  max-inline-size: 48rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-4);
+  align-content: start;
+}
+
+/* ---- buttons, chips, tags ------------------------------------------------------------------- */
+.btn {
+  font: inherit;
+  font-size: var(--t-s);
+  font-weight: 600;
+  padding: 0.5rem 0.9375rem;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+}
+.btn:hover {
+  border-color: var(--ink-3);
+}
+.btn:disabled,
+.btn-primary:disabled {
+  background: var(--disabled-bg);
+  border-color: var(--disabled-bg);
+  color: var(--disabled-ink);
+  cursor: default;
+}
+.btn-primary {
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--on-accent);
+}
+.btn-primary:hover {
+  background: var(--accent-fill-hover);
+  border-color: var(--accent-fill-hover);
+}
+.btn-quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-2);
+}
+.btn-quiet:hover {
+  background: var(--sunk);
+  border-color: transparent;
+}
+.btn-l {
+  font-size: var(--t-m);
+  padding: 0.6875rem 1.25rem;
+}
+
+.chip {
+  display: inline-block;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  padding: 0.0625rem 0.4375rem;
+  border-radius: var(--radius-s);
+  border: 1px solid currentColor;
+  line-height: 1.4;
+}
+.chip-fixture {
+  color: var(--warn);
+}
+.chip-bad {
+  color: var(--fail);
+  justify-self: start;
+}
+.form .seg {
+  justify-self: start;
+}
+.form .seg label:not(.check) {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink-2);
+}
+.form .seg label.on {
+  color: var(--ink);
+}
+/* Tags: a state in words, on a tint (no outline, so they never read as buttons). */
+.tag {
+  display: inline-block;
+  font-size: var(--t-xs);
+  font-weight: 650;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-s);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.tag-pass {
+  color: var(--pass);
+  background: color-mix(in srgb, var(--pass-fill) 13%, transparent);
+}
+.tag-warn {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn-fill) 16%, transparent);
+}
+.tag-fail {
+  color: var(--fail);
+  background: color-mix(in srgb, var(--fail-fill) 12%, transparent);
+  justify-self: start;
+}
+.tag-info {
+  color: var(--accent-ink);
+  background: color-mix(in srgb, var(--accent-fill) 12%, transparent);
+}
+.tag-done {
+  color: var(--ink-2);
+  background: color-mix(in srgb, var(--ink-3) 14%, transparent);
+}
+.tag-demo {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn-fill) 16%, transparent);
+}
+
+/* ---- settings ------------------------------------------------------------------------------- */
+.form {
+  max-inline-size: 52rem;
+  display: grid;
+  gap: var(--s-4);
+  margin-block-start: var(--s-5);
+}
+.settings > .form {
+  padding-block-start: var(--s-5);
+  border-block-start: 1px solid var(--line);
+}
+/* Settings groups: one line each until opened. */
+.group {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  padding: var(--s-3) var(--s-4);
+}
+.group > summary {
+  display: grid;
+  gap: 2px;
+  list-style: none;
+  padding-inline-start: 1.25rem;
+  position: relative;
+}
+.group > summary::-webkit-details-marker {
+  display: none;
+}
+.group > summary::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: 0.55em;
+  border: 5px solid transparent;
+  border-inline-start: 6px solid var(--ink-2);
+}
+.group[open] > summary::before {
+  transform: rotate(90deg);
+  transform-origin: 3px 5px;
+}
+.group-title {
+  font-weight: 650;
+}
+.group > .form,
+.group > section.form {
+  margin-block-start: var(--s-3);
+}
+.form fieldset {
+  /* fieldsets default to min-inline-size: min-content, so one unbroken id would widen the page on a phone */
+  min-inline-size: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  padding: 0.75rem 1rem 1rem;
+  margin: 0;
+  display: grid;
+  /* one track no wider than the fieldset: a wide child (a row of fields) wraps instead of pushing past the border */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+.form legend {
+  font-weight: 650;
+  padding-inline: 0.25rem;
+}
+.form label:not(.check) {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+.form input:not([type='checkbox']):not([type='radio']),
+.form select,
+.form textarea {
+  font: inherit;
+  font-size: 0.9375rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-s);
+  padding: 0.4375rem 0.5625rem;
+  inline-size: 100%;
+}
+.form textarea.code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+/* Secret fields (recovery phrase, voucher link): masked until "Show". */
+.secret-field {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: start;
+}
+.secret-field label {
+  inline-size: 100%;
+}
+.form textarea.masked {
+  -webkit-text-security: disc;
+}
+.row2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+}
+.radios {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+/* Wraps to the fieldset's width (it sits in a narrow settings column even on a wide screen, so a viewport query can't size it). */
+.bridge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: end;
+  padding-block-end: 0.75rem;
+  border-block-end: 1px solid var(--line);
+}
+.bridge-row > label:not(.check) {
+  flex: 1 1 10rem;
+  min-inline-size: 0;
+}
+.bridge-row > label.grow {
+  flex: 2 1 16rem;
+}
+.bridge-row > label.check {
+  padding-block-end: 0.5rem;
+}
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* ---- sign-in, account, funding ------------------------------------------------------------- */
+.sheet {
+  inline-size: min(34rem, calc(100vw - 1.5rem));
+  max-block-size: calc(100dvh - 2rem);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--float-shadow);
+}
+.sheet::backdrop {
+  background: rgb(6 18 28 / 0.42);
+}
+.sheet-body {
+  padding: var(--s-4) var(--s-5) var(--s-5);
+  display: grid;
+  gap: var(--s-4);
+}
+@media (max-width: 640px) {
+  .sheet {
+    inline-size: 100vw;
+    max-inline-size: 100vw;
+    margin: auto 0 0;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    max-block-size: 94dvh;
+  }
+}
+.sheet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.sheet .form {
+  margin-block-start: 0;
+  gap: 0.75rem;
+}
+.sheet .form label:not(.check) {
+  color: var(--ink-2);
+}
+.choices {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.choice {
+  inline-size: 100%;
+  font: inherit;
+  text-align: start;
+  display: grid;
+  gap: 0.125rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.choice-l {
+  padding: var(--s-4);
+  background: var(--paper);
+}
+.choice-l b {
+  font-size: 1.0625rem;
+}
+.choices-s {
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+.choices-more {
+  margin-block-start: var(--s-1);
+}
+.sheet-choose {
+  display: grid;
+  gap: var(--s-3);
+}
+/* "Save your phrase › Check it › Add credit": a real sequence, so it is numbered. */
+.steps-bar {
+  list-style: none;
+  counter-reset: step;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+}
+.steps-bar li {
+  counter-increment: step;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.steps-bar li::before {
+  content: counter(step);
+  display: inline-grid;
+  place-items: center;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  font-weight: 650;
+}
+.steps-bar li[aria-current='step'] {
+  color: var(--ink);
+  font-weight: 650;
+}
+.steps-bar li[aria-current='step']::before {
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--on-accent);
+}
+.choice:hover {
+  border-color: var(--accent);
+}
+.choice:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.notice-box {
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: var(--radius-l);
+  background: var(--accent-wash);
+  padding: 0.625rem 0.75rem;
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  margin: 0;
+}
+.auth-error {
+  border-inline-start: 3px solid var(--fail-fill);
+  padding-inline-start: 0.75rem;
+  display: grid;
+  gap: 0.375rem;
+  justify-items: start;
+}
+.words {
+  list-style: none;
+  margin: 0;
+  padding: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.375rem 0.75rem;
+  background: var(--sunk);
+  border-radius: var(--radius-s);
+  font-weight: 560;
+  font-size: 0.9375rem;
+}
+.words li span {
+  display: inline-block;
+  min-inline-size: 1.5rem;
+  font-weight: 400;
+}
+.row3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.75rem;
+}
+.funding {
+  display: grid;
+  gap: 0.75rem;
+}
+.deposit {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 520px) {
+  .deposit {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+}
+.deposit-text {
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+}
+.deposit-addr {
+  display: grid;
+  gap: 0.5rem;
+}
+.deposit-addr .form-actions {
+  margin: 0;
+}
+.qr {
+  inline-size: 11rem;
+  block-size: 11rem;
+  border-radius: var(--radius-s);
+}
+.qr-bg {
+  fill: #fff;
+}
+.qr-fg {
+  fill: #000;
+}
+.address {
+  font-weight: 600;
+  font-stretch: 85%;
+  font-feature-settings: 'zero' 1;
+  overflow-wrap: anywhere;
+  text-align: center;
+  background: var(--sunk);
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--radius-s);
+}
+.recover-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+.recover-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.5rem;
+}
+.recover-item > ul {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+.recover-results,
+.recover-progress {
+  display: grid;
+  gap: 0.5rem;
+}
+.recover-progress progress {
+  inline-size: 100%;
+}
+.recover-use,
+.recover-sweep,
+.recover-topup {
+  align-items: end;
+}
+.recover-export summary {
+  cursor: pointer;
+}
+.fund-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+}
+.fund-steps li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--ink-3);
+}
+.fund-steps li[data-status='done'],
+.fund-steps li[data-status='now'] {
+  color: var(--ink);
+}
+.fund-dot {
+  inline-size: 0.625rem;
+  block-size: 0.625rem;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  flex: none;
+}
+li[data-status='done'] > .fund-dot {
+  background: var(--pass-fill);
+  border-color: var(--pass-fill);
+}
+li[data-status='now'] > .fund-dot {
+  border-color: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    background: var(--accent);
+  }
+}
+.pending-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+  inline-size: 100%;
+}
+.pending-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  align-items: center;
+  overflow-wrap: anywhere;
+}
+.passkeys {
+  display: grid;
+  gap: var(--s-4);
+}
+.passkeys-intro {
+  display: grid;
+  gap: 0.375rem;
+}
+.passkeys-intro p {
+  margin: 0;
+}
+.passkeys-box {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  overflow: hidden;
+}
+.passkeys-box h3 {
+  margin: 0;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-3);
+  border-block-end: 1px solid var(--line);
+}
+.passkeys-empty {
+  margin: 0;
+  padding: 1rem 0.875rem;
+  text-align: center;
+}
+.passkey-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.passkey-list li {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 0.875rem;
+}
+.passkey-list li + li {
+  border-block-start: 1px solid var(--line);
+}
+.passkey-what {
+  display: grid;
+  gap: 0.125rem;
+  min-inline-size: 0;
+}
+.passkeys-actions {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .topbar-inner {
+    flex-wrap: wrap;
+    gap: 0 var(--s-3);
+    padding-inline: var(--s-4);
+  }
+  .wordmark {
+    min-block-size: 3.25rem;
+  }
+  .mainnav {
+    order: 3;
+    inline-size: 100%;
+    margin-inline: calc(-1 * var(--s-2));
+    padding-block-end: var(--s-2);
+  }
+  .main {
+    padding-inline: var(--s-4);
+    padding-block-start: var(--s-5);
+  }
+  .banner {
+    inline-size: calc(100% - 2rem);
+  }
+  .account-name {
+    max-inline-size: 6rem;
+  }
+}
+
+/* ---- social: session, discussion, claims ----------------------------------------------------- */
+.btn-s {
+  font-size: var(--t-xs);
+  padding: 0.3125rem 0.625rem;
+}
+.btn-danger {
+  border-color: var(--fail);
+  color: var(--fail);
+}
+.linkish {
+  all: unset;
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.linkish:focus-visible {
+  outline: 2px solid var(--accent);
+}
+.notice-warn {
+  border-inline-start: 3px solid var(--warn-fill);
+  padding: 0.375rem 0.625rem;
+  background: color-mix(in srgb, var(--warn-fill) 10%, var(--surface));
+  color: var(--ink);
+}
+.dialog {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0;
+  inline-size: min(32rem, calc(100vw - 2rem));
+  box-shadow: var(--float-shadow);
+}
+.dialog::backdrop {
+  background: rgb(6 18 28 / 0.42);
+}
+.dialog-body {
+  padding: 1.25rem;
+  display: grid;
+  gap: 0.75rem;
+}
+.dialog .form {
+  margin: 0;
+}
+.signin-picks {
+  display: grid;
+  gap: 0.5rem;
+  justify-self: stretch;
+}
+.signin-picks .btn {
+  justify-content: flex-start;
+  text-align: start;
+}
+
+.avatar {
+  border-radius: var(--radius-s);
+  flex: none;
+  display: block;
+}
+.avatar-bg {
+  fill: var(--sunk);
+}
+.avatar-wrap {
+  display: inline-flex;
+  flex: none;
+}
+.author {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  min-inline-size: 0;
+}
+.author-name {
+  font-weight: 640;
+  overflow-wrap: anywhere;
+}
+/* A proven DPNS username: underlined in the accent colour, a style self-chosen names never get. */
+.author-dpns-name {
+  color: var(--accent-ink);
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+}
+.author-alias {
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+/* A self-chosen name that imitates a govhub label: quoted, plain weight, so it cannot pass for a chip. */
+.author-quoted {
+  font-weight: 450;
+  font-style: italic;
+}
+.author-id {
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+.name-info {
+  align-self: center;
+  display: inline-grid;
+  place-items: center;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.name-info:hover,
+.name-info:focus-visible {
+  color: var(--accent-ink);
+  background: var(--accent-wash);
+}
+.name-info-pop {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--float-shadow);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+.name-info-pop:popover-open {
+  display: grid;
+  gap: 0.5rem;
+}
+.name-info-pop p {
+  margin: 0;
+}
+/* Sign-in: a phrase typed into a web page should never guard real money */
+.seed-warning {
+  margin: 0;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--warn-fill) 45%, var(--line));
+  border-radius: var(--radius-l);
+  background: color-mix(in srgb, var(--warn-fill) 10%, transparent);
+  font-size: 0.875rem;
+}
+.choice-soon {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.choice:disabled:hover {
+  border-color: var(--line);
+}
