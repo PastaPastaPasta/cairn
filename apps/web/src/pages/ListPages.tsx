@@ -1,6 +1,6 @@
 // The public lists: open groups, members looking for a group, operators. Read live from the cairn contract with proofs; matching,
 // filters and posting come in the next delivery step, so each page says what it will hold and what to do meanwhile.
-import { GROUP_STATUS, LOOKING_STATUS, OPERATOR_STATUS, groupsByStatus, lookingByStatus, operatorsByStatus, toGroup, toLooking, toOperator, type CairnQuery, type DocMeta, type Group, type Looking, type Operator, type RawDoc } from '@cairn/contract';
+import { GROUP_STATUS, LOOKING_STATUS, OPERATOR_STATUS, groupsByStatus, lookingByStatus, operatorsByStatus, toGroup, toLooking, toOperator, type CairnQuery, type DocMeta, type Group, type Looking, type Network, type Operator, type RawDoc } from '@cairn/contract';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../app/context.tsx';
@@ -19,7 +19,7 @@ const blocksToDays = (b: number) => Math.round(b / 576);
 type ListState<T> = { status: 'loading' } | { status: 'error'; error: string } | { status: 'ready'; items: T[] };
 
 /** One proved query, its documents read with `read` (malformed ones skipped: the contract admits values the app must not trust). */
-function useList<T extends DocMeta>(query: CairnQuery | null, read: (d: RawDoc) => T): ListState<T> {
+function useList<T extends DocMeta>(query: CairnQuery | null, read: (d: RawDoc, network: Network) => T): ListState<T> {
   const { registry } = useApp();
   const [state, setState] = useState<ListState<T>>({ status: 'loading' });
   const key = query ? JSON.stringify(query) : null;
@@ -31,7 +31,7 @@ function useList<T extends DocMeta>(query: CairnQuery | null, read: (d: RawDoc) 
       (r) => {
         const items = r.docs.flatMap((d) => {
           try {
-            return [read(d)];
+            return [read(d, registry.network)];
           } catch {
             return [];
           }
@@ -202,7 +202,7 @@ function OperatorRows({ items }: { items: Operator[] }) {
         <li key={o.id} className="row">
           <div className="row-main">
             <Link className="row-title" to={`/operators/${o.ownerId}`}>
-              {o.name}
+              {o.nameSuspect ? `“${o.name}”` : o.name}
             </Link>
             <p className="row-meta small">
               Asks {pct(o.rewardBps)} of rewards{o.regions.length ? `, runs nodes in ${o.regions.join(', ')}` : ''}

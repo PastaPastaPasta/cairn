@@ -5,6 +5,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import * as evo from '@dashevo/evo-sdk';
 import cairn from '../cairn.json' with { type: 'json' };
 import govhubVault from './fixtures/govhub-forum-vault.json' with { type: 'json' };
+import { MAX_EARLY_PERIOD_BLOCKS, MAX_OPERATOR_REWARD_BPS } from '@cairn/shares';
 import { DEPLOYMENTS, DOC_TYPES, contractIdFor } from '../src/index.ts';
 
 const w = evo as unknown as Record<string, any>;
@@ -16,7 +17,14 @@ beforeAll(async () => {
   await (evo as { ensureInitialized?: () => Promise<void> }).ensureInitialized?.();
 });
 
-/** The rules govhub's validate-contracts.ts lints, plus Cairn's own (≤ 3 indexes and ≤ 3 properties per index, ≈ 14 indexes in all). */
+/**
+ * Indexed properties left optional on purpose. Platform stores a document without the value under null in a non-unique index
+ * (nullSearchable defaults to true since PV1, and a document missing only some index properties is always entered); govhub's
+ * convention requires them only to keep unique indexes unique, which a missing value would bypass.
+ */
+const OPTIONAL_INDEXED = new Set(['group.byOperator.operatorId']);
+
+/** The rules govhub's validate-contracts.ts lints, plus Cairn's own (≤ 3 indexes and ≤ 3 properties per index). */
 function lint(): string[] {
   const out: string[] = [];
   for (const [type, def] of Object.entries(types)) {
@@ -53,7 +61,7 @@ function lint(): string[] {
           if (p.type === 'string' && !(p.maxLength <= 63)) out.push(`${type}.${ix.name}.${name}: indexed string over 63`);
           if (p.byteArray && !(p.maxItems <= 255)) out.push(`${type}.${ix.name}.${name}: indexed byteArray over 255`);
           if (p.type === 'integer' && p.maximum > 2 ** 62) out.push(`${type}.${ix.name}.${name}: indexed integer near 2^63`);
-          if (!def.required?.includes(name)) out.push(`${type}.${ix.name}.${name}: indexed property optional`);
+          if (!def.required?.includes(name) && (ix.unique || !OPTIONAL_INDEXED.has(`${type}.${ix.name}.${name}`))) out.push(`${type}.${ix.name}.${name}: indexed property optional`);
         }
       }
     }
@@ -62,9 +70,26 @@ function lint(): string[] {
 }
 
 describe('cairn contract', () => {
-  it('has the eight types of DESIGN section 7 and 14 indexes', () => {
-    expect(DOC_TYPES).toEqual(['profile', 'operator', 'looking', 'group', 'seat', 'invite', 'approval', 'vault']);
-    expect(Object.values(types).reduce((a, d) => a + (d.indices?.length ?? 0), 0)).toBe(14);
+  it('has the nine types of DESIGN section 7 and 16 indexes', () => {
+    expect(DOC_TYPES).toEqual(['profile', 'operator', 'looking', 'group', 'seat', 'invite', 'approval', 'opAccept', 'vault']);
+    expect(Object.values(types).reduce((a, d) => a + (d.indices?.length ?? 0), 0)).toBe(16);
+  });
+
+  it('caps the early period and operator reward exactly where Dash Core does', () => {
+    expect(types.group!.properties.earlyPeriodBlocks.maximum).toBe(MAX_EARLY_PERIOD_BLOCKS);
+    for (const t of ['operator', 'group', 'opAccept']) expect(types[t]!.properties.rewardBps.maximum).toBe(MAX_OPERATOR_REWARD_BPS);
+  });
+
+  it('leaves group.operatorId optional ("operator to be chosen") and indexed only in the non-unique byOperator', () => {
+    expect(types.group!.required).not.toContain('operatorId');
+    const uses = Object.values(types).flatMap((d) => (d.indices ?? []).filter((ix) => ix.properties.some((p) => 'operatorId' in p)));
+    expect(uses.map((ix) => [ix.name, !!ix.unique])).toEqual([['byOperator', false]]);
+  });
+
+  it('a full roster of 8 labelled shares fits group.roster', () => {
+    const id = 'GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec';
+    const roster = Array.from({ length: 8 }, () => ({ id, amount: 400_000_000_000, label: '\\"'.repeat(16) }));
+    expect(JSON.stringify(roster).length).toBeLessThanOrEqual(types.group!.properties.roster.maxLength);
   });
 
   it('follows the PV13 conventions govhub lints', () => {

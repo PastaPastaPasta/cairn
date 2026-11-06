@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { base58 } from '@scure/base';
 import {
   CAIRN_SCHEMAS, approvalsOf, groupsByStatus, groupsOfOperator, groupsOrganizedBy, invitesOfGroup, invitesTo, lintQuery, lookingByStatus, lookingOf,
-  operatorOf, operatorsByStatus, profileOf, profilesOf, seatOf, seatsOf, seatsOfGroup,
+  opAcceptOf, opAcceptsOf, opAcceptsOfGroup, operatorOf, operatorsByStatus, profileOf, profilesOf, seatOf, seatsOf, seatsOfGroup,
 } from '../src/index.ts';
 
 const A = base58.encode(new Uint8Array(32).fill(1));
@@ -28,6 +28,9 @@ describe('every cairn query passes the PV13 lint and lands on the intended index
     ['invitesTo', invitesTo(A), 'byTo'],
     ['invitesOfGroup', invitesOfGroup(A), 'byGroup'],
     ['approvalsOf', approvalsOf(A, 3), 'byGroupRevisionOwner'],
+    ['opAcceptsOfGroup', opAcceptsOfGroup(A, B), 'byGroupOwner'],
+    ['opAcceptOf', opAcceptOf(A, B), 'byGroupOwner'],
+    ['opAcceptsOf', opAcceptsOf(A), 'byOwner'],
   ];
   it.each(cases)('%s', (_n, q, index) => {
     expect(lint(q)).toMatchObject({ ok: true, index });

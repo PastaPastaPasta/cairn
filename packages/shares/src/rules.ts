@@ -162,19 +162,29 @@ export function remainingDuffs(rosterAmounts: readonly bigint[], collateral: big
 }
 
 /**
- * Whether a roster with `count` shares and `remaining` still to fill can become a valid table:
- * either it is already complete with at least MIN_SHARES shares, or the remainder is at least
- * one minimum share and a seat is left for it. (A remainder >= 100 DASH can always be a single
- * share, so one free seat is enough.)
+ * The smallest share that can still join a table with this early penalty: 100 DASH, and above the
+ * penalty, since IsEarlyPenaltyValid requires the penalty to stay below the smallest share.
  */
-export function isCompletable(count: number, remaining: bigint): boolean {
+export function minNextShare(earlyPenalty: bigint = 0n): bigint {
+  return earlyPenalty >= MIN_SHARE_AMOUNT ? earlyPenalty + 1n : MIN_SHARE_AMOUNT;
+}
+
+/**
+ * Whether a roster with `count` shares and `remaining` still to fill can become a valid table:
+ * either it is already complete with at least MIN_SHARES shares, or the remainder can be the
+ * shares still needed for MIN_SHARES (at least one), each at least `minNextShare(earlyPenalty)`,
+ * within the seats left. (A remainder that big can always be split that way.)
+ */
+export function isCompletable(count: number, remaining: bigint, earlyPenalty: bigint = 0n): boolean {
   if (count > MAX_SHARES || remaining < 0n) return false;
   if (remaining === 0n) return count >= MIN_SHARES;
-  return remaining >= MIN_SHARE_AMOUNT && count < MAX_SHARES;
+  const need = Math.max(1, MIN_SHARES - count);
+  return count + need <= MAX_SHARES && remaining >= BigInt(need) * minNextShare(earlyPenalty);
 }
 
 export type CanAddReason =
   | "below-minimum"
+  | "not-above-penalty"
   | "above-remaining"
   | "roster-full"
   | "remainder-too-small"
@@ -184,21 +194,26 @@ export type CanAddReason =
 export type CanAddResult = { ok: true; remainingAfter: bigint } | { ok: false; reason: CanAddReason; message: string };
 
 /**
- * Can `amount` join the roster? It must be a valid share (>= 100 DASH, within what is left), and
- * what remains afterwards must be 0 (with at least two shares in total) or >= 100 DASH with a
- * seat left under the 8-share cap.
+ * Can `amount` join the roster? It must be a valid share (>= 100 DASH and above the early penalty,
+ * within what is left), and what remains afterwards must be 0 (with at least two shares in total)
+ * or one more such share with a seat left under the 8-share cap.
  */
 export function canAddShare(
   rosterAmounts: readonly bigint[],
   amount: bigint,
   collateral: bigint = REGULAR_COLLATERAL,
+  earlyPenalty: bigint = 0n,
 ): CanAddResult {
+  const minShare = minNextShare(earlyPenalty);
   const remaining = remainingDuffs(rosterAmounts, collateral);
   if (rosterAmounts.length >= MAX_SHARES) {
     return { ok: false, reason: "roster-full", message: `The group already has ${MAX_SHARES} shares.` };
   }
   if (amount < MIN_SHARE_AMOUNT) {
     return { ok: false, reason: "below-minimum", message: "A share must be at least 100 DASH." };
+  }
+  if (amount < minShare) {
+    return { ok: false, reason: "not-above-penalty", message: "A share must be larger than the group's early-exit penalty." };
   }
   if (amount > remaining) {
     return { ok: false, reason: "above-remaining", message: "That is more than the group still needs." };
@@ -211,11 +226,14 @@ export function canAddShare(
     }
     return { ok: true, remainingAfter: 0n };
   }
-  if (after < MIN_SHARE_AMOUNT) {
+  if (after < minShare) {
     return {
       ok: false,
       reason: "remainder-too-small",
-      message: "That would leave less than 100 DASH for the last share; nobody could complete the group.",
+      message:
+        minShare === MIN_SHARE_AMOUNT
+          ? "That would leave less than 100 DASH for the last share; nobody could complete the group."
+          : "That would leave too little for a last share larger than the early-exit penalty; nobody could complete the group.",
     };
   }
   if (count >= MAX_SHARES) {
@@ -235,12 +253,14 @@ export interface SuggestOptions {
   maxResults?: number;
   /** Search budget in visited nodes, to bound worst cases (default 200000) */
   maxSteps?: number;
+  /** The group's early penalty: candidates must be larger (default 0) */
+  earlyPenalty?: bigint;
 }
 
 /**
  * Sets of candidates (indices into `candidateAmounts`) whose amounts sum to exactly `remaining`,
  * using at most `maxPicks` of them. Each candidate is used at most once; candidates below
- * 100 DASH are ignored. Results are ordered by fewest picks, then by larger amounts first, and
+ * minNextShare(opts.earlyPenalty) are ignored. Results are ordered by fewest picks, then by larger amounts first, and
  * are deterministic. Pass maxPicks = MAX_SHARES - rosterSize to respect the 8-share cap.
  */
 export function suggestCombos(
@@ -258,7 +278,7 @@ export function suggestCombos(
 
   const order = candidateAmounts
     .map((amount, index) => ({ amount, index }))
-    .filter((c) => c.amount >= MIN_SHARE_AMOUNT && c.amount <= remaining)
+    .filter((c) => c.amount >= minNextShare(opts.earlyPenalty) && c.amount <= remaining)
     .sort((a, b) => (a.amount === b.amount ? a.index - b.index : a.amount > b.amount ? -1 : 1));
 
   const results: number[][] = [];

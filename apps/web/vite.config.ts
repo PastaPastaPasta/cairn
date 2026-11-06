@@ -5,8 +5,9 @@ import { fileURLToPath } from 'node:url';
 
 /**
  * Strict CSP, injected into the built index.html only (the dev server needs inline scripts for
- * React refresh). DAPI evonodes, bridges and quorum services are user-configurable hosts, so
- * `connect-src` allows any https origin; everything else is same-origin. `wasm-unsafe-eval` is
+ * React refresh). DAPI evonodes (whichever the quorum service lists), the quorum service and Radar are
+ * other hosts, so `connect-src` allows any https origin and nothing over plain http; everything else is
+ * same-origin. `wasm-unsafe-eval` is
  * what evo-sdk's WASM needs; no `unsafe-eval`, no inline scripts or styles.
  */
 export const CSP = [
@@ -17,8 +18,7 @@ export const CSP = [
   "style-src 'self'",
   "img-src 'self' data:",
   "font-src 'self'",
-  // https: because DAPI nodes, bridges and feeds are user-configurable; localhost for a local bridge.
-  "connect-src 'self' https: http://localhost:* http://127.0.0.1:*",
+  "connect-src 'self' https:",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'none'",

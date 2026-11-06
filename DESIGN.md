@@ -234,25 +234,26 @@ document's status field is only the organizer's claim and is displayed as such.
 
 ## 7. Data on Dash Platform
 
-One data contract per network, `cairn`, owned by a Cairn admin identity. Types (≈ 8 types and
-≈ 14 indexes, about 0.4 DASH to register on mainnet):
+One data contract per network, `cairn`, owned by a Cairn admin identity. Types (9 types and
+16 indexes, about 0.45 DASH to register on mainnet; `packages/contract/README.md` has every field):
 
 | Type | Owner | Mutable | Key fields | Indexes |
 |---|---|---|---|---|
 | `profile` | user | yes | `displayName`, `about`, `contacts` (JSON string: discord, yappr, telegram, matrix, dashpay, website), `roles` | `$ownerId` unique |
 | `operator` | operator | yes | `name`, `rewardBps`, `rewardMaxBps`, `regions`, `hosting`, `capacity`, `claimedProTx` (JSON), `status` | `$ownerId` unique; `status,$updatedAt` |
 | `looking` | member | yes | `amount` (duffs), `operatorId?`, `maxRewardBps`, `earlyPref`, `canCoordinate`, `note`, `status` | `$ownerId` unique; `status,$updatedAt` |
-| `group` | organizer | yes | `title`, `operatorId?`, `rewardBps`, `earlyPeriodBlocks`, `earlyPenalty`, `coordinatorId?`, `votingHolderId?`, `votingPolicy`, `chatUrl`, `formBy`, `roster` (JSON `[{id, amount}]`), `revision`, `lockedHash?`, `operatorPubKey?`, `service?`, `proTxHash?`, `status`, `refillOf?` | `status,$updatedAt`; `operatorId,status`; `$ownerId` |
-| `seat` | member | yes | `groupId`, `amount`, `message`, `status` (requested/withdrawn) | `groupId,$ownerId` unique; `$ownerId` |
+| `group` | organizer | yes | `title`, `operatorId?`, `rewardBps`, `earlyPeriodBlocks`, `earlyPenalty`, `coordinatorId?`, `votingHolderId?`, `votingPolicy`, `chatUrl`, `formBy`, `roster` (JSON `[{id, amount, label}]`), `revision`, `lockedHash?`, `operatorPubKey?`, `service?`, `proTxHash?`, `status`, `refillOf?`, `votingAddress?`, `flags` | `status,$updatedAt`; `operatorId,status`; `$ownerId` |
+| `seat` | member | yes | `groupId`, `amount`, `message`, `status` (requested/withdrawn), `flags` (can coordinate, will hold the voting key), `votingAddress?`, `proTxHash?` | `groupId,$ownerId` unique; `$ownerId` |
 | `invite` | organizer | yes | `groupId`, `toId`, `amount`, `status` | `toId`; `groupId` |
 | `approval` | member | no (one per revision) | `groupId`, `revision`, `termsHash` (32 B), `shareAmount` | `groupId,revision,$ownerId` unique |
+| `opAccept` | operator | yes | `groupId`, `status` (accepted/declined/withdrawn), `operatorPubKey?`, `service?`, `rewardBps?`, `message?` | `groupId,$ownerId` unique; `$ownerId` |
 | `vault` | user | yes | same shape as govhub's passkey vault | as govhub |
 
 Rules:
 - The canonical **term sheet** is deterministic JSON. Its fields are:
   - `network`, `groupId`, `revision`
   - shares: ordered `[{memberId, label, amount}]`
-  - `operatorPubKey`, `service`, `votingHolderId`, `rewardBps`, `earlyPeriodBlocks`,
+  - `operatorPubKey`, `service`, `votingAddress`, `votingHolderId`, `rewardBps`, `earlyPeriodBlocks`,
     `earlyPenalty`, `coordinatorId`
 
   `termsHash = sha256("cairn-terms-v1\n" + canonicalJson)`. Approvals and `group.lockedHash` must

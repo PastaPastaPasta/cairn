@@ -109,5 +109,57 @@ for (const ctl of controls) {
   }
   console.log(`  ${ctl.label.padEnd(32)} ${verdicts.join('   ')}`);
 }
-console.log(failures ? `\n${failures} FAILURE(S)` : '\nVALID ON ALL TARGETS; ALL NEGATIVE CONTROLS BEHAVED AS EXPECTED');
+// Documents, after govhub's spikes/sdk5/scripts/validate-documents.ts: per type a MAX document (every field at its bound), a MIN
+// document (required fields only, e.g. a group with no operatorId under the byOperator index), every bounded field one past its
+// limit (must be rejected), and the MAX document through a batch transition with full validation.
+const valueFor = (p: any, mode: 'max' | 'min', over = false): unknown => {
+  if (p.type === 'boolean') return true;
+  if (p.type === 'integer') return over ? p.maximum + 1 : mode === 'max' ? p.maximum : p.minimum;
+  if (p.type === 'string') return 'x'.repeat(over ? p.maxLength + 1 : mode === 'max' ? p.maxLength : p.minLength);
+  return Buffer.alloc(over ? p.maxItems + 1 : mode === 'max' ? p.maxItems : p.minItems, 7);
+};
+const sample = (def: any, mode: 'max' | 'min') =>
+  Object.fromEntries(Object.entries<any>(def.properties).filter(([k]) => mode === 'max' || (def.required ?? []).includes(k)).map(([k, p]) => [k, valueFor(p, mode)]));
+console.log('\nDocuments (MAX, MIN, every bound +1, MAX in a batch transition):');
+for (const [type, def] of Object.entries<any>(schemas)) {
+  const cells: string[] = [];
+  for (const e of dppEngines) {
+    const mod = e.version === 13 && e.label.includes('4.1.1') ? dpp4 : dpp5;
+    const dpp = new mod.DashPlatformProtocol({ generate: () => crypto.getRandomValues(new Uint8Array(32)) }, e.version);
+    const dc = dpp.dataContract.create(OWNER_BYTES, 1n, schemas);
+    const mk = (data: Record<string, unknown>) => dpp.document.create(dc, OWNER_B58, type, data);
+    const errs: string[] = [];
+    for (const mode of ['max', 'min'] as const) {
+      try {
+        const r = mk(sample(def, mode)).validate(e.version);
+        if (!r.isValid()) errs.push(`${mode}: ${r.getErrors().map((x: any) => String(x.message).slice(0, 80)).join('; ')}`);
+      } catch (x) {
+        errs.push(`${mode} threw: ${errText(x).slice(0, 80)}`);
+      }
+    }
+    for (const [k, p] of Object.entries<any>(def.properties)) {
+      if (p.type === 'boolean') continue;
+      let rejected = false;
+      try {
+        rejected = !mk({ ...sample(def, 'max'), [k]: valueFor(p, 'max', true) }).validate(e.version).isValid();
+      } catch (x) {
+        // identifiers are converted to 32 bytes while the document is built: a wrong length is refused right there
+        if (p.contentMediaType && /byte length/.test(errText(x))) rejected = true;
+        else errs.push(`over-limit ${k} threw: ${errText(x).slice(0, 60)}`);
+      }
+      if (!rejected) errs.push(`over-limit ${k} ACCEPTED`);
+    }
+    try {
+      const st = dpp.document.createStateTransition({ create: [mk(sample(def, 'max'))] }, { [OWNER_B58]: { [dc.getId().toString()]: '1' } });
+      await dpp.stateTransition.createFromBuffer(st.toBuffer(), { skipValidation: false });
+    } catch (x) {
+      errs.push(`ST: ${errText(x).slice(0, 100)}`);
+    }
+    if (errs.length) failures++;
+    cells.push(`${e.label.replace('wasm-dpp ', '')}=${errs.length ? `FAIL (${errs.join(' | ')})` : 'PASS'}`);
+  }
+  console.log(`  ${type.padEnd(10)} ${cells.join('   ')}`);
+}
+
+console.log(failures ? `\n${failures} FAILURE(S)` : '\nVALID ON ALL TARGETS; ALL NEGATIVE CONTROLS AND DOCUMENTS BEHAVED AS EXPECTED');
 process.exit(failures ? 1 : 0);

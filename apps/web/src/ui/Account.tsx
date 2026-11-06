@@ -6,7 +6,7 @@ import { useAccount } from '../app/account.tsx';
 import { useApp, type Theme } from '../app/context.tsx';
 import { OPEN_SIGNIN_EVENT, useAuth } from '../auth/context.tsx';
 import { formatCredits } from '../auth/runtime.ts';
-import { useProfile } from '../data/profile.ts';
+import { personName, useProfile } from '../data/profile.ts';
 
 /** Opens the sign-in sheet from anywhere ("Sign in to make a profile"). */
 export const openSignIn = () => window.dispatchEvent(new Event(OPEN_SIGNIN_EVENT));
@@ -45,7 +45,7 @@ export function AccountControl() {
     if (!session) hide();
     force((n) => n + 1);
   }, [session]);
-  const name = profile?.displayName ?? dpns ?? null;
+  const name = personName(profile, dpns);
   const item = (label: string, onClick: () => void, testId?: string) => (
     <button
       type="button"
@@ -85,7 +85,7 @@ export function AccountControl() {
         {session && (
           <div className="menu-id">
             <p className="menu-name">{name ?? 'Your identity'}</p>
-            {dpns && <p className="small">Dash username <b>{dpns}</b></p>}
+            {dpns && <p className="small">Dash username, proved by Platform{profile?.displayName ? <> · profile name {personName(profile, null)}</> : null}</p>}
             <p className="small muted break mono-ish" data-testid="session-identity">
               {session.identityId}
             </p>

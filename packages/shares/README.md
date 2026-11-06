@@ -29,10 +29,12 @@ import { parseSessionEnvelope, checkEnvelopeAgainstTerms, termsHash } from "@cai
 - `isShareListTriviallyValid(shares, period, penalty, keyIDVoting, collateral?)`:
   `IsShareListTriviallyValid`, same check order and reject reasons (`bad-protx-shares-*`),
   including distinct owner keys and refund scripts and the payee-reuse rule.
-- Matching: `remainingDuffs(roster)`, `isCompletable(count, remaining)`,
-  `canAddShare(roster, amount)` (remainder must be 0 with ≥ 2 shares, or ≥ 100 DASH with a seat
-  left under the 8-share cap), and `suggestCombos(remaining, candidateAmounts, maxPicks, opts?)`
-  (index sets that sum exactly to `remaining`, fewest picks first, bounded search).
+- Matching: `remainingDuffs(roster)`, `minNextShare(earlyPenalty?)` (100 DASH, and above the
+  penalty, which must stay below the smallest share), `isCompletable(count, remaining, earlyPenalty?)`,
+  `canAddShare(roster, amount, collateral?, earlyPenalty?)` (the share and the remainder must be
+  at least `minNextShare`, or the remainder 0 with ≥ 2 shares, with a seat left under the 8-share
+  cap), and `suggestCombos(remaining, candidateAmounts, maxPicks, opts?)` (index sets that sum
+  exactly to `remaining`, fewest picks first, bounded search; `opts.earlyPenalty` filters).
   These return `{ ok, reason, message }`.
 
 ### address
@@ -51,6 +53,14 @@ Prefixes: mainnet P2PKH 76 (`X…`), P2SH 16 (`7…`); test/devnet/regtest 140 (
   for the kind and proTxHash.
 - `netinfo`: ExtNetInfo/MnNetInfo codec, `coreP2PEntries`, and `netInfoMatchesServiceList`
   (Dash-Qt's `NetInfoMatches`).
+- `validateCoreService(text, network)`: whether `"a.b.c.d:port"` can be a shared masternode's
+  primary Core P2P service (`ExtNetInfo::ValidateService` for CORE_P2P, `ValidateMainnetPrimaryPort`):
+  routable (`CNetAddr::IsRoutable`; not on regtest), port neither 0 nor `IsBadPort` (`isBadPort`),
+  9999 on mainnet. IPv4 only: Core's `CheckIPv4Primaries` requires it on mainnet and regtest until
+  `IPV4_OPTIONAL` (already active on testnet and devnets), and Cairn keeps that rule on every
+  network (DESIGN O4). Returns the canonical
+  `ip:port` or Core's reason (`service`, `service-unroutable`, `service-port`,
+  `service-mainnet`).
 
 ### consent
 - `sharedRegConsentHash(tx, payload)`: `CProRegTx::MakeSharedRegConsentHash`. Returns
@@ -87,7 +97,8 @@ Prefixes: mainnet P2PKH 76 (`X…`), P2SH 16 (`7…`); test/devnet/regtest 140 (
 - `canonicalize(t)`: sorted keys at every level, no whitespace, bigints as decimal strings,
   only the fields above. `termsHash(t)` = hex `sha256("cairn-terms-v1\n" + canonical)`.
 - `validateTermSheet(t)`: Core's rules plus Cairn's policy that a penalty is set exactly when
-  there is an early period (`penalty-required`); mainnet services must be IPv4 port 9999.
+  there is an early period (`penalty-required`); a service, when set, must pass
+  `validateCoreService`.
 - `parseTermSheet(json)`: back from canonical JSON.
 
 ### check

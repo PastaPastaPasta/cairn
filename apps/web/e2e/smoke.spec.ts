@@ -37,6 +37,8 @@ test('the strict CSP is in the built page', async ({ page }) => {
   const csp = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
   expect(csp).toContain("default-src 'self'");
   expect(csp).toContain("font-src 'self'");
+  expect(csp).toContain("connect-src 'self' https:;");
+  expect(csp).not.toMatch(/http:|localhost|127\.0\.0\.1/);
 });
 
 test('fonts come from this origin only', async ({ page }) => {

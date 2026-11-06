@@ -13,9 +13,10 @@ export async function readProfile(r: Registry, identityId: string): Promise<{ pr
 
 const cache = new Map<string, Promise<{ profile: Profile | null; dpns: string | null }>>();
 const listeners = new Set<() => void>();
+const cacheKey = (r: Registry, id: string) => `${r.network}:${r.contractId}:${id}`;
 
 function load(r: Registry, id: string) {
-  const key = `${r.network}:${r.contractId}:${id}`;
+  const key = cacheKey(r, id);
   let p = cache.get(key);
   if (!p) {
     p = Promise.all([r.contractId ? readProfile(r, id).then((x) => x.profile) : Promise.resolve(null), dpnsName(r, id).catch(() => null)]).then(([profile, dpns]) => ({ profile, dpns }));
@@ -25,10 +26,23 @@ function load(r: Registry, id: string) {
   return p;
 }
 
-/** Drops the cached profile (after a write) and tells every useProfile to read again. */
-export function invalidateProfile(): void {
-  cache.clear();
+/**
+ * Replaces the cached profile with one read back after a write, and tells every useProfile. Not a re-read: another node may still
+ * lag behind the write and would hand the form an old revision.
+ */
+export function seedProfile(r: Registry, id: string, profile: Profile): void {
+  const key = cacheKey(r, id);
+  const none = { profile: null, dpns: null };
+  const prev = cache.get(key) ?? Promise.resolve(none);
+  cache.set(key, prev.catch(() => none).then(({ dpns }) => ({ profile, dpns })));
   for (const l of listeners) l();
+}
+
+/** How a person is named: the proved Dash username first, else their own display name, in quotes when it imitates a label. */
+export function personName(profile: Profile | null, dpns: string | null): string | null {
+  if (dpns) return dpns;
+  if (!profile?.displayName) return null;
+  return profile.nameSuspect ? `“${profile.displayName}”` : profile.displayName;
 }
 
 export function useProfile(identityId: string | null): { profile: Profile | null; dpns: string | null; loading: boolean; error: string | null } {

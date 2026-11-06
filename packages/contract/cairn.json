@@ -302,7 +302,7 @@
       "earlyPeriodBlocks": {
         "type": "integer",
         "minimum": 0,
-        "maximum": 4204800,
+        "maximum": 420480,
         "position": 5
       },
       "earlyPenalty": {
@@ -348,7 +348,7 @@
       "roster": {
         "type": "string",
         "minLength": 2,
-        "maxLength": 1024,
+        "maxLength": 2048,
         "position": 12
       },
       "revision": {
@@ -397,6 +397,18 @@
         "maxItems": 32,
         "contentMediaType": "application/x.dash.dpp.identifier",
         "position": 19
+      },
+      "votingAddress": {
+        "type": "string",
+        "minLength": 26,
+        "maxLength": 35,
+        "position": 20
+      },
+      "flags": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 65535,
+        "position": 21
       }
     },
     "required": [
@@ -404,7 +416,6 @@
       "$updatedAt",
       "title",
       "mnType",
-      "operatorId",
       "rewardBps",
       "earlyPeriodBlocks",
       "earlyPenalty",
@@ -469,6 +480,25 @@
         "minimum": 1,
         "maximum": 15,
         "position": 3
+      },
+      "flags": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 65535,
+        "position": 4
+      },
+      "votingAddress": {
+        "type": "string",
+        "minLength": 26,
+        "maxLength": 35,
+        "position": 5
+      },
+      "proTxHash": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "position": 6
       }
     },
     "required": [
@@ -610,6 +640,90 @@
       "revision",
       "termsHash",
       "shareAmount"
+    ],
+    "additionalProperties": false
+  },
+  "opAccept": {
+    "type": "object",
+    "documentsMutable": true,
+    "canBeDeleted": true,
+    "transferable": 0,
+    "creationRestrictionMode": 0,
+    "signatureSecurityLevelRequirement": 2,
+    "indices": [
+      {
+        "name": "byGroupOwner",
+        "unique": true,
+        "properties": [
+          {
+            "groupId": "asc"
+          },
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      },
+      {
+        "name": "byOwner",
+        "properties": [
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "properties": {
+      "groupId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0
+      },
+      "status": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 15,
+        "position": 1
+      },
+      "operatorPubKey": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 48,
+        "maxItems": 48,
+        "position": 2
+      },
+      "service": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "position": 3
+      },
+      "rewardBps": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 10000,
+        "position": 4
+      },
+      "message": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 280,
+        "position": 5
+      },
+      "votingAddress": {
+        "type": "string",
+        "minLength": 26,
+        "maxLength": 35,
+        "position": 6
+      }
+    },
+    "required": [
+      "$createdAt",
+      "$updatedAt",
+      "groupId",
+      "status"
     ],
     "additionalProperties": false
   },

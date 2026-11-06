@@ -46,14 +46,17 @@ export function LearnPage() {
             <h2 id="what-h">What a shared masternode is</h2>
             <p>
               A masternode is a Dash server that helps run the network: it locks InstantSend payments, takes part in ChainLocks and votes on the budget. Each one
-              is backed by exactly 1000 DASH of collateral, and the network pays it part of every block reward.
+              is backed by exactly 1000 DASH of collateral, and each block pays part of its reward to one masternode, taking turns.
             </p>
             <p>
               Since Dash Core v24, that 1000 DASH can come from two to eight people. Each brings a share of at least 100 DASH, and the shares must add up to
               exactly 1000. The network itself keeps each share under its owner’s control:
             </p>
             <ul>
-              <li>the coins sit in an output that only a dissolution can spend, and a dissolution always sends every share back to its owner;</li>
+              <li>
+                the coins sit in a collateral that only a dissolution can spend. A dissolution one owner signs alone must send every share back to its refund
+                address, the leaver’s minus any agreed early penalty, which goes to the others;
+              </li>
               <li>every share has its own owner key, its own refund address (fixed for good) and its own reward address;</li>
               <li>every payout block splits the reward between the shares by amount, directly to each owner’s address.</li>
             </ul>
@@ -92,7 +95,7 @@ export function LearnPage() {
                 </p>
               </li>
               <li>
-                <h3>Earn together</h3>
+                <h3>Share the rewards</h3>
                 <p>
                   The operator starts the node. From then on the network pays the owner reward, split by share, in every block that pays this masternode. Cairn
                   shows its status from the chain and links to <a href="https://nodes.dashhq.org">Radar</a> and to{' '}
@@ -150,7 +153,10 @@ export function LearnPage() {
           <section id="never" aria-labelledby="never-h">
             <h2 id="never-h">What you never hand over</h2>
             <ul>
-              <li>Your DASH. It never leaves your wallet until the network itself returns it at dissolution. No person and no website holds it in between.</li>
+              <li>
+                Your DASH. Your share goes into a collateral only a dissolution can spend, and a dissolution sends it back to your refund address, minus any agreed
+                early penalty if you leave early. No person and no website holds it in between.
+              </li>
               <li>Your wallet’s recovery phrase or private keys. Nobody needs them: not the organizer, not the operator, not Cairn.</li>
               <li>
                 Your Cairn recovery phrase. It controls your profile and approvals, so keep it for Cairn only, with no money in it beyond a little credit.
@@ -166,7 +172,8 @@ export function LearnPage() {
             <h2 id="leaving-h">Leaving and early-exit terms</h2>
             <p>
               <b>Any co-owner can leave alone, at any time.</b> Leaving dissolves the masternode, and the network sends every share back to its owner’s refund
-              address, including the shares of everyone who stayed. Nobody can keep your coins, and nobody can stop you leaving.
+              address, including the shares of everyone who stayed (the leaver’s minus any agreed early penalty). Nobody can keep your coins, and nobody can stop
+              you leaving.
             </p>
             <p>
               Because one person leaving ends the masternode for everyone, groups can agree an <b>early period</b>: if someone leaves before it ends, they pay an
@@ -176,7 +183,7 @@ export function LearnPage() {
               <li>the early period is at most 420,480 blocks, about two years;</li>
               <li>the penalty must be smaller than the smallest share, and it is zero when there is no early period;</li>
               <li>after the early period, leaving costs only the network fee (at most 0.01 DASH, paid by whoever leaves);</li>
-              <li>if every co-owner agrees to dissolve together, nobody pays a penalty.</li>
+              <li>if every co-owner signs a dissolution together, nobody has to pay a penalty; Dash Core’s own tools build such a dissolution to return every share.</li>
             </ul>
             <p className="callout">
               With no early period, anyone can leave at any time without a penalty. That is flexible, but it also means the masternode can end tomorrow. Choose
@@ -235,15 +242,16 @@ export function LearnPage() {
             <details>
               <summary>Does Cairn ever hold my DASH?</summary>
               <p>
-                No. Cairn is a website that helps people find each other and check what they agreed. Your coins only move in your own Dash Core wallet, in
-                transactions you sign yourself. Cairn charges nothing.
+                No. Cairn is a website that helps people find each other and check what they agreed. You put your share into the collateral from your own Dash
+                Core wallet, in a transaction you sign yourself, and only a dissolution can send it back. Cairn charges nothing.
               </p>
             </details>
             <details>
               <summary>Can the organizer or the operator run off with the coins?</summary>
               <p>
-                No. The collateral can only be spent by a dissolution, and the network rejects any dissolution that does not return every share to its own refund
-                address. The most a stolen owner key could cost the others is the agreed early penalty plus a 0.01 DASH fee.
+                No single person can. A dissolution one owner signs must refund every share. A stolen owner key can cost its owner at most the agreed penalty
+                plus 0.01 DASH; the others get their full share plus the penalty. (A dissolution every owner signs can pay out anything they all sign; Dash
+                Core’s tools only build ones that return every share.)
               </p>
             </details>
             <details>

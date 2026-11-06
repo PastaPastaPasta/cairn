@@ -130,11 +130,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       removeEventListener('pageshow', onShow);
     };
   }, [signOutHere]);
+  // defence in depth: every opener is hidden on a network without the contract, where an account could do nothing
+  const canSignIn = !!registry.contractId;
   useEffect(() => {
+    if (!canSignIn) return;
     const open = () => setSheet('choose');
     addEventListener(OPEN_SIGNIN_EVENT, open);
     return () => removeEventListener(OPEN_SIGNIN_EVENT, open);
-  }, []);
+  }, [canSignIn]);
 
   const value = useMemo<AuthCtx>(
     () => ({

@@ -9,6 +9,8 @@
 //   fund       create the deployer identity from a deposit to its DIP-13 funding address (runFunding: IS-lock proof); prints the
 //              address once the deposit watcher is live, then waits for the payment
 //   contract   register packages/contract/cairn.json with the identity's CRITICAL key and record the id in deployments.json
+//   retire     testnet only: set aside a registered contract whose schemas differ from cairn.json (kept under `retired` in the
+//              state file), so `contract` registers the new schemas as a new contract at the next nonce
 //
 // Files: $CAIRN_DEPLOY_DIR (default ~/.local/share/cairn, 0700). `<network>-deployer.json` ({"phrase", "network"}) is a link into
 // the secret store; `<network>-state.json` holds public data only (funding record, ids, the signed transition, fees).
@@ -35,7 +37,7 @@ import { classifySend, createEvoPlatform, nonceConsumed } from '@cairn/auth/evo'
 type Net = 'testnet' | 'mainnet';
 const NET = process.argv[2] as Net;
 const CMD = process.argv[3];
-if (NET !== 'testnet' && NET !== 'mainnet') throw new Error('usage: register.ts <testnet|mainnet> <init|status|fund|contract>');
+if (NET !== 'testnet' && NET !== 'mainnet') throw new Error('usage: register.ts <testnet|mainnet> <init|status|fund|contract|retire>');
 const EXPECTED_PV = Number(process.env.CAIRN_EXPECTED_PV ?? (NET === 'testnet' ? 14 : 13));
 const DIR = process.env.CAIRN_DEPLOY_DIR ?? join(homedir(), '.local/share/cairn');
 const SEED_FILE = join(DIR, `${NET}-deployer.json`);
@@ -46,12 +48,12 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const CONTRACT_FILE = join(HERE, '../cairn.json');
 const DEPLOYMENTS_FILE = join(HERE, '../deployments.json');
 const IDENTITY_INDEX = 0;
-/** 0.1 DASH + 0.02 per type + 0.01 per index (8 types, 14 indexes), plus storage; measured on testnet for govhub's forum: 0.433. */
-const EXPECTED_FEE_DASH = 0.42;
+/** 0.1 DASH + 0.02 per type + 0.01 per index (9 types, 16 indexes: 0.44), plus storage; 8 types and 14 indexes cost 0.4034. */
+const EXPECTED_FEE_DASH = 0.45;
 const NONCE_VALUE = 0xff_ffff_ffffn;
 
 interface ContractEntry { id: string; ownerId: string; nonce: string; platformVersion: number; schemaSha256: string; raw: string; status: 'publishing' | 'done'; feeCredits?: string; balanceBefore: string; at: string }
-interface State { network: Net; fundingAddress: string; identityId?: string; fundings: Record<string, FundingRecord>; contract?: ContractEntry; createFeeCredits?: string }
+interface State { network: Net; fundingAddress: string; identityId?: string; fundings: Record<string, FundingRecord>; contract?: ContractEntry; retired?: ContractEntry[]; createFeeCredits?: string }
 
 const json = (v: unknown) => JSON.stringify(v, (_k, x) => (typeof x === 'bigint' ? x.toString() : x), 2) + '\n';
 const log = (m: string) => console.log(`[${new Date().toISOString().slice(11, 19)}] ${m}`);
@@ -324,6 +326,20 @@ async function contract() {
   await finish(entry, false);
 }
 
+/** Moves a finished registration of other schemas out of the way. Never on mainnet, where a contract is final. */
+function retire() {
+  if (NET !== 'testnet') throw new Error('only a testnet contract can be retired');
+  const c = st.contract;
+  if (!c) return log('no contract recorded');
+  if (c.status !== 'done') throw new Error(`${c.id} is still ${c.status}: finish it with \`contract\` first`);
+  const sha = createHash('sha256').update(readFileSync(CONTRACT_FILE, 'utf8')).digest('hex');
+  if (c.schemaSha256 === sha) throw new Error(`${c.id} already holds cairn.json: nothing to retire`);
+  st.retired = [...(st.retired ?? []), { ...c, raw: '' }];
+  delete st.contract;
+  save();
+  log(`retired ${c.id} (registered ${c.at}); \`contract\` now registers cairn.json as a new contract`);
+}
+
 async function main() {
   ensureDir(DIR);
   takeLock();
@@ -336,8 +352,10 @@ async function main() {
       return fund();
     case 'contract':
       return contract();
+    case 'retire':
+      return retire();
     default:
-      throw new Error('usage: register.ts <testnet|mainnet> <init|status|fund|contract>');
+      throw new Error('usage: register.ts <testnet|mainnet> <init|status|fund|contract|retire>');
   }
 }
 

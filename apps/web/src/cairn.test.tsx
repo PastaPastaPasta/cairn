@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_PROFILE, loadProfile, PROFILES } from './config/registry.ts';
 import { parseActivation } from './data/activation.ts';
 import fixture from './data/fixtures/activation-mainnet-2026-11-06.json';
-import { nameProblem } from './pages/MePage.tsx';
+import { nameProblem, profileData, toProfile, type Profile } from '@cairn/contract';
+import { personName } from './data/profile.ts';
+import { holdsWrite } from './pages/MePage.tsx';
 import { render } from './test/render.tsx';
 import { activationWords } from './ui/Activation.tsx';
 import { CairnStack, cairnSummary, type Stone } from './ui/CairnStack.tsx';
@@ -66,11 +68,37 @@ describe('network profiles', () => {
   });
 });
 
+const ID = 'GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec';
+
 describe('display names', () => {
   it('refuse invisible and direction characters', () => {
     expect(nameProblem('Lena')).toBeNull();
-    expect(nameProblem('Le‮na')).toMatch(/invisible/);
-    expect(nameProblem('Le​na')).toMatch(/invisible/);
+    expect(nameProblem('Le\u202Ena')).toMatch(/invisible/);
+    expect(nameProblem('Le\u200Bna')).toMatch(/invisible/);
     expect(nameProblem('   ')).toMatch(/Enter/);
+    expect(nameProblem('Verified Lena')).toMatch(/badge/);
+  });
+
+  const profile = (displayName: string): Profile => toProfile({ $id: ID, $ownerId: ID, $revision: 2, displayName });
+
+  it('show the proved Dash username first, then the own name, quoted when it imitates a label', () => {
+    expect(personName(profile('Lena'), 'lena.dash')).toBe('lena.dash');
+    expect(personName(profile('Lena'), null)).toBe('Lena');
+    expect(personName(profile('Verified Lena'), null)).toBe('“Verified Lena”');
+    expect(personName(profile('\u200B'), null)).toBeNull();
+    expect(personName(null, null)).toBeNull();
+  });
+});
+
+describe('profile read-back', () => {
+  const sent = profileData({ displayName: 'Lena', about: 'Lisbon', contacts: { discord: 'lena', website: 'https://lena.example' }, roles: 1 });
+  const back = (over: Record<string, unknown>) => toProfile({ $id: ID, $ownerId: ID, $revision: 3, ...sent, ...over });
+
+  it('accepts only a document holding every field the write sent', () => {
+    expect(holdsWrite(back({}), sent)).toBe(true);
+    expect(holdsWrite(back({ about: 'Porto' }), sent)).toBe(false);
+    expect(holdsWrite(back({ roles: 0 }), sent)).toBe(false);
+    expect(holdsWrite(back({ contacts: '{"discord":"lena"}' }), sent)).toBe(false);
+    expect(holdsWrite(back({ about: undefined }), sent)).toBe(false);
   });
 });

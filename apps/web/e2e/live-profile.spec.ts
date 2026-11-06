@@ -1,8 +1,10 @@
 // Opt-in live TESTNET run (CAIRN_LIVE=1 npm run e2e:live -w @cairn/web): create an account exactly as a user does (new phrase, pay the
 // QR address), with the dash-faucet helper playing the user's wallet; then write a profile through the vendored document writer and
-// see it read back with a proof. Spends about 0.01 tDASH. The phrase goes to ~/.local/share/cairn/e2e-user-<time>.json (0600), never to logs.
-import { execFileSync } from 'node:child_process';
-import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
+// see it read back with a proof. Spends about 0.01 tDASH. The phrase goes only into the shared secret store (`secret set
+// cairn/testnet-e2e-user-<time>`, linked at ~/.local/share/cairn/), never to a loose file or the logs; without the `secret` tool it
+// is not kept at all.
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -13,6 +15,16 @@ test.setTimeout(15 * 60_000);
 const FAUCET = join(homedir(), '.claude/skills/dash-faucet/scripts/request_core_faucet.py');
 const OUT = join(homedir(), '.local/share/cairn');
 
+/** Keeps the throwaway account's phrase in the secret store (stdin, never argv); false when there is no store here. */
+function keepPhrase(phrase: string): boolean {
+  const stamp = Date.now();
+  const r = spawnSync('secret', ['set', `cairn/testnet-e2e-user-${stamp}`, '--link', join(OUT, `testnet-e2e-user-${stamp}.json`), '--note', 'Cairn testnet e2e account (throwaway, test DASH only)'], {
+    input: JSON.stringify({ phrase, network: 'testnet', at: new Date().toISOString() }) + '\n',
+    stdio: ['pipe', 'ignore', 'ignore'],
+  });
+  return r.status === 0;
+}
+
 test('@live create an account on testnet and save a profile', async ({ page }) => {
   await stubActivation(page);
   await page.goto('/');
@@ -21,9 +33,7 @@ test('@live create an account on testnet and save a profile', async ({ page }) =
   const words = (await page.getByTestId('phrase-words').locator('li').allInnerTexts()).map((t) => t.trim().split(/\s+/)[1]!);
   expect(words).toHaveLength(12);
   mkdirSync(OUT, { recursive: true, mode: 0o700 });
-  const file = join(OUT, `e2e-user-${Date.now()}.json`);
-  writeFileSync(file, JSON.stringify({ phrase: words.join(' '), network: 'testnet', at: new Date().toISOString() }) + '\n', { mode: 0o600 });
-  chmodSync(file, 0o600);
+  console.log(keepPhrase(words.join(' ')) ? 'phrase kept in the secret store' : 'no secret store: the phrase is not kept');
   await page.getByRole('button', { name: 'I wrote it down' }).click();
   for (const i of await page.locator('[data-testid^="quiz-"]').all()) await i.fill(words[Number((await i.getAttribute('data-testid'))!.slice(5)) - 1]!);
   await page.getByRole('button', { name: 'Continue' }).click();
@@ -46,7 +56,7 @@ test('@live create an account on testnet and save a profile', async ({ page }) =
 
   const form = page.getByTestId('profile-form');
   await expect(form.getByRole('button', { name: 'Create profile' })).toBeEnabled({ timeout: 120_000 });
-  const name = `Cairn e2e ${new Date().toISOString().slice(0, 16)}`;
+  const name = `E2E tester ${new Date().toISOString().slice(0, 16)}`;
   await form.getByLabel('Display name').fill(name);
   await form.getByLabel(/About you/).fill('Testing Cairn on testnet. Not a real member.');
   await form.getByLabel('Yappr').fill('cairn-e2e');
