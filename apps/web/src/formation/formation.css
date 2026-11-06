@@ -479,48 +479,6 @@
   color: var(--ink);
   border-bottom-color: var(--ochre);
 }
-.form-status {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 var(--s-6);
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: var(--s-2) var(--s-4);
-}
-.form-status li {
-  display: flex;
-  gap: var(--s-2);
-  align-items: baseline;
-  padding: var(--s-3) var(--s-4);
-  border-radius: var(--radius-m);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  font-weight: 500;
-}
-.st-mark {
-  display: inline-grid;
-  place-items: center;
-  width: 1.4rem;
-  height: 1.25rem;
-  border-radius: 48% 52% 45% 55% / 55% 50% 50% 45%;
-  font-size: var(--t-xs);
-  font-weight: 800;
-  flex: none;
-  background: var(--sunk);
-  color: var(--ink-3);
-}
-.st-ok .st-mark {
-  background: var(--pass-fill);
-  color: var(--on-accent);
-}
-.st-no .st-mark {
-  background: var(--fail-fill);
-  color: #fff;
-}
-.st-wait .st-mark {
-  background: var(--ochre-wash);
-  color: var(--ochre-ink);
-}
 .not-ready ul {
   margin-bottom: var(--s-4);
 }
@@ -529,23 +487,6 @@
 }
 .form-waiting .activation {
   margin-top: var(--s-4);
-}
-.form-role {
-  padding: var(--s-4) var(--s-5);
-  border-radius: var(--radius-l);
-  background: var(--ochre-wash);
-  border-left: 4px solid var(--ochre);
-  margin-bottom: var(--s-6);
-}
-.form-role p {
-  margin: 0;
-}
-.session-mark {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-3);
-  align-items: center;
-  margin-top: var(--s-3);
 }
 .form-section {
   margin-bottom: var(--s-7);
@@ -558,56 +499,278 @@
   color: var(--ink-3);
   font-family: var(--font);
 }
-.qt-sheet {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-l);
-  background: var(--surface);
-  padding: 0;
-}
-.qt-sheet > summary {
-  list-style: none;
-  padding: var(--s-4) var(--s-5);
+
+/* ---- the form page: a trail of steps, the checker docked beside it ------------------------------------------------------------ */
+.form-layout {
   display: grid;
-  gap: var(--s-1);
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 25rem);
+  gap: var(--s-6);
+  align-items: start;
 }
-.qt-sheet > summary::-webkit-details-marker {
-  display: none;
+.form-layout-solo {
+  grid-template-columns: minmax(0, 46rem);
 }
-.qt-sheet > summary h2 {
-  font-size: var(--t-xl);
+.form-aside {
+  position: sticky;
+  top: 5.5rem;
+  max-height: calc(100vh - 6.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--radius-l);
+  scroll-margin-top: 5.5rem;
+}
+.form-aside .checker-me {
+  grid-template-columns: 1fr;
+}
+.form-aside .checker-head h2 {
+  font-size: var(--t-l);
+}
+.form-role {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3) var(--s-5);
+  margin-bottom: var(--s-5);
+}
+.form-role p {
   margin: 0;
+  max-width: 46ch;
 }
-.qt-sheet > summary h2::before {
-  content: '▸';
-  display: inline-block;
-  width: 1.1em;
+.role-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+.role-switch > legend {
+  float: left;
+  padding: 0;
+  font-size: var(--t-s);
   color: var(--ink-3);
-  transition: transform 120ms;
 }
-.qt-sheet[open] > summary h2::before {
+.trail {
+  list-style: none;
+  margin: 0 0 var(--s-7);
+  padding: 0;
+  --mark: 2.2rem;
+}
+.trail-step {
+  position: relative;
+}
+/* the rail from this step's mark to the next one's: lichen once the step is done */
+.trail-step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--mark) / 2 - 1px);
+  top: 2.6rem;
+  bottom: -0.6rem;
+  width: 2px;
+  background: var(--line-strong);
+}
+.trail-step.is-done:not(:last-child)::before {
+  background: var(--stone-approved);
+}
+.trail-h {
+  margin: 0;
+  font: inherit;
+  text-wrap: pretty;
+}
+.trail-btn {
+  display: grid;
+  grid-template-columns: var(--mark) minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  padding: var(--s-3) var(--s-2) var(--s-3) 0;
+  border: 0;
+  border-radius: var(--radius-m);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .trail-btn:hover:not(:disabled) .trail-title {
+    color: var(--accent-ink);
+  }
+}
+.trail-btn:disabled {
+  cursor: default;
+}
+.trail-mark {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: var(--mark);
+  height: 1.9rem;
+  border-radius: 48% 52% 45% 55% / 55% 50% 50% 45%;
+  border: 1.5px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink-3);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--t-s);
+}
+.is-done .trail-mark {
+  background: var(--stone-approved);
+  border-color: var(--stone-approved);
+  color: var(--paper);
+}
+.is-current .trail-mark {
+  background: var(--ochre);
+  border-color: var(--ochre);
+  color: #1e2226;
+  box-shadow: 0 0 0 4px var(--ochre-wash);
+}
+.is-in-qt .trail-mark {
+  background: var(--ochre-wash);
+  border: 1.5px dashed var(--ochre);
+  color: var(--ochre-ink);
+}
+.trail-text {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.trail-title {
+  font-family: var(--font-display);
+  font-weight: 650;
+  font-size: var(--t-l);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+.trail-sub {
+  font-size: var(--t-s);
+  color: var(--ink-3);
+}
+.is-todo .trail-title {
+  color: var(--ink-2);
+}
+.trail-state {
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.trail-state-done {
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+}
+.trail-state-current,
+.trail-state-in-qt {
+  background: var(--ochre-wash);
+  color: var(--ochre-ink);
+}
+.trail-state-in-qt {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ochre) 55%, transparent);
+  background: transparent;
+}
+.trail-chev {
+  grid-column: 4;
+  color: var(--ink-3);
+  transition: transform 150ms ease;
+}
+.is-open .trail-chev {
   transform: rotate(90deg);
 }
-.qt-sheet[open] > summary {
-  border-bottom: 1px solid var(--line);
+.trail-body {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 var(--s-5) calc(var(--mark) + var(--s-3));
+  padding: var(--s-5);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.is-current .trail-body,
+.is-in-qt .trail-body {
+  border-color: color-mix(in srgb, var(--ochre) 45%, var(--line));
+}
+.trail-body > :last-child {
+  margin-bottom: 0;
+}
+.trail-facts,
+.trail-list {
   margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-2);
+}
+.trail-facts {
+  list-style: none;
+}
+.trail-facts li {
+  display: flex;
+  gap: var(--s-2);
+  align-items: baseline;
+  font-weight: 500;
+}
+.trail-facts .icon {
+  align-self: center;
+}
+.fact-ok .icon,
+.trail-done-line .icon {
+  color: var(--pass);
+}
+.fact-no .icon {
+  color: var(--fail);
+}
+.trail-list {
+  padding-left: 1.25rem;
+  max-width: 62ch;
+}
+.trail-list-n {
+  list-style: decimal;
+}
+.trail-list li::marker {
+  color: var(--ink-3);
+}
+.trail-check {
+  margin-top: var(--s-4);
+  gap: var(--s-2);
+}
+.trail-done-line {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  margin: var(--s-4) 0 0;
+  font-weight: 500;
+}
+.session-mark {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-3);
+  align-items: center;
+  margin-top: var(--s-4);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--line);
 }
 .setup {
   list-style: none;
-  counter-reset: page;
   margin: 0;
-  padding: var(--s-2) var(--s-5) var(--s-5);
+  padding: 0;
 }
 .setup-page {
-  counter-increment: page;
   position: relative;
   padding: var(--s-4) 0 var(--s-4) 3rem;
   border-bottom: 1px solid var(--line);
 }
+.setup-page:first-child {
+  padding-top: 0;
+}
 .setup-page:last-child {
   border-bottom: 0;
+  padding-bottom: 0;
 }
-.setup-page::before {
-  content: counter(page);
+.setup-n {
   position: absolute;
   left: 0;
   top: var(--s-4);
@@ -621,33 +784,53 @@
   background: var(--sunk);
   border: 1.5px solid var(--line-strong);
 }
+.setup-page:first-child .setup-n {
+  top: 0;
+}
 .setup-page h3 {
   margin-bottom: var(--s-1);
 }
 .setup-fields {
   margin: var(--s-2) 0;
 }
-.rounds-guide {
-  list-style: none;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--s-4);
+@media (max-width: 1000px) {
+  .form-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .form-aside {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
 }
-.rounds-guide > li {
-  padding: var(--s-4) var(--s-5);
-  border-radius: var(--radius-l);
-  background: var(--surface);
-  border: 1px solid var(--line);
-}
-.rounds-guide h3 {
-  font-size: var(--t-m);
-}
-.rounds-guide ul {
-  margin: 0;
-}
-.rounds-guide li li {
-  margin-bottom: var(--s-2);
+@media (max-width: 620px) {
+  .trail {
+    --mark: 1.9rem;
+  }
+  .trail-btn {
+    grid-template-columns: var(--mark) minmax(0, 1fr) auto;
+    align-items: start;
+  }
+  .trail-mark {
+    height: 1.7rem;
+  }
+  .trail-state {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+  }
+  .trail-chev {
+    grid-column: 3;
+    grid-row: 1;
+    margin-top: 0.3rem;
+  }
+  .trail-body {
+    margin-left: 0;
+    padding: var(--s-4);
+  }
+  .setup-page {
+    padding-left: 2.6rem;
+  }
 }
 .cli-step h4 {
   margin: var(--s-4) 0 0;
@@ -680,22 +863,9 @@
 .link-reg .reg-card {
   margin-top: var(--s-4);
 }
-@media (max-width: 760px) {
-  .rounds-guide {
-    grid-template-columns: 1fr;
-  }
-}
 @media (max-width: 520px) {
   .link-row {
     flex-direction: column;
-  }
-  .qt-sheet > summary,
-  .setup {
-    padding-left: var(--s-4);
-    padding-right: var(--s-4);
-  }
-  .setup-page {
-    padding-left: 2.6rem;
   }
 }
 

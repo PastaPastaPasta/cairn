@@ -300,6 +300,8 @@ input[type='radio'] {
   min-height: 100vh;
   display: grid;
   grid-template-rows: auto 1fr auto;
+  /* one column no wider than the screen: rows that scroll sideways (nav, group tabs) must not widen the page */
+  grid-template-columns: minmax(0, 1fr);
 }
 .top {
   position: sticky;
@@ -478,7 +480,7 @@ input[type='radio'] {
 
 @media (max-width: 760px) {
   .top-in {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--s-2) var(--s-3);
     padding: var(--s-3) var(--s-4) var(--s-1);
   }
@@ -1169,6 +1171,54 @@ details[open] summary {
   .contact-grid {
     grid-template-columns: 1fr;
   }
+}
+/* Segmented control: a fieldset of radios drawn as one pill (theme, and the form page's role). */
+.seg {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 2px;
+  margin: 0;
+  padding: 3px;
+  min-inline-size: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--sunk);
+}
+.seg label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  font-size: var(--t-s);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink-2);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.seg label:hover {
+  color: var(--ink);
+}
+.seg label.on {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow:
+    0 0 0 1px var(--line-strong),
+    0 1px 2px rgb(30 34 38 / 0.08);
+}
+.seg input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.seg label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .settings-block {
   max-width: 44rem;
