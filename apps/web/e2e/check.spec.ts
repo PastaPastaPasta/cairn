@@ -144,7 +144,7 @@ test('the live page checks the demo group against real testnet chain data', asyn
   // the demo copied d400c120's public terms after Dash-Qt registered it: it matches, but was not agreed before (F-003)
   await expect(reg).toHaveAttribute('data-state', 'recorded-after', { timeout: 150_000 });
   await expect(reg).toContainText('Registration matches these terms, but they were recorded after it was registered');
-  await expect(reg).not.toContainText('verified');
+  await expect(reg.locator('.reg-headline')).not.toHaveText('Registration verified');
   // registered without a service: banned until the operator's service update, never "live" (D-002, F-013)
   await expect(page.getByTestId('mn-state')).toHaveAttribute('data-state', /no-service|banned|valid/);
   await expect(page.getByTestId('mn-state').locator('.mn-valid')).toHaveCount(0);

@@ -25,7 +25,7 @@ describe('watching an open page', () => {
     const version = vi.fn(async () => String(stored));
     const r = await render(
       <AppProvider>
-        <Probe load={load} watch={{ version, of: (d) => String(d) }} />
+        <Probe load={load} watch={{ version, of: (d) => String(d), newer: (a, b) => Number(a) > Number(b) }} />
       </AppProvider>,
     );
     await act(async () => {});
@@ -36,6 +36,11 @@ describe('watching an open page', () => {
     expect(version).toHaveBeenCalledTimes(1);
     expect(load).toHaveBeenCalledTimes(1);
     expect(shown!.updated).toBe(false);
+
+    // a node behind the shown version is not a change
+    stored = 0;
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    expect(load).toHaveBeenCalledTimes(1);
 
     stored = 2;
     await act(async () => window.dispatchEvent(new Event('focus')));

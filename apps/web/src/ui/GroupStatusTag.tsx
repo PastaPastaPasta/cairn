@@ -7,6 +7,21 @@ import { groupView, isLockedStatus } from '../matching/group.ts';
 import { stageOf, type Stage } from '../matching/stage.ts';
 import { GROUP_STATUS_WORDS } from '../matching/words.ts';
 
+/** Cards read their groups a few at a time, so a long list does not send every read at once. */
+const LIMIT = 3;
+let running = 0;
+const queue: Array<() => void> = [];
+async function limited<T>(read: () => Promise<T>): Promise<T> {
+  if (running >= LIMIT) await new Promise<void>((go) => queue.push(go));
+  running++;
+  try {
+    return await read();
+  } finally {
+    running--;
+    queue.shift()?.();
+  }
+}
+
 const STAGE_WORDS: Partial<Record<Stage, string>> = {
   ready: 'Ready to form',
   'session-started': 'Forming in Dash-Qt',
@@ -18,7 +33,7 @@ const STAGE_WORDS: Partial<Record<Stage, string>> = {
 export function GroupStatusTag({ g }: { g: Group }) {
   const { registry } = useApp();
   const past = isLockedStatus(g.status);
-  const load = useLoad(past ? `group-status:${g.id}:${g.docRevision}` : null, (r) => loadGroupBundle(r, g.id));
+  const load = useLoad(past ? `group-status:${g.id}:${g.docRevision}` : null, (r) => limited(() => loadGroupBundle(r, g.id)));
   let text = GROUP_STATUS_WORDS[g.status] ?? 'Group';
   if (past && load.status === 'ready' && load.data) {
     const view = groupView(load.data, registry.network);

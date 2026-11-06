@@ -27,6 +27,11 @@ describe('write pre-flight', () => {
     expect(staleBefore(page, null, B, 'approve')).toMatch(/no longer exists/);
   });
 
+  it('reads a node behind the page as lag, not as changed terms', () => {
+    const page = locked({ docRevision: 4 });
+    expect(staleBefore(page, locked({ docRevision: 3, termsRevision: 1, status: GROUP_STATUS.full, lockedHash: undefined }), B, 'approve')).toBeNull();
+  });
+
   it('refuses a second approval, seat or answer of one person (a unique index Platform enforces after charging)', () => {
     const page = locked();
     expect(staleBefore(page, { ...page, approvals: [approval(B, 'ab'.repeat(32), D(400), 2)] }, B, 'approve')).toMatch(/already approved/);

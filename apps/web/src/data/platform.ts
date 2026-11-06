@@ -11,12 +11,24 @@ let current: { key: string; sdk: Promise<Sdk> } | null = null;
 
 const sdkKey = (r: Registry) => JSON.stringify([r.network, r.platform]);
 
+let evo: Promise<EvoModule> | null = null;
+
+/** The SDK module with its WASM initialised: a download sized by the connection, so no read deadline counts it. */
+function loadEvo(): Promise<EvoModule> {
+  evo ??= (async () => {
+    const mod: EvoModule = await import('@dashevo/evo-sdk');
+    await mod.ensureInitialized?.();
+    return mod;
+  })();
+  evo.catch(() => (evo = null));
+  return evo;
+}
+
 export function getSdk(r: Registry): Promise<Sdk> {
   const key = sdkKey(r);
   if (current?.key === key) return current.sdk;
   const sdk = (async () => {
-    const mod: EvoModule = await import('@dashevo/evo-sdk');
-    await mod.ensureInitialized?.();
+    const mod = await loadEvo();
     const s = new mod.EvoSDK({
       network: r.network,
       trusted: r.platform.trusted,
@@ -60,6 +72,7 @@ function deadline<T>(p: Promise<T>, ms: number): Promise<T> {
  */
 export async function withSdk<T>(r: Registry, read: (sdk: Sdk) => Promise<T>, o: { deadlineMs?: number; attempts?: number } = {}): Promise<T> {
   const attempts = o.attempts ?? 2;
+  await loadEvo();
   for (let i = 1; ; i++) {
     const sdk = getSdk(r);
     try {

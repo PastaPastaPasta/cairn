@@ -2,7 +2,7 @@
 // through the contract's reader (malformed ones are skipped), and a small memory of documents this tab wrote, so a node that lags
 // behind a write can neither undo it on screen nor hide a document just created.
 import {
-  approvalsOfGroup, invitesOfGroup, opAcceptsOfGroup, seatsOfGroup, toApproval, toGroup, toInvite, toOpAccept, toSeat,
+  approvalsOf, approvalsOfGroup, invitesOfGroup, opAcceptsOfGroup, seatsOfGroup, toApproval, toGroup, toInvite, toOpAccept, toSeat,
   type CairnQuery, type DocMeta, type DocType, type Network, type RawDoc,
 } from '@cairn/contract';
 import { base58 } from '@scure/base';
@@ -73,6 +73,7 @@ export function readEach<T>(docs: RawDoc[], read: Reader<T>, network: Network): 
 // ---- reads ------------------------------------------------------------------------------------------------------------------
 
 const MAX_PAGES = 5;
+const PAGE_SIZE = 100;
 
 /** Every page of an ascending query (startAfter paging), merged with what this tab wrote. */
 export async function readAll<T extends DocMeta>(r: Registry, type: DocType, page: (startAfter?: string) => CairnQuery, read: Reader<T>, belongs: (raw: RawDoc) => boolean): Promise<T[]> {
@@ -130,8 +131,15 @@ export async function loadGroupBundle(r: Registry, groupId: string): Promise<Gro
   } catch (e) {
     throw new GroupUnreadable(`This group’s record breaks Dash Core’s share rules, so Cairn will not show it as terms (${(e as Error).message}).`);
   }
-  const atRevision = (rev: number) => allApprovals.filter((a) => a.termsRevision === rev);
-  return { group, seats, opAccepts, invites, approvals: atRevision(group.termsRevision), voided: group.termsRevision > 1 ? atRevision(group.termsRevision - 1) : [] };
+  const rev = group.termsRevision;
+  // every revision in one ascending read; one so long that the read stopped early may lack the newest, so ask for those directly
+  const capped = allApprovals.length >= MAX_PAGES * PAGE_SIZE;
+  const atRevision = (n: number) =>
+    capped
+      ? readAll(r, 'approval', (a) => approvalsOf(groupId, n, a), (d) => toApproval(d), (d) => belongs(d) && Number(d.revision) === n)
+      : Promise.resolve(allApprovals.filter((a) => a.termsRevision === n));
+  const [approvals, voided] = await Promise.all([atRevision(rev), rev > 1 ? atRevision(rev - 1) : Promise.resolve([])]);
+  return { group, seats, opAccepts, invites, approvals, voided };
 }
 
 // ---- a load as React state ---------------------------------------------------------------------------------------------------
@@ -148,6 +156,8 @@ export type Load<T> =
 export interface Watch<T> {
   version(r: Registry): Promise<string>;
   of(data: T): string;
+  /** Whether a read version is newer than the shown one (a node lagging behind the shown data is not a change). */
+  newer(read: string, shown: string): boolean;
 }
 
 export const WATCH_EVERY_MS = 30_000;
@@ -186,7 +196,11 @@ export function useLoad<T>(key: string | null, load: (r: Registry) => Promise<T>
       live = false;
     };
   }, [registry, key, tick]);
-  const reload = useCallback(() => setTick((n) => n + 1), []);
+  const refetch = useCallback(() => setTick((n) => n + 1), []);
+  const reload = useCallback(() => {
+    setUpdated(false);
+    refetch();
+  }, [refetch]);
   const shown = state.status === 'ready' && !state.refreshing ? state.data : undefined;
   const watching = !!watch && shown !== undefined;
   useEffect(() => {
@@ -199,9 +213,9 @@ export function useLoad<T>(key: string | null, load: (r: Registry) => Promise<T>
       busy = true;
       try {
         const v = await w.version(registry);
-        if (live && v !== w.of(shown as T)) {
+        if (live && w.newer(v, w.of(shown as T))) {
           setUpdated(true);
-          reload();
+          refetch();
         }
       } catch {
         // a failed check changes nothing on the page; the next one tries again
@@ -218,13 +232,15 @@ export function useLoad<T>(key: string | null, load: (r: Registry) => Promise<T>
       window.removeEventListener('focus', check);
       document.removeEventListener('visibilitychange', check);
     };
-  }, [watching, shown, registry, reload]);
+  }, [watching, shown, registry, refetch]);
   return { ...state, reload, updated };
 }
 
 const groupWatch = (groupId: string): Watch<GroupBundle | null> => ({
-  version: async (r) => String((await readDoc(r, 'group', groupId))?.$revision ?? 'none'),
-  of: (b) => String(b?.group.docRevision ?? 'none'),
+  version: async (r) => String((await readDoc(r, 'group', groupId))?.$revision ?? 0),
+  of: (b) => String(b?.group.docRevision ?? 0),
+  // a group that disappears (0) is a change too; a lower revision is a lagging node
+  newer: (read, shown) => (read === '0' ? shown !== '0' : Number(read) > Number(shown)),
 });
 
 /** A group's bundle as React state (null: no such group), re-read on reload() and when the group changes while the page is open. */

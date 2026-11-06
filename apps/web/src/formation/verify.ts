@@ -79,9 +79,10 @@ export function mnStateOf(f: ChainFacts | null): { state: MnState; text: string 
     return { state: 'dissolved', text: 'It is no longer in the masternode list. A shared masternode leaves the list only when someone leaves, so it has been dissolved and every share went back to its refund address.' };
   }
   if (f.mn.isValid) return { state: 'valid', text: 'The network lists it as valid: it takes part and is paid in turn.' };
-  // the list does not carry the address, so "never given one" is read from the registration; a later update and ban reads as banned
+  // Cairn's list entries do not keep the address, so this reads the registration: registered without one, the operator's service
+  // update is what it waits for (an update and a later ban needs one as well, so the advice holds either way)
   if (registeredWithoutService(f.hex)) {
-    return { state: 'no-service', text: 'The operator still has to give the node its IP address with a service update. Until then the network skips this masternode. Your coins are safe in the collateral.' };
+    return { state: 'no-service', text: 'It was registered without the node’s IP address, and the network pays it only after the operator sends a service update with it. Your coins are safe in the collateral.' };
   }
   return { state: 'banned', text: 'The network banned it for missing its duties, so it is not paid until the operator fixes the node and sends a service update. Your coins are safe in the collateral.' };
 }

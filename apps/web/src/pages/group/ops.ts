@@ -32,6 +32,8 @@ export function staleBefore(page: GroupBundle, fresh: GroupBundle | null, me: st
       return !had(page) && had(fresh) ? 'You already invited this person (from another tab or device), so nothing was sent. The page now shows the invitation.' : null;
     }
     case 'approve':
+      // a node behind the page's version of the group is lagging, not a change: the approval names the terms the page showed
+      if (f.docRevision < g.docRevision) return fresh.approvals.some((a) => a.ownerId === me && a.termsRevision === g.termsRevision) ? 'You already approved these terms (from another tab or device), so nothing was sent.' : null;
       if (!isLockedStatus(f.status) || f.termsRevision !== g.termsRevision || (f.lockedHash ?? '').toLowerCase() !== (g.lockedHash ?? '').toLowerCase())
         return `The terms changed since this page loaded (they are now terms version ${f.termsRevision}${isLockedStatus(f.status) ? '' : ', not locked yet'}), so your approval was not sent. Read them again before you approve.`;
       return fresh.approvals.some((a) => a.ownerId === me) ? 'You already approved these terms (from another tab or device), so nothing was sent.' : null;
