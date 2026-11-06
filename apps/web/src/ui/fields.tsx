@@ -67,7 +67,7 @@ export function ExitTermsField({ period, onPeriod, penalty, onPenalty, problem, 
   return (
     <fieldset className="exit-terms" disabled={disabled}>
       <legend>Leaving early</legend>
-      <p className="small muted">Anyone can always leave; that dissolves the masternode and returns every share. In the early period, whoever leaves pays the penalty to the others.</p>
+      <p className="small muted">Anyone can always leave; that dissolves the masternode and gives every share back. In the early period, whoever leaves pays the penalty to the others.</p>
       <div className="pills" role="radiogroup" aria-label="Early period">
         {EXIT_PRESETS.map((p) => (
           <label key={p.id} className={period === p.blocks ? 'on' : ''}>

@@ -136,14 +136,9 @@ export function OperatorEditor({ identityId }: { identityId: string }) {
         </Field>
         <div className="field-row">
           <PercentField label="Your usual reward" value={reward} onChange={setReward} problem={problems.reward} testId="operator-reward" />
-          <PercentField label="Lowest you accept" value={min} onChange={setMin} problem={null} hint="Optional" />
-          <PercentField label="Highest you ask" value={max} onChange={setMax} problem={null} hint="Optional" />
+          <PercentField label="Lowest you accept" value={min} onChange={setMin} problem={problems.range} hint="Optional" />
+          <PercentField label="Highest you ask" value={max} onChange={setMax} problem={problems.range} hint="Optional" />
         </div>
-        {problems.range && (
-          <p className="field-problem small" role="alert">
-            {problems.range}
-          </p>
-        )}
         <Field label="Regions" optional problem={problems.regions} hint="Where your servers are, separated by commas: “EU-West, US-East”.">
           {({ id, describedBy }) => <input id={id} value={regions} onChange={(e) => setRegions(e.target.value)} aria-describedby={describedBy} data-testid="operator-regions" />}
         </Field>
@@ -167,7 +162,7 @@ export function OperatorEditor({ identityId }: { identityId: string }) {
           </Field>
         </div>
         <Field label="Masternodes you run" optional problem={problems.claimed} hint="ProTx hashes, one per line. Shown as “claimed” with a link to Radar; the chain-verified record is separate.">
-          {({ id, describedBy, invalid }) => <textarea id={id} value={claimed} onChange={(e) => setClaimed(e.target.value)} rows={3} className="mono-input" spellCheck={false} aria-describedby={describedBy} aria-invalid={invalid || undefined} />}
+          {({ id, describedBy, invalid }) => <textarea id={id} value={claimed} onChange={(e) => setClaimed(e.target.value)} rows={3} className="mono-input" spellCheck={false} aria-describedby={describedBy} aria-invalid={invalid || undefined} data-testid="operator-claimed" />}
         </Field>
         {proTx.length > 0 && !problems.claimed && (
           <ul className="claimed small">

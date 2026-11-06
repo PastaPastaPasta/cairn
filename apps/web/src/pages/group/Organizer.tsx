@@ -1,7 +1,7 @@
 // The organizer's tools: invite people who fit (M4 on the group side), choose the operator (member-led), edit the terms, prepare
 // and lock (S3), and refill a dissolved group (M12). Every change goes through `change()`, which bumps the revision of locked terms.
 import { GROUP_FLAG, GROUP_STATUS, MN_TYPE, OPERATOR_STATUS, OP_ACCEPT_STATUS, createOp, groupData, httpsUrl, type Group } from '@cairn/contract';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../app/context.tsx';
 import { rawId } from '../../data/cairn.ts';
@@ -40,8 +40,12 @@ export function InviteSection({ view, people, ops, done }: Props) {
   const name = (id: string) => morePeople.get(id) ?? people.get(id);
   const invite = (xs: Array<{ ownerId: string; amount: number }>) =>
     run(async () => {
-      for (const x of xs) await ops.invite(x.ownerId, x.amount, OPEN);
-      done();
+      try {
+        for (const x of xs) await ops.invite(x.ownerId, x.amount, OPEN);
+      } finally {
+        // re-read even after a failure, so a retry replaces the invites already written instead of adding more
+        done();
+      }
     });
   return (
     <section className="section tool" id="invite" aria-labelledby="invite-title">
@@ -84,7 +88,8 @@ export function InviteSection({ view, people, ops, done }: Props) {
                 <ul className="prefs small">
                   {f.prefs.map((p) => (
                     <li key={p.text} className={p.ok ? 'pref-ok' : 'pref-miss'}>
-                      {p.text.replace('Your chosen operator', 'Wants this operator')}
+                      <span className="visually-hidden">{p.ok ? 'Meets their terms: ' : 'Differs from their terms: '}</span>
+                      {p.text}
                     </li>
                   ))}
                   {f.looking.canCoordinate && <li className="pref-ok">Can coordinate</li>}
@@ -215,6 +220,18 @@ export function EditTerms({ view, ops, done }: Omit<Props, 'people'>) {
   const [policy, setPolicy] = useState(g.votingPolicy ?? '');
   const [openAmounts, setOpenAmounts] = useState(view.openAmounts);
   const { busy, error, run } = useAction();
+  // the page stays mounted across reloads: start every edit from the group as it is now
+  const begin = () => {
+    setTitle(g.title);
+    setAbout(g.about ?? '');
+    setReward(bpsInput(g.rewardBps));
+    setPeriod(g.earlyPeriodBlocks);
+    setPenalty(g.earlyPenalty ? dashNum(g.earlyPenalty) : '');
+    setChat(g.chatUrl ?? '');
+    setPolicy(g.votingPolicy ?? '');
+    setOpenAmounts(view.openAmounts);
+    setOpen(true);
+  };
   const bps = parsePercentInput(reward);
   const pen = period ? parseDashInput(penalty) : 0;
   const smallest = Math.min(...g.roster.map((r) => r.amount), 100 * 1e8);
@@ -251,7 +268,7 @@ export function EditTerms({ view, ops, done }: Omit<Props, 'people'>) {
       <h2 id="edit-title">Terms and details</h2>
       {!open ? (
         <div className="form-actions">
-          <button type="button" className="btn btn-s" onClick={() => setOpen(true)} data-testid="edit-terms">
+          <button type="button" className="btn btn-s" onClick={begin} data-testid="edit-terms">
             Edit
           </button>
           <CloseGroup view={view} ops={ops} done={done} />
@@ -320,14 +337,13 @@ export function LockSection({ view, people, ops, done }: Props) {
   const { registry } = useApp();
   const g = view.group;
   const nameOf = (id: string) => people.get(id)?.name ?? null;
-  const defaults = deriveLabels(g.roster, nameOf);
-  const [labels, setLabels] = useState<string[]>(defaults);
-  const namesKnown = g.roster.every((r) => people.has(r.id));
-  // labels follow the names until the organizer edits one
-  const [touched, setTouched] = useState(false);
-  useEffect(() => {
-    if (!touched) setLabels(deriveLabels(g.roster, nameOf));
-  }, [namesKnown, g.roster, touched]); // eslint-disable-line react-hooks/exhaustive-deps
+  // labels the organizer typed, by member, so a roster change cannot move them onto someone else; the rest follow the names
+  const [edited, setEdited] = useState<Record<string, string>>({});
+  const derived = deriveLabels(
+    g.roster.map((r) => ({ id: r.id, label: edited[r.id] ?? r.label })),
+    nameOf,
+  );
+  const labels = g.roster.map((r, i) => edited[r.id] ?? derived[i]!);
   const [coordinatorId, setCoordinatorId] = useState(g.coordinatorId ?? view.coordinatorCandidates[0] ?? '');
   const [holderId, setHolderId] = useState(g.votingHolderId ?? '');
   const [key, setKey] = useState(g.operatorPubKey ?? '');
@@ -419,10 +435,7 @@ export function LockSection({ view, people, ops, done }: Props) {
                     <input
                       id={id}
                       value={labels[i] ?? ''}
-                      onChange={(e) => {
-                        setTouched(true);
-                        setLabels((ls) => ls.map((l, j) => (j === i ? e.target.value : l)));
-                      }}
+                      onChange={(e) => setEdited((x) => ({ ...x, [r.id]: e.target.value }))}
                       maxLength={20}
                       spellCheck={false}
                       aria-describedby={describedBy}

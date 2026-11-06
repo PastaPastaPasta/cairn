@@ -34,6 +34,11 @@ export function remember(r: Registry, type: DocType, id: string, raw: RawDoc | n
   known.set(knownKey(r, type, id), raw);
 }
 
+/** Forgets what this tab wrote of a document, so the next read is Platform's alone. */
+export function forget(r: Registry, type: DocType, id: string): void {
+  known.delete(knownKey(r, type, id));
+}
+
 /** Documents of `type` this tab wrote that a query should have returned (`belongs`), newest known version of each. */
 export function withKnown(r: Registry, type: DocType, docs: RawDoc[], belongs: (raw: RawDoc) => boolean): RawDoc[] {
   const prefix = `${r.network}:${r.contractId}:${type}:`;

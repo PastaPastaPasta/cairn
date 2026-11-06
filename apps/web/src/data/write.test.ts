@@ -3,7 +3,10 @@ import { GROUP_STATUS, MN_TYPE, SEAT_STATUS, createOp, deleteOp, groupData, repl
 import { describe, expect, it, vi } from 'vitest';
 import { PROFILES } from '../config/registry.ts';
 import { A, GID, ORG, id } from '../matching/fixtures.ts';
-import { holdsData, writeConfirmed, type WriteDeps } from './write.ts';
+import { readDoc, remember } from './cairn.ts';
+import { holdsData, UnconfirmedWrite, writeConfirmed, type WriteDeps } from './write.ts';
+
+vi.mock('./platform.ts', () => ({ getCairnDoc: vi.fn(async () => null), queryCairn: vi.fn() }));
 
 const r = PROFILES.testnet;
 const CID = r.contractId!;
@@ -43,6 +46,18 @@ describe('confirmed writes', () => {
   it('confirms a delete only once the document is gone', async () => {
     const d = deps([stored(seat(300e8), 1), null]);
     await expect(writeConfirmed(r, async () => ({ id: SEAT_ID }), deleteOp(CID, 'seat', SEAT_ID), d)).resolves.toBeNull();
+  });
+
+  it('confirms deleting a document this tab wrote, which the node no longer has', async () => {
+    remember(r, 'approval', SEAT_ID, stored(seat(300e8), 1));
+    await expect(writeConfirmed(r, async () => ({ id: SEAT_ID }), deleteOp(CID, 'approval', SEAT_ID), { read: readDoc, sleep: async () => {} })).resolves.toBeNull();
+    await expect(readDoc(r, 'approval', SEAT_ID)).resolves.toBeNull();
+  });
+
+  it('names the written document when the read-back fails, so a retry does not write it twice', async () => {
+    const err = await writeConfirmed(r, async () => ({ id: SEAT_ID, revision: 1 }), createOp(CID, 'seat', seat(300e8)), deps([null])).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(UnconfirmedWrite);
+    expect((err as UnconfirmedWrite).id).toBe(SEAT_ID);
   });
 
   it('compares a group through its reader, with the network’s rules', () => {

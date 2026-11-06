@@ -13,18 +13,19 @@ export interface Preference {
 }
 
 /** How a group's terms meet a looking post's preferences, one line each. */
-export function preferences(g: Pick<Group, 'operatorId' | 'rewardBps' | 'earlyPeriodBlocks' | 'earlyPenalty'>, l: Looking): Preference[] {
+export function preferences(g: Pick<Group, 'operatorId' | 'rewardBps' | 'earlyPeriodBlocks' | 'earlyPenalty'>, l: Looking, whose: 'your' | 'their' = 'your'): Preference[] {
   const out: Preference[] = [];
-  if (l.operatorId) out.push(g.operatorId === l.operatorId ? { ok: true, text: 'Your chosen operator' } : { ok: false, text: g.operatorId ? 'A different operator than you asked for' : 'Operator not chosen yet' });
-  out.push(g.rewardBps <= l.maxRewardBps ? { ok: true, text: `Operator reward ${pct(g.rewardBps)}, within your ${pct(l.maxRewardBps)}` } : { ok: false, text: `Operator reward ${pct(g.rewardBps)}, above your ${pct(l.maxRewardBps)}` });
+  const they = whose === 'your' ? 'you' : 'they';
+  if (l.operatorId) out.push(g.operatorId === l.operatorId ? { ok: true, text: `${whose === 'your' ? 'Your' : 'Their'} chosen operator` } : { ok: false, text: g.operatorId ? `A different operator than ${they} asked for` : 'Operator not chosen yet' });
+  out.push(g.rewardBps <= l.maxRewardBps ? { ok: true, text: `Operator reward ${pct(g.rewardBps)}, within ${whose} ${pct(l.maxRewardBps)}` } : { ok: false, text: `Operator reward ${pct(g.rewardBps)}, above ${whose} ${pct(l.maxRewardBps)}` });
   const { maxPeriodBlocks: maxP, maxPenalty: maxPen } = l.earlyPref;
   const periodOk = maxP === null || g.earlyPeriodBlocks <= maxP;
   const penaltyOk = maxPen === null || g.earlyPenalty <= maxPen;
   if (maxP !== null || maxPen !== null)
     out.push(
       periodOk && penaltyOk
-        ? { ok: true, text: 'Exit terms you accept' }
-        : { ok: false, text: !periodOk ? `Early period ${periodWords(g.earlyPeriodBlocks)}, longer than you accept` : `Early-exit penalty ${dash(g.earlyPenalty)}, more than you accept` },
+        ? { ok: true, text: `Exit terms ${they} accept` }
+        : { ok: false, text: !periodOk ? `Early period ${periodWords(g.earlyPeriodBlocks)}, longer than ${they} accept` : `Early-exit penalty ${dash(g.earlyPenalty)}, more than ${they} accept` },
     );
   return out;
 }
@@ -125,7 +126,7 @@ export function lookingThatFits(g: Group, posts: readonly Looking[], exclude: Re
     .flatMap((l) => {
       const fit = fitsRoster(g.roster, l.amount, g.earlyPenalty);
       if (!fit.ok) return [];
-      const prefs = preferences(g, l);
+      const prefs = preferences(g, l, 'their');
       return [{ looking: l, prefs, misses: prefs.filter((p) => !p.ok).length, completes: fit.remainingAfter === 0n }];
     })
     .sort((a, b) => a.misses - b.misses || Number(b.completes) - Number(a.completes) || b.looking.amount - a.looking.amount);

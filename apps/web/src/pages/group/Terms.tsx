@@ -2,7 +2,7 @@
 // every member approves (M8), with each approval checked against the hash recomputed from the group document.
 import { OP_ACCEPT_STATUS } from '@cairn/contract';
 import { canonicalize } from '@cairn/shares';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Person } from '../../data/people.ts';
 import { exitWords, termWarnings } from '../../matching/exit.ts';
@@ -77,6 +77,8 @@ export function TermSheetSection({ view, people, me, ops, done }: { view: GroupV
   const sheet = view.sheet!;
   const mine = me ? view.shares.find((s) => s.id === me) : undefined;
   const [read, setRead] = useState(false);
+  // a new revision or a withdrawn approval asks for a fresh reading
+  useEffect(() => setRead(false), [view.hash, mine?.approval]);
   const { busy, error, run } = useAction();
   const approve = () =>
     run(async () => {

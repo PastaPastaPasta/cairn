@@ -14,6 +14,8 @@ import { OUT, demoAddress, go, signedIn } from './live-helpers.ts';
 test.setTimeout(45 * 60_000);
 
 const WRITE = 5 * 60_000;
+/** A real shared masternode on testnet (Dash-Qt wizard, 500/300/200), listed as the demo operator's claim. */
+const DEMO_CLAIMED = 'd400c12078251aa1320315a683291667beb3b585a5e0c2609919df27aab674e6';
 
 async function ensureProfile(page: Page, name: string) {
   await go(page, '/me#profile');
@@ -49,6 +51,7 @@ test('@live operator and two members agree terms on testnet up to "Ready to form
     await op.page.getByTestId('operator-name').fill('Stonepath Nodes');
     await op.page.getByTestId('operator-reward').fill('10');
     await op.page.getByTestId('operator-regions').fill('EU-West, US-East');
+    await op.page.getByTestId('operator-claimed').fill(DEMO_CLAIMED);
     await op.page.getByTestId('operator-save').click();
     await expect(op.page.getByTestId('my-operator')).toBeVisible({ timeout: WRITE });
   }

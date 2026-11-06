@@ -4,7 +4,7 @@
 // any invites, each confirmed by a proved read-back.
 import {
   GROUP_FLAG, GROUP_STATUS, INVITE_STATUS, MN_TYPE, OPERATOR_STATUS, SEAT_FLAG, SEAT_STATUS,
-  createOp, groupData, httpsUrl, inviteData, seatData, type GroupFields, type RosterEntry,
+  createOp, groupData, httpsUrl, inviteData, seatData, type GroupFields, type RawDoc, type RosterEntry,
 } from '@cairn/contract';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -13,7 +13,7 @@ import { useApp } from '../app/context.tsx';
 import { rawId } from '../data/cairn.ts';
 import { LISTED_OPERATORS, OPERATORS, useStatusList } from '../data/lists.ts';
 import { usePeople } from '../data/people.ts';
-import { useWrite } from '../data/write.ts';
+import { UnconfirmedWrite, useWrite } from '../data/write.ts';
 import { exitProblem, termWarnings } from '../matching/exit.ts';
 import { fitsRoster } from '../matching/group.ts';
 import { DUFFS, bpsInput, dash, dashNum, parseDashInput, parsePercentInput, pct } from '../matching/money.ts';
@@ -166,21 +166,28 @@ function NewGroupForm({ identityId }: { identityId: string }) {
     const cid = registry.contractId!;
     void run(async () => {
       setProgress([]);
-      const g = createdId ? null : await write(() => createOp(cid, 'group', groupData(fields(), registry.network)));
-      const gid = createdId ?? rawId(g!, '$id')!;
+      // a write Platform accepted counts as done even when its read-back failed: retrying would make a second document
+      const once = async (key: string, f: () => Promise<RawDoc | null>, said: string): Promise<string | null> => {
+        if (done.current.has(key)) return null;
+        try {
+          const back = await f();
+          done.current.add(key);
+          setProgress((p) => [...p, said]);
+          return back ? rawId(back, '$id') : null;
+        } catch (e) {
+          if (e instanceof UnconfirmedWrite) {
+            done.current.add(key);
+            if (key === 'group') setCreatedId(e.id);
+          }
+          throw e;
+        }
+      };
+      const gid = createdId ?? (await once('group', () => write(() => createOp(cid, 'group', groupData(fields(), registry.network))), 'Group created and read back.'))!;
       setCreatedId(gid);
-      setProgress((p) => [...p, 'Group created and read back.']);
-      if (amountDuffs && !done.current.has('seat')) {
-        await write(() => createOp(cid, 'seat', seatData({ groupId: gid, amount: amountDuffs, status: SEAT_STATUS.requested, flags: (coordinate ? SEAT_FLAG.canCoordinate : 0) | (holdKey ? SEAT_FLAG.votingKeyHolder : 0) }, registry.network)));
-        done.current.add('seat');
-        setProgress((p) => [...p, 'Your seat confirmed.']);
-      }
-      for (const inv of invites) {
-        if (done.current.has(inv.id)) continue;
-        await write(() => createOp(cid, 'invite', inviteData({ groupId: gid, toId: inv.id, amount: inv.amount, status: INVITE_STATUS.open })));
-        done.current.add(inv.id);
-        setProgress((p) => [...p, `Invited ${people.get(inv.id)?.name ?? 'a member'} (${dash(inv.amount)}).`]);
-      }
+      if (amountDuffs)
+        await once('seat', () => write(() => createOp(cid, 'seat', seatData({ groupId: gid, amount: amountDuffs, status: SEAT_STATUS.requested, flags: (coordinate ? SEAT_FLAG.canCoordinate : 0) | (holdKey ? SEAT_FLAG.votingKeyHolder : 0) }, registry.network))), 'Your seat confirmed.');
+      for (const inv of invites)
+        await once(inv.id, () => write(() => createOp(cid, 'invite', inviteData({ groupId: gid, toId: inv.id, amount: inv.amount, status: INVITE_STATUS.open }))), `Invited ${people.get(inv.id)?.name ?? 'a member'} (${dash(inv.amount)}).`);
       navigate(`/g/${gid}`);
     });
   };

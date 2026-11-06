@@ -87,6 +87,7 @@ export function Roster({ view, people, me, ops, done }: { view: GroupView; peopl
                         Use {dash(s.seat!.amount)}
                       </button>
                     )}
+                    {s.state === 'amount-changed' && !change!.ok && <span className="small field-problem">{change!.message}</span>}
                     {s.id !== g.ownerId && (
                       <button type="button" className="btn btn-s btn-quiet" disabled={busy} onClick={() => act(() => ops.group(removeShare(g, s.id)))} aria-label={`Remove ${people.get(s.id)?.name ?? 'this member'} from the roster`}>
                         Remove

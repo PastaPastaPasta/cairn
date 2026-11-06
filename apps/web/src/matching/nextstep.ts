@@ -1,7 +1,7 @@
 // "Your next step" on a group page: one step per role the viewer has in the group (DESIGN M7: one clear next step for me).
 import { OP_ACCEPT_STATUS, SEAT_FLAG, SEAT_STATUS } from '@cairn/contract';
 import type { GroupView } from './group.ts';
-import { dash } from './money.ts';
+import { dash, pct } from './money.ts';
 
 export type Role = 'visitor' | 'requester' | 'invitee' | 'member' | 'organizer' | 'operator';
 
@@ -57,7 +57,7 @@ export function rolesOf(v: GroupView, viewerId: string | null): Role[] {
   if (g.operatorId === viewerId) roles.push('operator');
   if (v.shares.some((s) => s.id === viewerId)) roles.push('member');
   else if (v.requests.some((r) => r.seat.ownerId === viewerId)) roles.push('requester');
-  else if (v.openInvites.some((i) => i.toId === viewerId) && !v.declined.some((s) => s.ownerId === viewerId)) roles.push('invitee');
+  else if (v.openInvites.some((i) => i.toId === viewerId)) roles.push('invitee');
   return roles.length ? roles : ['visitor'];
 }
 
@@ -78,9 +78,9 @@ function stepFor(role: Role, v: GroupView, viewer: Viewer): Step | null {
 
   switch (role) {
     case 'visitor': {
-      if (!me) return v.open ? step('todo', 'Sign in to ask for a seat', `This group still needs ${dash(v.remaining)}. Browsing needs no account; asking for a seat does.`, 'sign-in') : null;
-      if (viewer.isOperator && !g.operatorId && !v.locked) return step('todo', 'This group needs an operator', 'Offer to run its masternode, with the reward you accept. The organizer chooses.', 'offer');
+      if (me && viewer.isOperator && !g.operatorId && !v.locked) return step('todo', 'This group needs an operator', 'Offer to run its masternode, with the reward you accept. The organizer chooses.', 'offer');
       if (!v.open) return step('wait', v.locked ? 'Terms are locked' : 'This group is full', 'It is not taking more co-owners. Post that you are looking, and groups that fit can invite you.', 'post-looking');
+      if (!me) return step('todo', 'Sign in to ask for a seat', `This group still needs ${dash(v.remaining)}. Browsing needs no account; asking for a seat does.`, 'sign-in');
       if (!v.openAmounts) return step('todo', 'This group fills by invitation', 'The organizer invites people who are looking. Post that you are looking, with your amount and the terms you accept.', 'post-looking');
       return step('todo', 'Ask for a seat', `Say how much you would bring. ${dash(v.remaining)} is still open. The organizer adds you to the roster.`, 'request-seat');
     }
@@ -147,11 +147,12 @@ function operatorStep(v: GroupView, step: Make): Step | null {
   if (v.operatorLed) return null; // the organizer's step covers it
   const a = v.operatorAnswer;
   if (v.locked) return v.ready ? step('done', 'Ready to form', 'After the masternode is registered, put the BLS secret key on your node and set your payout address.', 'form') : step('wait', 'Terms are locked', 'Members are approving the terms.', 'none');
-  if (!a || a.status === OP_ACCEPT_STATUS.withdrawn) return step('todo', 'Will you run this node?', `The organizer chose you, at ${(g.rewardBps / 100).toLocaleString('en-US')}% of the rewards. Accept or decline.`, 'operator-answer');
+  if (!a || a.status === OP_ACCEPT_STATUS.withdrawn) return step('todo', 'Will you run this node?', `The organizer chose you, at ${pct(g.rewardBps)} of the rewards. Accept or decline.`, 'operator-answer');
   if (a.status === OP_ACCEPT_STATUS.declined) return step('done', 'You declined', 'The organizer will choose another operator. You can still accept.', 'operator-answer');
-  if (a.rewardBps !== g.rewardBps) return step('todo', 'The reward changed', `You accepted ${((a.rewardBps ?? 0) / 100).toLocaleString('en-US')}%; the group now proposes ${(g.rewardBps / 100).toLocaleString('en-US')}%. Accept again or decline.`, 'operator-answer');
+  if (a.rewardBps !== g.rewardBps)
+    return step('wait', 'The reward differs', `You accepted ${pct(a.rewardBps ?? 0)}; the group proposes ${pct(g.rewardBps)}. The organizer can take yours, or you can accept theirs.`, 'operator-answer');
   if (!a.operatorPubKey || !a.service) return step('todo', 'Give your key and the node’s address', 'The BLS operator public key and the IP address and port go into the terms before lock.', 'operator-key');
-  if (g.votingHolderId === g.operatorId && !a.votingAddress) return step('todo', 'Give the voting address', 'The group chose you to hold the voting key.', 'voting-address');
+  if (g.votingHolderId === g.operatorId && !v.shares.some((s) => s.id === g.operatorId) && !a.votingAddress) return step('todo', 'Give the voting address', 'The group chose you to hold the voting key.', 'voting-address');
   return step('wait', 'You are set', 'Waiting for the group to fill and the organizer to lock the terms.', 'none');
 }
 

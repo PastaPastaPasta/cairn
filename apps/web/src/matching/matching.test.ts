@@ -167,6 +167,22 @@ describe('lock and approve (S3, M8)', () => {
     expect(v.waitingFor.join(' ')).toMatch(/no longer matches/);
   });
 
+  it('re-locking changed terms makes a new revision; re-locking the same terms does not', () => {
+    const { b } = locked();
+    const v = groupView(b, 'testnet');
+    expect(lockPlan(v, { coordinatorId: A, votingHolderId: A, labels: ['Ana', 'Bo'] }).fields.revision).toBe(1);
+    const p = lockPlan(v, { coordinatorId: A, votingHolderId: A, labels: ['Ana', 'Bob'] });
+    expect(p.fields.revision).toBe(2);
+    expect(p.sheet.revision).toBe(2);
+  });
+
+  it('takes the voting address from the seat of an operator who is also a co-owner', () => {
+    const b = readyToLock();
+    const g = { ...b.group, roster: [{ id: OPR, amount: D(600) }, { id: B, amount: D(400) }] };
+    const v = groupView({ ...b, group: g, seats: [seat(OPR, D(600), { flags: SEAT_FLAG.canCoordinate | SEAT_FLAG.votingKeyHolder, votingAddress: VOTING }), seat(B, D(400))] }, 'testnet');
+    expect(lockPlan(v, { coordinatorId: OPR, votingHolderId: OPR, labels: ['Op', 'Bo'] }).problems).toEqual([]);
+  });
+
   it('a change after lock bumps the revision and unlocks, voiding approvals', () => {
     const { b } = locked();
     const f = change(b.group, { title: 'Renamed' });
@@ -191,6 +207,16 @@ describe('next steps per role', () => {
     expect(nextSteps(v, { id: OPR })[0]).toMatchObject({ role: 'operator', action: 'operator-answer' });
     const answered = groupView({ ...b, opAccepts: [opAccept({ operatorPubKey: undefined })] }, 'testnet');
     expect(nextSteps(answered, { id: OPR })[0]).toMatchObject({ role: 'operator', action: 'operator-key' });
+  });
+
+  it('close an invitation the person declined, until the organizer invites again', () => {
+    const declined = { ...seat(C, D(300), { status: SEAT_STATUS.withdrawn }), updatedAt: 10 };
+    const inv = { ...invite(C, D(300)), updatedAt: 5 };
+    const v = groupView(bundle({ seats: [declined], invites: [inv] }), 'testnet');
+    expect(v.openInvites).toEqual([]);
+    expect(rolesOf(v, C)).toEqual(['visitor']);
+    const again = groupView(bundle({ seats: [declined], invites: [{ ...inv, updatedAt: 20 }] }), 'testnet');
+    expect(rolesOf(again, C)).toEqual(['invitee']);
   });
 
   it('send the operator of a member-led group to accept, and an invitation-only visitor to post', () => {

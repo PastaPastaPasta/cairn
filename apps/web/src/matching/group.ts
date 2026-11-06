@@ -153,8 +153,13 @@ export function groupView(b: GroupBundle, network: Network): GroupView {
   // only the organizer's own invites speak for the group; the newest per person wins
   const inviteFor = new Map<string, Invite>();
   for (const i of [...b.invites].filter((x) => x.ownerId === g.ownerId).sort((x, y) => (x.updatedAt ?? 0) - (y.updatedAt ?? 0))) inviteFor.set(i.toId, i);
-  const openInvites = [...inviteFor.values()].filter((i) => i.status === INVITE_STATUS.open && !inRoster.has(i.toId));
   const outside = b.seats.filter((s) => !inRoster.has(s.ownerId));
+  const withdrawnSeat = new Map(outside.filter((s) => s.status === SEAT_STATUS.withdrawn).map((s) => [s.ownerId, s]));
+  // an invite the person declined (withdrew their seat after it) is no longer open, until the organizer invites again
+  const openInvites = [...inviteFor.values()].filter((i) => {
+    const declined = withdrawnSeat.get(i.toId);
+    return i.status === INVITE_STATUS.open && !inRoster.has(i.toId) && (!declined || (i.updatedAt ?? 0) > (declined.updatedAt ?? 0));
+  });
   const requests = outside
     .filter((s) => s.status === SEAT_STATUS.requested)
     .map((seat) => {
@@ -228,10 +233,14 @@ function readinessProblems(x: {
       out.push('The operator’s own answer no longer matches the locked key, address or reward.');
   }
   // the holder's own document must still say the address the terms carry
-  const holderDoc = g.votingHolderId === g.operatorId && !x.operatorLed ? x.operatorAnswer?.votingAddress : g.votingHolderId === g.operatorId ? g.votingAddress : x.seatOf.get(g.votingHolderId ?? '')?.votingAddress;
+  const holder = g.votingHolderId ?? '';
+  const holderDoc =
+    holder === g.operatorId && x.operatorLed ? g.votingAddress : shares.some((s) => s.id === holder) ? x.seatOf.get(holder)?.votingAddress : x.operatorAnswer?.votingAddress;
   if (g.votingAddress && holderDoc !== g.votingAddress) out.push('The voting key holder’s own record no longer shows the voting address in the terms.');
   return out;
 }
+
+const termsHashOrNull = (t: TermSheet): string | null => (validateTermSheet(t).length ? null : termsHash(t));
 
 /** The fields of a stored group, to change and write back (`revision` is the terms revision: the reader keeps that one). */
 export function fieldsOf(g: Group): GroupFields {
@@ -285,8 +294,10 @@ export interface LockPlan {
 export function holderVotingAddress(v: GroupView, holderId: string | undefined, typed?: string): string | undefined {
   if (!holderId) return undefined;
   const g = v.group;
-  if (holderId === g.operatorId) return v.operatorLed ? typed?.trim() || undefined : v.operatorAnswer?.votingAddress;
-  return v.shares.find((s) => s.id === holderId)?.seat?.votingAddress;
+  if (holderId === g.operatorId && v.operatorLed) return typed?.trim() || undefined;
+  const share = v.shares.find((s) => s.id === holderId);
+  if (share) return share.seat?.votingAddress;
+  return holderId === g.operatorId ? v.operatorAnswer?.votingAddress : undefined;
 }
 
 /**
@@ -327,6 +338,8 @@ export function lockPlan(v: GroupView, c: LockChoices): LockPlan {
     status: GROUP_STATUS.locked,
     lockedHash: undefined,
   };
+  // re-locking different terms is a new revision: approvals of the old one are voided, not left to mismatch
+  if (v.locked && termsHashOrNull(termSheetOf(g.id, fields, v.network)) !== g.lockedHash) fields.revision = g.revision + 1;
   const sheet = termSheetOf(g.id, fields, v.network);
   const issues = validateTermSheet(sheet);
   for (const i of issues) if (!problems.includes(i.message)) problems.push(i.message);

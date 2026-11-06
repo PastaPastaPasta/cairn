@@ -7,7 +7,7 @@ import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
 import type { Registry } from '../config/registry.ts';
 import type { DocumentOp, DocumentResult } from '../session/session.ts';
-import { readDoc, remember } from './cairn.ts';
+import { forget, readDoc, remember } from './cairn.ts';
 
 type Readable = Exclude<DocType, 'vault'>;
 const readerFor = (type: DocType, network: Network) => (raw: RawDoc) => (type === 'group' ? toGroup(raw, network) : READERS[type as Readable](raw));
@@ -32,11 +32,32 @@ export interface WriteDeps {
 const DEFAULT_DEPS: WriteDeps = { read: readDoc, sleep: (ms) => new Promise((ok) => setTimeout(ok, ms)) };
 const TRIES = 6;
 
+/** Platform accepted the write but its result could not be proved here; `id` is the document it wrote (it may well exist). */
+export class UnconfirmedWrite extends Error {
+  constructor(
+    message: string,
+    readonly id: string,
+  ) {
+    super(message);
+    this.name = 'UnconfirmedWrite';
+  }
+}
+
 /** Writes `op` and proves the result: the stored document (null after a delete). Throws with a message fit to show. */
 export async function writeConfirmed(r: Registry, write: (op: DocumentOp) => Promise<DocumentResult>, op: DocOp, deps: WriteDeps = DEFAULT_DEPS): Promise<RawDoc | null> {
   const done = await write(op);
+  try {
+    return await confirm(r, op, done, deps);
+  } catch (e) {
+    throw new UnconfirmedWrite(e instanceof Error ? e.message : String(e), done.id);
+  }
+}
+
+async function confirm(r: Registry, op: DocOp, done: DocumentResult, deps: WriteDeps): Promise<RawDoc | null> {
   const id = done.id;
   if (op.action === 'delete') {
+    // this tab's own copy must not stand in for the document Platform no longer has
+    forget(r, op.type, id);
     for (let i = 0; i < TRIES; i++) {
       if (!(await deps.read(r, op.type, id))) {
         remember(r, op.type, id, null);
