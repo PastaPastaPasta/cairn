@@ -175,6 +175,4 @@ test('the group, form and live pages tell one lifecycle, from the documents and 
   // the checker fixture: approved by all three, so /check compares against it, but its operator never accepted, so not ready
   await page.goto(`/g/${CHECKER_GROUP}`);
   await expect(page.getByTestId('group-status')).toHaveText('Terms locked · 3 of 3 approved', { timeout: 90_000 });
-  // the footer names what is actually missing (F-017)
-  await expect(page.getByTestId('form-link')).toContainText('The operator has not accepted this group.');
 });

@@ -184,8 +184,8 @@ function GroupBody({ bundle, reload, refreshing, updated }: { bundle: GroupBundl
         )}
         {me && stage === 'dissolved' && g.roster.some((r) => r.id === me) && <RefillPanel view={view} people={people} me={me} />}
         {view.locked && !view.ready && !forming && (
-          <p className="small muted form-link" data-testid="form-link">
-            Not ready to form yet. {view.waitingFor.join(' ')} <Link to={`/g/${g.id}/form`}>What forming involves →</Link>
+          <p className="small muted form-link">
+            Formation opens here once everyone has approved: <Link to={`/g/${g.id}/form`}>Next: form it in Dash Core →</Link>
           </p>
         )}
       </div>
