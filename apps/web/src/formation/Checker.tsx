@@ -14,12 +14,14 @@ export interface CheckerProps {
   myLabel?: string;
   chainShares?: readonly ChainShare[];
   proTxHash?: string;
+  /** Who is reading, when it is not a member of the group whose terms these are (see CheckContext.outsider). */
+  outsider?: CheckContext['outsider'];
   /** Heading level text for the panel. */
   title?: string;
   intro?: string;
 }
 
-export function Checker({ network, terms, myLabel: initialLabel, chainShares, proTxHash, title = 'Check a message', intro }: CheckerProps) {
+export function Checker({ network, terms, myLabel: initialLabel, chainShares, proTxHash, outsider, title = 'Check a message', intro }: CheckerProps) {
   const id = useId();
   const [text, setText] = useState('');
   const [fileNote, setFileNote] = useState<string | null>(null);
@@ -39,6 +41,7 @@ export function Checker({ network, terms, myLabel: initialLabel, chainShares, pr
       ...(terms && myOwner.trim() ? { myOwnerAddress: myOwner.trim() } : {}),
       ...(chainShares ? { chainShares } : {}),
       ...(proTxHash ? { proTxHash } : {}),
+      ...(terms && outsider ? { outsider } : {}),
     };
     const first = checkMessage(text, ctx);
     const earlier = first.session ? seen.current.get(first.session.id) : undefined;
@@ -49,7 +52,7 @@ export function Checker({ network, terms, myLabel: initialLabel, chainShares, pr
       if (v.verdict === 'ok') Object.assign(v, { verdict: 'warn', verdictTitle: VERDICT_TITLE.warn, verdictText: 'It matches the approved terms, but it is older than a copy you already checked: make sure you act on the newest one.' });
     }
     return v;
-  }, [text, network, terms, myLabel, myOwner, chainShares, proTxHash]);
+  }, [text, network, terms, myLabel, myOwner, chainShares, proTxHash, outsider]);
 
   useEffect(() => {
     if (!view.session || view.verdict === 'stop') return;

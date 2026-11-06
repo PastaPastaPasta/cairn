@@ -271,6 +271,7 @@ function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void })
               network={coreNetwork(registry.network)}
               terms={agreement.terms}
               myLabel={mine?.label}
+              outsider={mine ? undefined : session ? 'not-member' : 'signed-out'}
               title="Check a message against your approval"
               intro={`Compared with the terms all ${g.roster.length} members approved (revision ${g.termsRevision}). Pick your row and paste your owner address so a moved row stops you.`}
             />

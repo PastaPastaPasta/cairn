@@ -29,6 +29,11 @@ export interface CheckContext {
   chainShares?: readonly ChainShare[];
   /** The group's verified registration: a maintenance message about another masternode is refused. */
   proTxHash?: string;
+  /**
+   * The reader is signed out, or signed in but not on the group's roster: `terms` are someone else's agreement (a coordinator can
+   * link a lookalike group with sockpuppet approvals), so a match is never called safe.
+   */
+  outsider?: 'signed-out' | 'not-member';
 }
 
 export type Verdict = 'ok' | 'warn' | 'stop' | 'neutral';
@@ -146,6 +151,16 @@ const empty = (kind: CheckView['kind'], title: string, summary: string): CheckVi
 
 const f = (level: Level, code: string, title: string, detail = ''): Finding => ({ level, code, title, detail });
 
+const notOnRoster = (outsider: NonNullable<CheckContext['outsider']>): Finding =>
+  f(
+    'warn',
+    'not-on-roster',
+    'You are not on this group’s roster — this compares with someone else’s agreement',
+    outsider === 'signed-out'
+      ? 'Sign in, so Cairn can compare it with the terms you approved yourself. Until then, check that the group named above is the one you agreed with.'
+      : 'Your account did not approve these terms. Check that the group named above is the one you agreed with: anyone can open a group that looks like yours.',
+  );
+
 /** Read a pasted message: a Dash-Qt session or approvals message, a standby dissolution file, or bare transaction hex. */
 export function checkMessage(text: string, ctx: CheckContext = {}): CheckView {
   const trimmed = qtTrim(text);
@@ -230,6 +245,7 @@ function sessionView(text: string, ctx: CheckContext): CheckView {
         f('warn', 'my-row-unbound', 'Confirm this row is yours', 'Your row has an owner address now. Paste your owner address from Dash-Qt (Your share → Owner address) so Cairn can check that your share was not moved to someone else’s row.'),
       );
     }
+    if (ctx.outsider) findings.push(notOnRoster(ctx.outsider));
   } else {
     findings = standaloneFindings(report, ctx.network);
   }
@@ -330,11 +346,12 @@ function sessionNext(stage: Stage, v: Verdict): string[] {
       'If it still fails, raise it in your group chat before anyone signs.',
     ];
   }
-  // approving or signing is only ever suggested for a message checked safe against the approved terms
-  if (v !== 'ok' && (stage === 'frozen' || stage === 'signing' || stage === 'combined')) {
+  // reserving, approving or signing is only ever suggested for a message checked safe against the approved terms
+  if (v !== 'ok' && (stage === 'draft' || stage === 'frozen' || stage === 'signing' || stage === 'combined')) {
+    const act = stage === 'draft' ? 'reserve coins or send your details' : 'approve or sign anything';
     return v === 'warn'
-      ? ['Sort out every point marked Check above before you approve or sign anything in Dash-Qt.', 'If the message was edited, ask the coordinator for a fresh copy and check it again.']
-      : ['Open this message from your group’s Form page, so Cairn can compare it with the terms you approved, before you approve or sign anything in Dash-Qt.'];
+      ? [`Sort out every point marked Check above before you ${act} in Dash-Qt.`, 'If the message was edited, ask the coordinator for a fresh copy and check it again.']
+      : [`Open this message from your group’s Form page, so Cairn can compare it with the terms you approved, before you ${act} in Dash-Qt.`];
   }
   switch (stage) {
     case 'draft':
@@ -578,6 +595,7 @@ function registrationView(hex: string, ctx: CheckContext): CheckView {
     else if (mine && !myOwner) {
       findings.push(f('warn', 'my-share-unbound', 'Confirm your share is yours', 'Paste your owner address from Dash-Qt so Cairn can check that your amount is on your own owner key and not on someone else’s.'));
     }
+    if (ctx.outsider) findings.push(notOnRoster(ctx.outsider));
   } else {
     const { results } = verifyJoinSigs(d.tx, p);
     const bad = results.filter((r) => !r.ok);

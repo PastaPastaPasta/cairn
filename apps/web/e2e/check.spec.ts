@@ -5,6 +5,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { envelopeFingerprint, readUniValue } from '@cairn/shares';
 import { DEMO_GROUP as MATCHING_DEMO } from './demo.ts';
 import { CHECKER_GROUP, DEMO_GROUP, collectErrors, stubActivation } from './helpers.ts';
+import { go, signedIn } from './live-helpers.ts';
 
 const vectors = new URL('../../../packages/shares/test/vectors/', import.meta.url);
 const ENVS: Array<{ name: string; text: string }> = JSON.parse(readFileSync(new URL('regtest/envelopes.json', vectors), 'utf8'));
@@ -91,16 +92,20 @@ test.describe('standalone /check', () => {
 test.describe('against a group’s approved terms (testnet)', () => {
   test.setTimeout(150_000);
 
-  test('safe for my bound row, stop on a row swap', async ({ page }) => {
+  test('signed out, a match is only “Check this”, with the group named; a row swap still stops', async ({ page }) => {
     await stubActivation(page);
     await page.goto(`/check?group=${CHECKER_GROUP}`);
     await expect(page.getByTestId('checker-my-row')).toBeVisible({ timeout: 90_000 });
+    // a link can name anyone's group: a reader who is not on its roster is told so, with the group's name and id (review #3)
+    await expect(page.getByTestId('check-foreign-group')).toContainText('You are not on this group’s roster');
+    await expect(page.getByTestId('check-foreign-group')).toContainText(CHECKER_GROUP);
     await page.getByTestId('checker-my-row').selectOption('Bob');
     await page.getByTestId('checker-owner').fill(owner(1));
     const draft = testnetDraft(env('draft-complete'));
     await paste(page, draft);
-    await expect(verdict(page)).toHaveAttribute('data-verdict', 'ok');
-    await expect(verdict(page)).toContainText('Safe to continue');
+    await expect(verdict(page)).toHaveAttribute('data-verdict', 'warn');
+    await expect(page.getByTestId('findings').locator('[data-code="not-on-roster"]')).toContainText('this compares with someone else’s agreement');
+    await expect(page.getByTestId('check-result')).not.toContainText('Reserve Coins and Copy Details');
     await expect(page.getByTestId('check-rows').locator('tr.mine')).toContainText('Bob');
 
     await paste(page, swapOwners(draft));
@@ -134,6 +139,19 @@ test.describe('against a group’s approved terms (testnet)', () => {
     await expect(page.getByTestId('findings').locator('[data-code="no-service"]')).toBeVisible();
     expect(await page.getByTestId('findings').locator('.finding-stop').count()).toBe(0);
   });
+});
+
+test('@live a member on the roster, signed in, gets “Safe to continue” for their bound row', async ({ browser }) => {
+  test.setTimeout(240_000);
+  const { page } = await signedIn(browser, 'cairn/testnet-e2e-user-2', 'Bob');
+  await go(page, `/check?group=${CHECKER_GROUP}`);
+  await expect(page.getByTestId('checker-my-row')).toHaveValue('Bob', { timeout: 90_000 });
+  await expect(page.getByTestId('check-foreign-group')).toHaveCount(0);
+  await page.getByTestId('checker-owner').fill(owner(1));
+  await paste(page, testnetDraft(env('draft-complete')));
+  await expect(verdict(page)).toHaveAttribute('data-verdict', 'ok');
+  await expect(verdict(page)).toContainText('Safe to continue');
+  await expect(page.getByTestId('check-result')).toContainText('Reserve Coins and Copy Details');
 });
 
 test('the live page checks the demo group against real testnet chain data', async ({ page }) => {

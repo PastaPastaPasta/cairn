@@ -71,13 +71,29 @@ function GroupChecker({ groupId }: { groupId: string }) {
   }
   const { group } = bundle;
   const mine = group.roster.find((r) => r.id === session?.identityId)?.label;
+  // a link can name any group: only a reader on its roster knows these are the terms they approved themselves
+  const outsider = mine ? undefined : session ? 'not-member' : 'signed-out';
   return (
-    <Checker
-      network={coreNetwork(registry.network)}
-      terms={a.terms}
-      myLabel={mine}
-      title={`Check against “${group.title}”`}
-      intro={`Compared with the terms every member approved, revision ${group.termsRevision}.`}
-    />
+    <>
+      {outsider && (
+        <div className="notice-box check-foreign" data-testid="check-foreign-group">
+          <p>
+            <b>You are not on this group’s roster — this compares with someone else’s agreement.</b>{' '}
+            {outsider === 'signed-out' ? 'Sign in to compare with the terms you approved yourself.' : 'Make sure this is the group you agreed with before you act on anything.'}
+          </p>
+          <p className="check-foreign-id">
+            <span className="check-foreign-title">“{group.title}”</span> · group <span className="num break">{group.id}</span>
+          </p>
+        </div>
+      )}
+      <Checker
+        network={coreNetwork(registry.network)}
+        terms={a.terms}
+        myLabel={mine}
+        outsider={outsider}
+        title={`Check against “${group.title}”`}
+        intro={`Compared with the terms every member approved, revision ${group.termsRevision}.`}
+      />
+    </>
   );
 }

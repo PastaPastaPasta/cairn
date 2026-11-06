@@ -124,6 +124,19 @@ describe('message checker, standalone', () => {
     expect(checkMessage(env('sigs-dissolve-request')).next.join(' ')).not.toMatch(/Approve and Copy Reply/);
   });
 
+  it('only says “Reserve Coins and Copy Details” for an Invitation checked safe against the approved terms', () => {
+    const reserve = /Reserve Coins and Copy Details/;
+    expect(checkMessage(env('draft-invitation')).verdict).toBe('neutral');
+    expect(checkMessage(env('draft-invitation')).next.join(' ')).not.toMatch(reserve);
+    const edited = checkMessage(env('draft-invitation').replace(/"fingerprint": "[0-9A-F]{4}-[0-9A-F]{4}"/, '"fingerprint": "AAAA-BBBB"'));
+    expect(edited.verdict).toBe('warn');
+    expect(edited.next.join(' ')).not.toMatch(reserve);
+    expect(edited.next.join(' ')).toMatch(/before you reserve coins or send your details/);
+    const safe = checkMessage(env('draft-invitation'), { terms: termsA, myLabel: 'Alice', myOwnerAddress: owner(0) });
+    expect(safe.verdict).toBe('ok');
+    expect(safe.next.join(' ')).toMatch(reserve);
+  });
+
   it('stops on a message for another network than the site’s', () => {
     const v = checkMessage(env('frozen'), { network: 'test' });
     expect(v.verdict).toBe('stop');
@@ -168,6 +181,27 @@ describe('message checker, against the approved terms', () => {
     const v = checkMessage(swapped, { terms: termsA, myLabel: 'Bob', myOwnerAddress: owner(1) });
     expect(v.verdict).toBe('stop');
     expect(v.findings.find((f) => f.code === 'my-row-moved')!.title).toMatch(/Your owner address is on someone else.s share/);
+  });
+
+  it('downgrades a match to “Check this” for a reader who is not on the group’s roster', () => {
+    const title = 'You are not on this group’s roster — this compares with someone else’s agreement';
+    for (const outsider of ['signed-out', 'not-member'] as const) {
+      const v = checkMessage(env('frozen'), { terms: termsA, myLabel: 'Bob', myOwnerAddress: owner(1), outsider });
+      expect(v.verdict, outsider).toBe('warn');
+      expect(v.findings.find((f) => f.code === 'not-on-roster')!.title).toBe(title);
+      expect(v.next.join(' ')).not.toMatch(/Approve and Copy Reply/);
+      const invite = checkMessage(env('draft-invitation'), { terms: termsA, outsider });
+      expect(invite.verdict).toBe('warn');
+      expect(invite.next.join(' ')).not.toMatch(/Reserve Coins and Copy Details/);
+      const reg = checkMessage(A.combined, { terms: termsA, myLabel: 'Bob', myOwnerAddress: owner(1), outsider });
+      expect(reg.verdict).toBe('warn');
+      expect(reg.findings.map((f) => f.code)).toContain('not-on-roster');
+    }
+    expect(checkMessage(env('frozen'), { terms: termsA, myLabel: 'Bob', myOwnerAddress: owner(1), outsider: 'signed-out' }).findings.find((f) => f.code === 'not-on-roster')!.detail).toMatch(/Sign in/);
+    // a mismatch stays a stop
+    expect(checkMessage(env('frozen'), { terms: { ...termsA, rewardBps: 400 }, outsider: 'not-member' }).verdict).toBe('stop');
+    // without terms there is nothing to downgrade
+    expect(checkMessage(env('frozen'), { outsider: 'not-member' }).findings.map((f) => f.code)).not.toContain('not-on-roster');
   });
 
   it('stops when a row’s addresses changed since an earlier message of the session', () => {

@@ -421,6 +421,20 @@
   gap: var(--s-6);
   align-items: start;
 }
+.check-foreign {
+  margin-bottom: var(--s-4);
+}
+.check-foreign p {
+  margin: 0 0 var(--s-2);
+}
+.check-foreign .check-foreign-id {
+  margin: 0;
+}
+.check-foreign-title {
+  font-family: var(--font-display);
+  font-size: var(--t-l);
+  font-weight: 700;
+}
 .check-aside h2 {
   font-size: var(--t-l);
 }
