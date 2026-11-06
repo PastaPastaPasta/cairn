@@ -286,7 +286,8 @@ Copied:
 
 Divergences:
 - `@govhub/` scope renamed; user-facing "govhub" is "Cairn" (sheet copy, passkey `rpName` and user name, Recover tool), and the copy
-  about comments and votes speaks of profiles and listings. The sign-in event is `cairn:signin`; the tab-sharing BroadcastChannel is
+  about comments and votes speaks of profiles and listings; "deposit address" reads "payment address" / "account-setup address"
+  (DESIGN §1.6 keeps investment words out of the product). The sign-in event is `cairn:signin`; the tab-sharing BroadcastChannel is
   `cairn.session`; the theme key is `cairn.theme`.
 - `auth/context.tsx`: `useForum()` became `useAccount()` (`app/account.tsx`, govhub's ForumProvider without forum data or moderation);
   `useApp()` is Cairn's (`app/context.tsx`: network profile and theme); the masternode keyring lock API is gone (no keyring), and

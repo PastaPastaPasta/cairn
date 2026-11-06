@@ -101,7 +101,7 @@ function RecoverableNotice({ records }: { records: FundingRecord[] }) {
   return (
     <div className="notice-box" role="status" data-testid="recoverable">
       <p>
-        <b>{formatDuffs(stuck.reduce((a, d) => a + d, 0n))}</b> is waiting at {stuck.length === 1 ? 'a deposit address' : 'deposit addresses'} from an earlier
+        <b>{formatDuffs(stuck.reduce((a, d) => a + d, 0n))}</b> is waiting at {stuck.length === 1 ? 'a payment address' : 'payment addresses'} from an earlier
         payment (paid after an account setup or top-up, or too small for it).
       </p>
       <RecoverLink onClick={closeSheet}>Recover funds</RecoverLink>

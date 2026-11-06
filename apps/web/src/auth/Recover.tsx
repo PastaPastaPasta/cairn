@@ -141,7 +141,7 @@ export function RecoverFunds() {
     <section className="form recover" aria-labelledby="recover-title" id="recover" ref={ref}>
       <h2 id="recover-title">Recover funds</h2>
       <p className="small">
-        Paid a deposit address and it didn't finish? Paid too little, too much, twice, or after the account was set up? This finds every payment and asset lock
+        Paid an account-setup address and it didn't finish? Paid too little, too much, twice, or after the account was set up? This finds every payment and asset lock
         sitting at Cairn's one-time addresses for your recovery phrase (or key), from the {network} chain itself: it works on any device, even if this browser forgot
         the setup. Then you can send it to any Dash address, or use it for your account.
       </p>
