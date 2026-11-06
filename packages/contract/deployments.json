@@ -1,4 +1,14 @@
 {
-  "testnet": { "contractId": null, "ownerId": null, "registeredAt": null, "feeCredits": null },
-  "mainnet": { "contractId": null, "ownerId": null, "registeredAt": null, "feeCredits": null }
+  "testnet": {
+    "contractId": "9Zv3f6uyGfrnCsqNLUajVmJ5AWwjKLwpt31sBQZm3TUz",
+    "ownerId": "5tjhGV6gSQcaJBUBbCSNJNHN4ompj5QiXDKXFqdV7T3Y",
+    "registeredAt": "2026-11-06T17:40:06.735Z",
+    "feeCredits": "40336635170"
+  },
+  "mainnet": {
+    "contractId": null,
+    "ownerId": null,
+    "registeredAt": null,
+    "feeCredits": null
+  }
 }

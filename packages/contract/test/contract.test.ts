@@ -98,5 +98,6 @@ describe('cairn contract', () => {
   it('has one deployment record per network', () => {
     expect(Object.keys(DEPLOYMENTS).sort()).toEqual(['mainnet', 'testnet']);
     expect(contractIdFor('mainnet')).toBeNull();
+    expect(contractIdFor('testnet')).toMatch(/^[1-9A-HJ-NP-Za-km-z]{43,44}$/);
   });
 });

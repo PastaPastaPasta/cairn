@@ -5,7 +5,9 @@
   "description": "The cairn Dash Platform data contract: schemas, per-network contract ids, typed document models, and PV13-linted query builders.",
   "type": "module",
   "sideEffects": false,
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -17,13 +19,14 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "register:testnet": "node --experimental-transform-types scripts/register.ts testnet"
+    "register": "node --experimental-transform-types scripts/register.ts"
   },
   "dependencies": {
     "@scure/base": "^2.0.0"
   },
   "devDependencies": {
     "@cairn/auth": "*",
+    "@cairn/dapi": "*",
     "@dashevo/evo-sdk": "5.0.0-rc.8",
     "@types/node": "^22.0.0",
     "typescript": "^5.6.0",
