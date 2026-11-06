@@ -4,6 +4,7 @@
 import {
   GROUP_STATUS, INVITE_STATUS, groupsByStatus, groupsOfOperator, groupsOrganizedBy, invitesTo, opAcceptsOf, seatsOf, toGroup, toInvite, toOpAccept, toSeat,
 } from '@cairn/contract';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import type { Registry } from '../../config/registry.ts';
 import { loadGroupBundle, rawId, readAll, readNewest, useLoad } from '../../data/cairn.ts';
@@ -54,8 +55,15 @@ export async function loadMyGroups(r: Registry, me: string, isOperator: boolean)
     .sort((a, b) => Number(a.view.closed) - Number(b.view.closed) || Math.min(...a.steps.map((s) => order[s.tone])) - Math.min(...b.steps.map((s) => order[s.tone])) || (b.view.group.updatedAt ?? 0) - (a.view.group.updatedAt ?? 0));
 }
 
-export function MyGroups({ me, isOperator }: { me: string; isOperator: boolean }) {
+/** Full groups whose roster I am on: a reason to stop advertising a looking post. */
+export const seatedIn = (groups: readonly MyGroup[], me: string) => groups.filter((g) => !g.view.closed && (g.view.full || g.view.locked) && g.view.group.roster.some((r) => r.id === me)).length;
+
+export function MyGroups({ me, isOperator, onGroups }: { me: string; isOperator: boolean; onGroups?(groups: MyGroup[]): void }) {
   const load = useLoad(`my-groups:${me}:${isOperator}`, (r) => loadMyGroups(r, me, isOperator));
+  const data = load.status === 'ready' ? load.data : null;
+  useEffect(() => {
+    if (data) onGroups?.(data);
+  }, [data, onGroups]);
   return (
     <Loaded
       load={load}

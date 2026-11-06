@@ -12,7 +12,7 @@ import { readProfile, seedProfile, useProfile } from '../data/profile.ts';
 import { openSignIn } from '../ui/Account.tsx';
 import { LookingEditor } from '../ui/LookingEditor.tsx';
 import { Matches } from '../ui/Matches.tsx';
-import { GroupsNeedingOperator, MyGroups } from './me/MyGroups.tsx';
+import { GroupsNeedingOperator, MyGroups, seatedIn, type MyGroup } from './me/MyGroups.tsx';
 import { OperatorEditor, useMyOperator } from './me/OperatorEditor.tsx';
 import '../styles/matching.css';
 import { NotOpenHere, PageHead } from '../ui/states.tsx';
@@ -75,6 +75,8 @@ function MeDashboard({ identityId }: { identityId: string }) {
   const isOperator = listing.status === 'ready' && !!listing.data;
   const [looking, setLooking] = useState<Looking | null>(null);
   const onLooking = useCallback((l: Looking | null) => setLooking(l), []);
+  const [seated, setSeated] = useState(0);
+  const onGroups = useCallback((gs: MyGroup[]) => setSeated(seatedIn(gs, identityId)), [identityId]);
   return (
     <div className="page me">
       <PageHead title="My Cairn" lede="What needs you next, in every group you are part of, and how others see you.">
@@ -88,10 +90,15 @@ function MeDashboard({ identityId }: { identityId: string }) {
       </PageHead>
       <section className="me-section" id="groups" aria-labelledby="me-groups">
         <h2 id="me-groups">Your groups and next steps</h2>
-        <MyGroups me={identityId} isOperator={isOperator} />
+        <MyGroups me={identityId} isOperator={isOperator} onGroups={onGroups} />
       </section>
       <section className="me-section" id="looking" aria-labelledby="me-looking">
         <h2 id="me-looking">Looking for a group</h2>
+        {looking?.status === LOOKING_STATUS.open && seated > 0 && (
+          <p className="notice-box" role="note" data-testid="looking-seated">
+            You’re already in {seated === 1 ? 'a full group' : `${seated} full groups`}, and your post still invites organizers to add you. If you don’t want another seat, close it.
+          </p>
+        )}
         <div className="side-card">
           <LookingEditor identityId={identityId} onChange={onLooking} />
         </div>
