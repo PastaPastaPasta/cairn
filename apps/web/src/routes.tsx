@@ -7,7 +7,10 @@ import { HomePage } from './pages/HomePage.tsx';
 import { LearnPage } from './pages/LearnPage.tsx';
 import MePage from './pages/MePage.tsx';
 import { GroupsPage, LookingPage, OperatorsPage } from './pages/ListPages.tsx';
-import { CheckPage, GroupFormPage, GroupLivePage, GroupPage, NewGroupPage, OperatorPage } from './pages/NextPages.tsx';
+import { CheckPage, GroupFormPage, GroupLivePage } from './pages/NextPages.tsx';
+import { GroupPage } from './pages/group/GroupPage.tsx';
+import { NewGroupPage } from './pages/NewGroupPage.tsx';
+import { OperatorPage } from './pages/OperatorsPage.tsx';
 import { NotFoundPage } from './pages/NotFoundPage.tsx';
 import { SettingsPage } from './pages/SettingsPage.tsx';
 

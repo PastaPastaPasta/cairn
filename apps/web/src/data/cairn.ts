@@ -160,3 +160,9 @@ export function useLoad<T>(key: string | null, load: (r: Registry) => Promise<T>
   const reload = useCallback(() => setTick((n) => n + 1), []);
   return { ...state, reload };
 }
+
+/** The identity's one document of a type unique per owner (looking post, operator listing), or the newer version this tab wrote. */
+export async function readOwn<T>(r: Registry, type: DocType, query: CairnQuery, ownerId: string, read: Reader<T>): Promise<T | null> {
+  const res = await queryCairn(r, query);
+  return readEach(withKnown(r, type, res.docs, (raw) => rawId(raw, '$ownerId') === ownerId), read, r.network)[0] ?? null;
+}
