@@ -1,5 +1,5 @@
 // "Your next step" on a group page: one step per role the viewer has in the group (DESIGN M7: one clear next step for me).
-import { OP_ACCEPT_STATUS, SEAT_FLAG, SEAT_STATUS } from '@cairn/contract';
+import { OP_ACCEPT_STATUS, SEAT_FLAG } from '@cairn/contract';
 import type { GroupView } from './group.ts';
 import { dash, pct } from './money.ts';
 
@@ -158,4 +158,5 @@ function operatorStep(v: GroupView, step: Make): Step | null {
 
 /** Whether a seat offers to coordinate or hold the voting key. */
 export const seatOffers = (flags: number | undefined) => ({ coordinate: !!((flags ?? 0) & SEAT_FLAG.canCoordinate), holdKey: !!((flags ?? 0) & SEAT_FLAG.votingKeyHolder) });
-export const isRequested = (status: number) => status === SEAT_STATUS.requested;
+
+export const seatFlags = (coordinate: boolean, holdKey: boolean) => (coordinate ? SEAT_FLAG.canCoordinate : 0) | (holdKey ? SEAT_FLAG.votingKeyHolder : 0);

@@ -3,7 +3,7 @@
 // permanent-reward warnings sit next to the choices they are about. Creating writes the group, then the organizer's own seat, then
 // any invites, each confirmed by a proved read-back.
 import {
-  GROUP_FLAG, GROUP_STATUS, INVITE_STATUS, MN_TYPE, OPERATOR_STATUS, SEAT_FLAG, SEAT_STATUS,
+  GROUP_FLAG, GROUP_STATUS, INVITE_STATUS, MN_TYPE, OPERATOR_STATUS, SEAT_STATUS,
   createOp, groupData, httpsUrl, inviteData, seatData, type GroupFields, type RawDoc, type RosterEntry,
 } from '@cairn/contract';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
@@ -17,6 +17,7 @@ import { UnconfirmedWrite, useWrite } from '../data/write.ts';
 import { exitProblem, termWarnings } from '../matching/exit.ts';
 import { fitsRoster } from '../matching/group.ts';
 import { DUFFS, bpsInput, dash, dashNum, parseDashInput, parsePercentInput, pct } from '../matching/money.ts';
+import { seatFlags } from '../matching/nextstep.ts';
 import { operatorName } from '../matching/words.ts';
 import { openSignIn } from '../ui/Account.tsx';
 import { DashField, ExitTermsField, Field, PercentField, Warnings } from '../ui/fields.tsx';
@@ -185,7 +186,7 @@ function NewGroupForm({ identityId }: { identityId: string }) {
       const gid = createdId ?? (await once('group', () => write(() => createOp(cid, 'group', groupData(fields(), registry.network))), 'Group created and read back.'))!;
       setCreatedId(gid);
       if (amountDuffs)
-        await once('seat', () => write(() => createOp(cid, 'seat', seatData({ groupId: gid, amount: amountDuffs, status: SEAT_STATUS.requested, flags: (coordinate ? SEAT_FLAG.canCoordinate : 0) | (holdKey ? SEAT_FLAG.votingKeyHolder : 0) }, registry.network))), 'Your seat confirmed.');
+        await once('seat', () => write(() => createOp(cid, 'seat', seatData({ groupId: gid, amount: amountDuffs, status: SEAT_STATUS.requested, flags: seatFlags(coordinate, holdKey) }, registry.network))), 'Your seat confirmed.');
       for (const inv of invites)
         await once(inv.id, () => write(() => createOp(cid, 'invite', inviteData({ groupId: gid, toId: inv.id, amount: inv.amount, status: INVITE_STATUS.open }))), `Invited ${people.get(inv.id)?.name ?? 'a member'} (${dash(inv.amount)}).`);
       navigate(`/g/${gid}`);

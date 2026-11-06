@@ -1,6 +1,5 @@
 // Who is in: the roster with names, amounts, states and contacts; the seat requests waiting for the organizer. A share counts only
 // when the member's seat and the organizer's roster agree (S1); the organizer adds, updates and removes from here.
-import { SEAT_STATUS } from '@cairn/contract';
 import { useState } from 'react';
 import type { Person } from '../../data/people.ts';
 import { acceptSeat, fitsAsChange, removeShare, setShareAmount, type GroupView, type ShareRow } from '../../matching/group.ts';
@@ -177,5 +176,3 @@ function Requests({ view, people, organizer, ops, done, me }: { view: GroupView;
     </div>
   );
 }
-
-export const isRequested = (s: number) => s === SEAT_STATUS.requested;

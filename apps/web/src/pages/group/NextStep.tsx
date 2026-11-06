@@ -1,13 +1,13 @@
 // "Your next step": one panel per role the viewer has in the group, each with the one thing to do now. Member and operator steps
 // are done right here; the organizer's point to the section that does them.
-import { OP_ACCEPT_STATUS, SEAT_FLAG, SEAT_STATUS, type Seat } from '@cairn/contract';
+import { OP_ACCEPT_STATUS, SEAT_STATUS, type Seat } from '@cairn/contract';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../app/context.tsx';
 import { fitsAsChange, fitsRoster, type GroupView } from '../../matching/group.ts';
 import { blsPointProblem, blsFormatProblem, serviceProblem, votingAddressProblem } from '../../matching/keys.ts';
 import { DUFFS, bpsInput, dash, dashNum, parseDashInput, parsePercentInput, pct } from '../../matching/money.ts';
-import { ROLE_WORDS, type Step } from '../../matching/nextstep.ts';
+import { ROLE_WORDS, seatFlags, seatOffers, type Step } from '../../matching/nextstep.ts';
 import { openSignIn } from '../../ui/Account.tsx';
 import { DashField, Field, PercentField, Warnings } from '../../ui/fields.tsx';
 import { WriteStatus } from '../../ui/Loaded.tsx';
@@ -105,13 +105,13 @@ export function SeatForm({ view, ops, me, done, mode }: { view: GroupView; ops: 
   const share = view.shares.find((s) => s.id === me);
   const [amount, setAmount] = useState(seat ? dashNum(seat.amount) : '');
   const [message, setMessage] = useState(seat?.message ?? '');
-  const [coordinate, setCoordinate] = useState(!!((seat?.flags ?? 0) & SEAT_FLAG.canCoordinate));
-  const [holdKey, setHoldKey] = useState(!!((seat?.flags ?? 0) & SEAT_FLAG.votingKeyHolder));
+  const [coordinate, setCoordinate] = useState(seatOffers(seat?.flags).coordinate);
+  const [holdKey, setHoldKey] = useState(seatOffers(seat?.flags).holdKey);
   const { busy, error, run } = useAction();
   const duffs = parseDashInput(amount);
   const fit = duffs === null ? null : share ? fitsAsChange(g, share.id, duffs) : fitsRoster(g.roster, duffs, g.earlyPenalty);
   const problem = !amount.trim() ? null : duffs === null ? 'Enter an amount in DASH.' : duffs < 100 * DUFFS ? 'A share is at least 100 DASH.' : fit && !fit.ok ? fit.message : null;
-  const flags = (coordinate ? SEAT_FLAG.canCoordinate : 0) | (holdKey ? SEAT_FLAG.votingKeyHolder : 0);
+  const flags = seatFlags(coordinate, holdKey);
   const save = (status: number, amt: number) =>
     run(async () => {
       await ops.seat({ amount: amt, message, status, flags, votingAddress: seat?.votingAddress, proTxHash: seat?.proTxHash });
@@ -183,7 +183,7 @@ function InviteAnswer({ view, ops, me, done }: { view: GroupView; ops: GroupOps;
   const fit = fitsRoster(view.group.roster, inv.amount, view.group.earlyPenalty);
   const answer = (status: number) =>
     run(async () => {
-      await ops.seat({ amount: inv.amount, status, flags: (coordinate ? SEAT_FLAG.canCoordinate : 0) | (holdKey ? SEAT_FLAG.votingKeyHolder : 0), message: status === SEAT_STATUS.withdrawn ? 'Declined the invitation' : undefined });
+      await ops.seat({ amount: inv.amount, status, flags: seatFlags(coordinate, holdKey), message: status === SEAT_STATUS.withdrawn ? 'Declined the invitation' : undefined });
       done();
     });
   return (
