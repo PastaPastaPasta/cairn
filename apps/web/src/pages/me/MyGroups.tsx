@@ -4,7 +4,7 @@
 import {
   GROUP_STATUS, INVITE_STATUS, LOOKING_STATUS, deleteOp, groupData, groupsByStatus, lookingOf, replaceOp, toLooking, groupsOfOperator, groupsOrganizedBy, invitesTo, opAcceptsOf, seatsOf, toGroup, toInvite, toOpAccept, toSeat,
 } from '@cairn/contract';
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../app/context.tsx';
 import { useWrite } from '../../data/write.ts';
@@ -31,7 +31,7 @@ export interface MyGroup {
   formByPassed: boolean;
 }
 
-export async function loadMyGroups(r: Registry, me: string, isOperator: boolean): Promise<MyGroup[]> {
+async function loadMyGroups(r: Registry, me: string, isOperator: boolean): Promise<MyGroup[]> {
   const mine = (key: string) => (raw: Record<string, unknown>) => rawId(raw, key) === me;
   const [organized, seats, invites, answers, operated] = await Promise.all([
     readAll(r, 'group', (a) => groupsOrganizedBy(me, a), (d, n) => toGroup(d, n), mine('$ownerId')),
@@ -98,11 +98,11 @@ export function MyGroups({ me, isOperator, onGroups }: { me: string; isOperator:
           {startedButMovedOn(groups, me).map((m) => (
             <CloseStarted key={m.started.group.id} started={m.started} joined={m.joined} onClosed={load.reload} />
           ))}
-        <ul className="my-groups" data-testid="my-groups">
-          {groups.map((g) => (
-            <MyGroupItem key={g.view.group.id} group={g} me={me} isOperator={isOperator} />
-          ))}
-        </ul>
+          <ul className="my-groups" data-testid="my-groups">
+            {groups.map((g) => (
+              <MyGroupItem key={g.view.group.id} group={g} me={me} isOperator={isOperator} />
+            ))}
+          </ul>
         </>
       )}
     </Loaded>
@@ -230,6 +230,21 @@ export function GroupsNeedingOperator() {
   );
 }
 
+/** A note with one write behind a button, and the write's status under it. */
+function ActionNotice({ testId, button, busy, error, onClick, children }: { testId: string; button: { label: string; busyLabel: string; testId: string }; busy: boolean; error: string | null; onClick(): Promise<void>; children: ReactNode }) {
+  return (
+    <div className="notice-box close-started" role="note" data-testid={testId}>
+      <p>{children}</p>
+      <p className="form-actions">
+        <button type="button" className="btn btn-s" disabled={busy} onClick={() => void onClick()} data-testid={button.testId}>
+          {busy ? button.busyLabel : button.label}
+        </button>
+      </p>
+      <WriteStatus busy={busy} error={error} />
+    </div>
+  );
+}
+
 /** "You are in X now: close Y, the group you started?" One write: the group's status becomes cancelled. */
 function CloseStarted({ started, joined, onClosed }: { started: GroupView; joined: GroupView; onClosed(): void }) {
   const { registry } = useApp();
@@ -246,18 +261,10 @@ function CloseStarted({ started, joined, onClosed }: { started: GroupView; joine
       }
     });
   return (
-    <div className="notice-box close-started" role="note" data-testid="close-started">
-      <p>
-        You are in <Link to={`/g/${joined.group.id}`}>{joined.group.title}</Link> now, and <Link to={`/g/${g.id}`}>{g.title}</Link>, the group you started, still invites people
-        to join you there. Close it so nobody asks for a seat you will not take?
-      </p>
-      <p className="form-actions">
-        <button type="button" className="btn btn-s" disabled={busy} onClick={() => void close()} data-testid="close-started-btn">
-          {busy ? 'Closing…' : `Close ${g.title}`}
-        </button>
-      </p>
-      <WriteStatus busy={busy} error={error} />
-    </div>
+    <ActionNotice testId="close-started" button={{ label: `Close ${g.title}`, busyLabel: 'Closing…', testId: 'close-started-btn' }} busy={busy} error={error} onClick={close}>
+      You are in <Link to={`/g/${joined.group.id}`}>{joined.group.title}</Link> now, and <Link to={`/g/${g.id}`}>{g.title}</Link>, the group you started, still invites people to
+      join you there. Close it so nobody asks for a seat you will not take?
+    </ActionNotice>
   );
 }
 
@@ -281,17 +288,9 @@ export function OldLookingPost({ me }: { me: string }) {
       }
     });
   return (
-    <div className="notice-box close-started" role="note" data-testid="old-looking">
-      <p>
-        You still have a public “looking for a group” post ({dash(post.amount)}). Cairn no longer lists those: to be found, start a group with your amount on{' '}
-        <Link to={`/groups?amount=${encodeURIComponent(dashNum(post.amount))}`}>Find your group</Link>. Remove the old post?
-      </p>
-      <p className="form-actions">
-        <button type="button" className="btn btn-s" disabled={busy} onClick={() => void remove()} data-testid="remove-looking">
-          {busy ? 'Removing…' : 'Remove it'}
-        </button>
-      </p>
-      <WriteStatus busy={busy} error={error} />
-    </div>
+    <ActionNotice testId="old-looking" button={{ label: 'Remove it', busyLabel: 'Removing…', testId: 'remove-looking' }} busy={busy} error={error} onClick={remove}>
+      You still have a public “looking for a group” post ({dash(post.amount)}). Cairn no longer lists those: to be found, start a group with your amount on{' '}
+      <Link to={`/groups?amount=${encodeURIComponent(dashNum(post.amount))}`}>Find your group</Link>. Remove the old post?
+    </ActionNotice>
   );
 }

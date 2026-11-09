@@ -19,6 +19,7 @@ import { openSignIn } from '../ui/Account.tsx';
 import { DashField, ExitTermsField, Field, PercentField, Warnings } from '../ui/fields.tsx';
 import { useMyOperator } from './me/OperatorEditor.tsx';
 import { PersonName } from '../ui/Person.tsx';
+import { StartProgress } from '../ui/StartProgress.tsx';
 import { NotOpenHere, PageHead } from '../ui/states.tsx';
 import '../styles/matching.css';
 
@@ -314,28 +315,7 @@ function NewGroupForm({ identityId }: { identityId: string }) {
             {blocked && firstProblem && <span className="small muted">{firstProblem}</span>}
           </div>
         </fieldset>
-        {(busy || progress.length > 0) && (
-          <ol className="progress-list small" aria-live="polite">
-            {progress.map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-            {busy && (
-              <li>
-                <span className="spinner" aria-hidden="true" /> Signing and confirming on Dash Platform…
-              </li>
-            )}
-          </ol>
-        )}
-        {error && (
-          <div className="error" role="alert">
-            <p>{error}</p>
-            {createdId && (
-              <p>
-                The group itself was created. <Link to={`/g/${createdId}`}>Open it</Link> to finish from there, or press Finish to try the rest again.
-              </p>
-            )}
-          </div>
-        )}
+        <StartProgress busy={busy} progress={progress} error={error} createdId={createdId} finish="to try the rest again" />
       </form>
     </div>
   );

@@ -9,7 +9,7 @@ import { useApp } from '../app/context.tsx';
 import { loadGroupBundle, readAll, rawId, useLoad } from '../data/cairn.ts';
 import { CLOSED_GROUP_STATUSES, GROUPS, LISTED_GROUP_STATUSES, LISTED_OPERATORS, OPERATORS, RECENT_GROUP_STATUSES, useStatusList } from '../data/lists.ts';
 import { usePeople, type Person } from '../data/people.ts';
-import { suggestGroupName, useStartGroup, type StartPlan } from '../data/startGroup.ts';
+import { suggestGroupName, useStartGroup } from '../data/startGroup.ts';
 import { EXIT_PRESETS, exitShort } from '../matching/exit.ts';
 import { CLOSED, groupView } from '../matching/group.ts';
 import { fitWords, rankGroups, startedAlone, type Ask, type GroupFit } from '../matching/match.ts';
@@ -22,6 +22,7 @@ import { Field, PercentField } from '../ui/fields.tsx';
 import { Loaded } from '../ui/Loaded.tsx';
 import { HiddenNote, HideButton, useHidden, type Hidden } from '../ui/hidden.tsx';
 import { PersonName } from '../ui/Person.tsx';
+import { StartProgress } from '../ui/StartProgress.tsx';
 import { NotOpenHere, PageHead } from '../ui/states.tsx';
 import type { NewGroupPrefill } from './NewGroupPage.tsx';
 import '../styles/matching.css';
@@ -202,20 +203,20 @@ export function GroupsPage() {
   const items = useMemo(() => (all ?? []).filter((g) => g.ownerId === me || !hidden.has(g.ownerId)), [all, hidden, me]);
   const operators = useMemo(() => new Map((ops.status === 'ready' ? ops.data.items : []).map((o) => [o.ownerId, o])), [ops]);
   // the group this member started and is still alone in: their listing, and the amount they already said
-  const mine = useMemo(() => (me ? items.filter((g) => g.ownerId === me && startedAlone(g)) : []), [items, me]);
+  const myGroup = useMemo(() => (me ? (items.find((g) => g.ownerId === me && startedAlone(g)) ?? null) : null), [items, me]);
   // the amount they already said, once, on arrival with none typed; an amount in the address (or typed since) always wins
   const prefilled = useRef(!!q.amount);
   useEffect(() => {
     if (prefilled.current) return;
     if (q.amount) prefilled.current = true;
-    else if (mine[0]) {
+    else if (myGroup) {
       prefilled.current = true;
-      q.set('amount', dashNum(mine[0].roster[0]!.amount));
+      q.set('amount', dashNum(myGroup.roster[0]!.amount));
     }
-  }, [mine, q]);
+  }, [myGroup, q]);
   // lives here, not in the start card, so a half-finished start survives the card leaving the page while the amount is retyped
   const starter = useStartGroup();
-  const seen = useMyRequests(me, mine[0]?.id ?? null);
+  const seen = useMyRequests(me, myGroup?.id ?? null);
 
   const problem = q.amount.trim() ? amountProblem(q.amount) : null;
   const amount = q.amount.trim() && !problem ? parseDashInput(q.amount) : null;
@@ -231,7 +232,6 @@ export function GroupsPage() {
         : null,
     [amount, q.operator, q.reward, q.exit],
   );
-  const pending = starter.pending;
 
   return (
     <div className="page">
@@ -244,9 +244,9 @@ export function GroupsPage() {
       ) : (
         <>
           <AskBar q={q} problem={problem} operators={operators} />
-          {pending && !ask && <StartCard plan={pending} starter={starter} operators={operators} operatorsReady first />}
+          {starter.pending && !ask && <StartCard starter={starter} operators={operators} operatorsReady first />}
           {ask ? (
-            <FitResults ask={ask} items={items} loading={list.status !== 'ready'} list={list} me={me} mine={mine} operators={operators} operatorsReady={ops.status === 'ready'} hidden={hidden} starter={starter} seen={seen} />
+            <FitResults ask={ask} items={items} list={list} me={me} myGroup={myGroup} operators={operators} operatorsReady={ops.status === 'ready'} hidden={hidden} starter={starter} seen={seen} />
           ) : (
             <Browse items={items} list={list} label={registry.label} />
           )}
@@ -387,16 +387,15 @@ function AskBar({ q, problem, operators }: { q: AskQuery; problem: string | null
 
 type GroupList = ReturnType<typeof useStatusList<Group>>;
 
-/** Where the amount fits, best first, each drawn with the member in it; then starting a group of their own. */
 type Starter = ReturnType<typeof useStartGroup>;
 
-function FitResults({ ask, items, loading, list, me, mine, operators, operatorsReady, hidden, starter, seen }: {
+/** Where the amount fits, best first, each drawn with the member in it; then starting a group of their own. */
+function FitResults({ ask, items, list, me, myGroup, operators, operatorsReady, hidden, starter, seen }: {
   ask: Ask;
   items: Group[];
-  loading: boolean;
   list: GroupList;
   me: string | null;
-  mine: Group[];
+  myGroup: Group | null;
   operators: ReadonlyMap<string, Operator>;
   operatorsReady: boolean;
   hidden: Hidden;
@@ -406,7 +405,7 @@ function FitResults({ ask, items, loading, list, me, mine, operators, operatorsR
   const fits = useMemo(() => rankGroups(items, ask, me), [items, ask, me]);
   const people = usePeople([...new Set(fits.flatMap((f) => [f.group.ownerId, ...(f.group.operatorId ? [f.group.operatorId] : []), ...f.group.roster.map((r) => r.id)]))]);
   const heading = fits.length ? `${fits.length === 1 ? 'One group' : `${fits.length} groups`} your ${dash(ask.amount)} fits` : `No group fits ${dash(ask.amount)} yet`;
-  if (loading)
+  if (list.status !== 'ready')
     return (
       <Loaded load={list} retry={list.reload}>
         {() => null}
@@ -423,17 +422,11 @@ function FitResults({ ask, items, loading, list, me, mine, operators, operatorsR
       {fits.length > 0 && (
         <ul className="fit-list" data-testid="fit-list">
           {fits.map((f) => (
-            <FitCard key={f.group.id} fit={f} ask={ask} people={people} hidden={hidden} seen={seen} myGroup={mine[0] ?? null} />
+            <FitCard key={f.group.id} fit={f} ask={ask} people={people} hidden={hidden} seen={seen} myGroup={myGroup} />
           ))}
         </ul>
       )}
-      {starter.pending ? (
-        <StartCard plan={starter.pending} starter={starter} operators={operators} operatorsReady first={!fits.length} />
-      ) : mine.length ? (
-        <YourListing group={mine[0]!} />
-      ) : (
-        <StartCard ask={ask} starter={starter} operators={operators} operatorsReady={operatorsReady} first={!fits.length} />
-      )}
+      {myGroup && !starter.pending ? <YourListing group={myGroup} /> : <StartCard ask={ask} starter={starter} operators={operators} operatorsReady={operatorsReady} first={!fits.length} />}
     </section>
   );
 }
@@ -444,10 +437,10 @@ function FitCard({ fit, ask, people, hidden, seen, myGroup }: { fit: GroupFit; a
     ...g.roster.map((r) => ({ id: r.id, label: people.get(r.id)?.name ?? 'A co-owner', amount: r.amount / DUFFS, state: 'in' as const })),
     { id: 'you', label: 'You', amount: ask.amount / DUFFS, state: 'requested' as const, mine: true },
   ];
-  const starter = startedAlone(g);
+  const alone = startedAlone(g);
   const asked = seen.asked.has(g.id);
   // they asked to join my group while I look at theirs: accepting them keeps one group of two, instead of two
-  const askedMe = !!myGroup && !!starter && seen.askedMe.has(starter.id);
+  const askedMe = !!myGroup && !!alone && seen.askedMe.has(alone.id);
   return (
     <li className="fit-card fit-join" data-testid="fit-card">
       <div className="fit-join-main">
@@ -455,9 +448,9 @@ function FitCard({ fit, ask, people, hidden, seen, myGroup }: { fit: GroupFit; a
           {g.title}
         </Link>
         <p className="small row-meta">
-          {starter ? (
+          {alone ? (
             <>
-              Started by <PersonName id={starter.id} person={people.get(starter.id)} /> with {dash(starter.amount)}.{' '}
+              Started by <PersonName id={alone.id} person={people.get(alone.id)} /> with {dash(alone.amount)}.{' '}
             </>
           ) : (
             `${g.roster.length} ${g.roster.length === 1 ? 'co-owner' : 'co-owners'} so far. `
@@ -485,7 +478,7 @@ function FitCard({ fit, ask, people, hidden, seen, myGroup }: { fit: GroupFit; a
         )}
         {askedMe && (
           <p className="small notice-box" data-testid="asked-me">
-            {people.get(starter!.id)?.name ?? 'They'} asked to join <Link to={`/g/${myGroup!.id}`}>your group</Link>. Accept them there, rather than both of you joining each
+            {people.get(alone!.id)?.name ?? 'They'} asked to join <Link to={`/g/${myGroup!.id}`}>your group</Link>. Accept them there, rather than both of you joining each
             other.
           </p>
         )}
@@ -523,15 +516,16 @@ function YourListing({ group }: { group: Group }) {
 }
 
 /** Start a group with this amount: listed at once, so others who are looking find it. One click, with terms to settle later. */
-function StartCard({ ask, plan, starter, operators, operatorsReady, first }: { ask?: Ask; plan?: StartPlan; starter: Starter; operators: ReadonlyMap<string, Operator>; operatorsReady: boolean; first: boolean }) {
+function StartCard({ ask, starter, operators, operatorsReady, first }: { ask?: Ask; starter: Starter; operators: ReadonlyMap<string, Operator>; operatorsReady: boolean; first: boolean }) {
   const { registry } = useApp();
   const { session } = useAccount();
   const navigate = useNavigate();
-  const { busy, error, start, progress, createdId } = starter;
+  const { busy, error, start, progress, createdId, pending: plan } = starter;
   const [name, setName] = useState(suggestGroupName);
   const me = session?.identityId;
   // a listed operator only: an id from the address that the directory does not list is never written as the group's operator
-  const op = plan ? (plan.fields.operatorId ? operators.get(plan.fields.operatorId) : undefined) : ask?.operatorId ? operators.get(ask.operatorId) : undefined;
+  const operatorId = plan ? plan.fields.operatorId : ask?.operatorId;
+  const op = operatorId ? operators.get(operatorId) : undefined;
   const amount = plan ? plan.mySeat!.amount : ask!.amount;
   const rewardBps = plan ? plan.fields.rewardBps : (op?.rewardBps ?? ask!.maxRewardBps ?? DEFAULT_REWARD_BPS);
   const title = plan ? plan.fields.title : name;
@@ -547,10 +541,12 @@ function StartCard({ ask, plan, starter, operators, operatorsReady, first }: { a
     status: GROUP_STATUS.forming,
     flags: GROUP_FLAG.openAmounts,
   });
+  // a plan already written needs no directory
+  const ready = !!plan || operatorsReady;
   const titleProblem = title.trim() ? null : 'Give the group a name.';
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!me || titleProblem || busy || !operatorsReady) return;
+    if (!me || titleProblem || busy || !ready) return;
     void start(plan ?? { fields: fields(), mySeat: { amount, flags: 0 } }, (gid) => navigate(`/g/${gid}`));
   };
   return (
@@ -593,7 +589,7 @@ function StartCard({ ask, plan, starter, operators, operatorsReady, first }: { a
               {({ id, describedBy, invalid }) => <input id={id} value={title} onChange={(e) => setName(e.target.value)} readOnly={!!plan} maxLength={80} aria-describedby={describedBy} aria-invalid={invalid || undefined} data-testid="start-title" />}
             </Field>
             <div className="form-actions">
-              <button type="submit" className="btn btn-primary" disabled={!!titleProblem || !operatorsReady} data-testid="start-group">
+              <button type="submit" className="btn btn-primary" disabled={!!titleProblem || !ready} data-testid="start-group">
                 {busy ? 'Starting…' : createdId ? 'Finish' : 'Start my group'}
               </button>
               {!createdId && (
@@ -604,28 +600,7 @@ function StartCard({ ask, plan, starter, operators, operatorsReady, first }: { a
             </div>
             <p className="small muted">Costs about 0.001 DASH of credit on {registry.label}: the group and your seat.</p>
           </fieldset>
-          {(busy || progress.length > 0) && (
-            <ol className="progress-list small" aria-live="polite">
-              {progress.map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-              {busy && (
-                <li>
-                  <span className="spinner" aria-hidden="true" /> Signing and confirming on Dash Platform…
-                </li>
-              )}
-            </ol>
-          )}
-          {error && (
-            <div className="error" role="alert">
-              <p>{error}</p>
-              {createdId && (
-                <p>
-                  The group itself was created. <Link to={`/g/${createdId}`}>Open it</Link>, or press Finish to add your seat.
-                </p>
-              )}
-            </div>
-          )}
+          <StartProgress busy={busy} progress={progress} error={error} createdId={createdId} finish="to add your seat" />
         </form>
       )}
     </section>

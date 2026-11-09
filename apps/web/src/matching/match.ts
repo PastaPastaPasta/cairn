@@ -39,7 +39,7 @@ export function preferences(g: Pick<Group, 'operatorId' | 'rewardBps' | 'earlyPe
 }
 
 /** A group anyone may ask to join: still taking seats, and not filled by invitation only. */
-export const takesRequests = (g: Group) => g.status === GROUP_STATUS.forming && !!((g.flags ?? 0) & GROUP_FLAG.openAmounts);
+const takesRequests = (g: Group) => g.status === GROUP_STATUS.forming && !!((g.flags ?? 0) & GROUP_FLAG.openAmounts);
 
 export interface GroupFit {
   group: Group;
@@ -81,7 +81,7 @@ export function startedAlone(g: Group): RosterEntry | null {
  * Where a candidate's own group differs from the one inviting them. Only a different chosen operator is a conflict; reward and exit
  * terms are things to agree on (often just the defaults of a group started in one click), so they are notes, never a mark against.
  */
-export function differences(theirs: Group, ours: Pick<Group, 'operatorId' | 'rewardBps' | 'earlyPeriodBlocks' | 'earlyPenalty'>): Preference[] {
+function differences(theirs: Group, ours: Pick<Group, 'operatorId' | 'rewardBps' | 'earlyPeriodBlocks' | 'earlyPenalty'>): Preference[] {
   const out: Preference[] = [];
   if (theirs.operatorId && theirs.operatorId !== ours.operatorId) out.push({ ok: false, text: 'Chose a different operator' });
   if (theirs.rewardBps !== ours.rewardBps) out.push({ ok: true, note: true, text: `Their group: ${pct(theirs.rewardBps)} operator reward` });

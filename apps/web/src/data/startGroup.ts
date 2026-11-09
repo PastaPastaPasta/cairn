@@ -34,11 +34,9 @@ export function useStartGroup() {
       // a write Platform accepted counts as done even when its read-back failed: retrying would make a second document
       const once = async (key: string, f: () => Promise<RawDoc | null>, said: string): Promise<string | null> => {
         if (done.current.has(key)) return null;
+        let back: RawDoc | null;
         try {
-          const back = await f();
-          done.current.add(key);
-          setProgress((p) => [...p, said]);
-          return back ? rawId(back, '$id') : null;
+          back = await f();
         } catch (e) {
           if (e instanceof UnconfirmedWrite) {
             done.current.add(key);
@@ -49,6 +47,9 @@ export function useStartGroup() {
           }
           throw e;
         }
+        done.current.add(key);
+        setProgress((p) => [...p, said]);
+        return back ? rawId(back, '$id') : null;
       };
       let gid = createdId;
       if (!gid) {
