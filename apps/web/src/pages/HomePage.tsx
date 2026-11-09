@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { useState, type FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
 import { ActivationCard, ActivationLine } from '../ui/Activation.tsx';
@@ -25,7 +26,7 @@ export function sampleCaption(stones: readonly Stone[], total = 1000): string {
 const STEPS = [
   {
     title: 'Find people',
-    text: 'Say how much you can bring, from 100 DASH up. Join a group an operator has opened, or start one with people who are looking too. Two to eight people make one masternode.',
+    text: 'Say how much you can bring, from 100 DASH up. Cairn shows every group it fits; ask to join one, or start your own and let others join you. Two to eight people make one masternode.',
   },
   {
     title: 'Agree',
@@ -41,6 +42,37 @@ const STEPS = [
   },
 ];
 
+/** The first question, asked on the first screen: how much can you bring? It opens the groups that amount fits. */
+function HeroAsk() {
+  const navigate = useNavigate();
+  const [amount, setAmount] = useState('');
+  const go = (e: FormEvent) => {
+    e.preventDefault();
+    navigate(amount.trim() ? `/groups?amount=${encodeURIComponent(amount.trim())}` : '/groups');
+  };
+  return (
+    <form className="hero-ask" onSubmit={go} data-testid="hero-ask">
+      <label htmlFor="hero-amount" className="hero-ask-label">
+        How much DASH can you bring?
+      </label>
+      <div className="hero-ask-row">
+        <span className="unit-input hero-ask-input">
+          <input id="hero-amount" value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" autoComplete="off" placeholder="250" aria-describedby="hero-ask-hint" data-testid="hero-amount" />
+          <span className="unit" aria-hidden="true">
+            DASH
+          </span>
+        </span>
+        <button type="submit" className="btn btn-primary btn-l">
+          Find my group
+        </button>
+      </div>
+      <p id="hero-ask-hint" className="small muted">
+        From 100 DASH. Nothing moves now. <Link to="/learn">How it works</Link>
+      </p>
+    </form>
+  );
+}
+
 export function HomePage() {
   const { registry } = useApp();
   const { session } = useAccount();
@@ -54,14 +86,7 @@ export function HomePage() {
             A Dash masternode needs 1000 DASH. With Dash Core v24, two to eight people can bring it between them, at least 100 DASH each, and every share stays
             in its owner’s control. Cairn helps you find the others, agree on an operator and terms, and walk through Dash Core’s own steps.
           </p>
-          <div className="hero-actions">
-            <Link className="btn btn-primary btn-l" to="/groups">
-              Find a group
-            </Link>
-            <Link className="btn btn-l" to="/learn">
-              How it works
-            </Link>
-          </div>
+          <HeroAsk />
           <p className="hero-promise">Cairn never holds your coins or keys. Your DASH moves only in transactions Dash Core checks, never through anyone’s hands.</p>
         </div>
         <div className="hero-cairn">

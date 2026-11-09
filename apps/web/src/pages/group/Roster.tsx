@@ -52,7 +52,7 @@ export function Roster({ view, people, me, ops, done, frozen = false }: { view: 
     <section className="section" id="roster" aria-labelledby="roster-title">
       <h2 id="roster-title">Who is in</h2>
       {view.shares.length === 0 ? (
-        <p className="muted">Nobody yet. {view.openAmounts ? 'The first seats are open.' : 'The organizer invites people who are looking.'}</p>
+        <p className="muted">Nobody yet. {view.openAmounts ? 'The first seats are open.' : 'The organizer invites the people they want.'}</p>
       ) : (
         <ul className="roster" data-testid="roster">
           {view.shares.map((s) => {

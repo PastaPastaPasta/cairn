@@ -1,4 +1,4 @@
-// Names for everyone a page shows (roster, requests, looking posts, operators): the proved DPNS username first, then the person's
+// Names for everyone a page shows (roster, requests, operators): the proved DPNS username first, then the person's
 // own display name (personName). Profiles come in batches through the proved `in` query; DPNS names one by one, a few at a time.
 import { profilesOf, toProfile, type Profile } from '@cairn/contract';
 import { useEffect, useMemo, useState } from 'react';

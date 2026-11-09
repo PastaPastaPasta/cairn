@@ -2,40 +2,33 @@
 // operator from the directory or leaves it to be chosen). Every amount and exit rule is checked as you type; the zero-penalty and
 // permanent-reward warnings sit next to the choices they are about. Creating writes the group, then the organizer's own seat, then
 // any invites, each confirmed by a proved read-back.
-import {
-  GROUP_FLAG, GROUP_STATUS, INVITE_STATUS, MN_TYPE, OPERATOR_STATUS, SEAT_STATUS,
-  createOp, groupData, httpsUrl, inviteData, seatData, type GroupFields, type RawDoc, type RosterEntry,
-} from '@cairn/contract';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { GROUP_FLAG, GROUP_STATUS, MN_TYPE, OPERATOR_STATUS, groupData, httpsUrl, type GroupFields, type RosterEntry } from '@cairn/contract';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAccount } from '../app/account.tsx';
 import { useApp } from '../app/context.tsx';
-import { rawId } from '../data/cairn.ts';
 import { LISTED_OPERATORS, OPERATORS, useStatusList } from '../data/lists.ts';
 import { usePeople } from '../data/people.ts';
-import { UnconfirmedWrite, useWrite } from '../data/write.ts';
+import { suggestGroupName, useStartGroup } from '../data/startGroup.ts';
 import { exitProblem, termWarnings } from '../matching/exit.ts';
 import { fitsRoster } from '../matching/group.ts';
-import { DUFFS, bpsInput, dash, dashNum, parseDashInput, parsePercentInput, pct } from '../matching/money.ts';
+import { DUFFS, amountProblem, bpsInput, dash, dashNum, parseDashInput, parsePercentInput, pct } from '../matching/money.ts';
 import { seatFlags } from '../matching/nextstep.ts';
 import { operatorName } from '../matching/words.ts';
 import { openSignIn } from '../ui/Account.tsx';
 import { DashField, ExitTermsField, Field, PercentField, Warnings } from '../ui/fields.tsx';
-import { amountProblem } from '../ui/LookingEditor.tsx';
 import { useMyOperator } from './me/OperatorEditor.tsx';
 import { PersonName } from '../ui/Person.tsx';
 import { NotOpenHere, PageHead } from '../ui/states.tsx';
-import { useAction } from '../ui/useAction.ts';
 import '../styles/matching.css';
 
-/** A new group proposed from a match (Matches → "Open a group and invite these people"). */
+/** A new group started from the groups page ("Choose the terms first"), with what the member already said. */
 export interface NewGroupPrefill {
+  title?: string;
   myAmount: number;
   operatorId: string | null;
   rewardBps: number;
-  earlyPeriodBlocks?: number;
-  invites: Array<{ id: string; amount: number }>;
-  note?: string;
+  invites?: Array<{ id: string; amount: number }>;
 }
 
 type Kind = 'operator' | 'member';
@@ -74,22 +67,17 @@ function NewGroupForm({ identityId }: { identityId: string }) {
   const prefill = (useLocation().state as { prefill?: NewGroupPrefill } | null)?.prefill;
   const myListing = useMyOperator(identityId);
   const ops = useStatusList(OPERATORS, LISTED_OPERATORS);
-  const write = useWrite();
-  const { busy, error, run } = useAction();
-  const [progress, setProgress] = useState<string[]>([]);
-  const [createdId, setCreatedId] = useState<string | null>(null);
-  // steps already confirmed, so "Finish" after an error never repeats a write
-  const done = useRef(new Set<string>());
+  const { busy, error, start, progress, createdId } = useStartGroup();
 
   const [kind, setKind] = useState<Kind>(params.get('kind') === 'operator' ? 'operator' : 'member');
-  const [title, setTitle] = useState('');
-  const [about, setAbout] = useState(prefill?.note ?? '');
+  const [title, setTitle] = useState(() => prefill?.title ?? suggestGroupName());
+  const [about, setAbout] = useState('');
   const [myAmount, setMyAmount] = useState(prefill ? dashNum(prefill.myAmount) : '');
   const [operatorId, setOperatorId] = useState(prefill?.operatorId ?? params.get('operator') ?? '');
   const [reward, setReward] = useState(prefill ? bpsInput(prefill.rewardBps) : '10');
   const [rewardTouched, setRewardTouched] = useState(!!prefill);
   const [openAmounts, setOpenAmounts] = useState(true);
-  const [period, setPeriod] = useState(prefill?.earlyPeriodBlocks ?? 0);
+  const [period, setPeriod] = useState(0);
   const [penalty, setPenalty] = useState('');
   const [chat, setChat] = useState('');
   const [formBy, setFormBy] = useState('');
@@ -164,43 +152,19 @@ function NewGroupForm({ identityId }: { identityId: string }) {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (blocked || busy) return;
-    const cid = registry.contractId!;
-    void run(async () => {
-      setProgress([]);
-      // a write Platform accepted counts as done even when its read-back failed: retrying would make a second document
-      const once = async (key: string, f: () => Promise<RawDoc | null>, said: string): Promise<string | null> => {
-        if (done.current.has(key)) return null;
-        try {
-          const back = await f();
-          done.current.add(key);
-          setProgress((p) => [...p, said]);
-          return back ? rawId(back, '$id') : null;
-        } catch (e) {
-          if (e instanceof UnconfirmedWrite) {
-            done.current.add(key);
-            if (key === 'group') setCreatedId(e.id);
-          }
-          throw e;
-        }
-      };
-      const gid = createdId ?? (await once('group', () => write(() => createOp(cid, 'group', groupData(fields(), registry.network))), 'Group created and read back.'))!;
-      setCreatedId(gid);
-      if (amountDuffs)
-        await once('seat', () => write(() => createOp(cid, 'seat', seatData({ groupId: gid, amount: amountDuffs, status: SEAT_STATUS.requested, flags: seatFlags(coordinate, holdKey) }, registry.network))), 'Your seat confirmed.');
-      for (const inv of invites)
-        await once(inv.id, () => write(() => createOp(cid, 'invite', inviteData({ groupId: gid, toId: inv.id, amount: inv.amount, status: INVITE_STATUS.open }))), `Invited ${people.get(inv.id)?.name ?? 'a member'} (${dash(inv.amount)}).`);
-      navigate(`/g/${gid}`);
-    });
+    void start(
+      {
+        fields: fields(),
+        mySeat: amountDuffs ? { amount: amountDuffs, flags: seatFlags(coordinate, holdKey) } : undefined,
+        invites: invites.map((inv) => ({ ...inv, said: `Invited ${people.get(inv.id)?.name ?? 'a member'} (${dash(inv.amount)}).` })),
+      },
+      (gid) => navigate(`/g/${gid}`),
+    );
   };
 
   return (
     <div className="page">
       <PageHead title="Open a group" lede="A group is where co-owners and an operator agree on one masternode. You accept seats, and when the shares reach 1000 DASH you lock the terms for everyone to approve." />
-      {prefill && (
-        <p className="notice-box small">
-          Opening a group for a match: your {dash(prefill.myAmount)} plus {prefill.invites.length} {prefill.invites.length === 1 ? 'person' : 'people'} you will invite. {prefill.note}
-        </p>
-      )}
       <form className="form form-card new-group" onSubmit={submit} aria-busy={busy} data-testid="new-group-form">
         <fieldset disabled={busy}>
           <legend className="visually-hidden">The group</legend>
@@ -297,7 +261,7 @@ function NewGroupForm({ identityId }: { identityId: string }) {
               <input type="radio" name="amounts" checked={!openAmounts} onChange={() => setOpenAmounts(false)} />
               <span>
                 <b>By invitation</b>
-                <span className="small muted block">You invite people who are looking, with the amount for each seat.</span>
+                <span className="small muted block">You invite people, with the amount for each seat: from those waiting in a group they started, or by sending them the link.</span>
               </span>
             </label>
           </fieldset>

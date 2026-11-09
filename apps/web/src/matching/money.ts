@@ -27,3 +27,13 @@ export function parsePercentInput(text: string): number | null {
 export const bpsInput = (bps: number): string => String(bps / 100);
 
 export const shortId = (id: string): string => (id.length > 12 ? `${id.slice(0, 6)}…${id.slice(-4)}` : id);
+
+/** Why this text is not a share someone can bring (100 to 900 DASH), or null. */
+export function amountProblem(text: string, required = true): string | null {
+  if (!text.trim()) return required ? 'Enter how much you would bring.' : null;
+  const v = parseDashInput(text);
+  if (v === null) return 'Enter an amount in DASH, like 250 or 312.5.';
+  if (v < 100 * DUFFS) return 'A share is at least 100 DASH.';
+  if (v > 900 * DUFFS) return 'A share is at most 900 DASH: a masternode needs at least two people.';
+  return null;
+}

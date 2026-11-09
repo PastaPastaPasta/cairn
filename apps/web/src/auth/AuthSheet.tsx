@@ -147,7 +147,7 @@ export function Choose() {
   );
   return (
     <div className="sheet-choose">
-      <p className="lede">Browsing is free and needs no account. Sign in to make a profile, say you’re looking, or join a group. Cairn never holds your coins or the keys of your masternode.</p>
+      <p className="lede">Browsing is free and needs no account. Sign in to make a profile, start a group or join one. Cairn never holds your coins or the keys of your masternode.</p>
       {pending.length > 0 && (
         <div className="notice-box" role="status">
           <p>

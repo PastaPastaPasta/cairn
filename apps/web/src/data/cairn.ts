@@ -255,7 +255,7 @@ const groupWatch = (groupId: string): Watch<GroupBundle | null> => ({
 /** A group's bundle as React state (null: no such group), re-read on reload() and when the group changes while the page is open. */
 export const useGroupBundle = (groupId: string) => useLoad(`group:${groupId}`, (r) => loadGroupBundle(r, groupId), groupWatch(groupId));
 
-/** The identity's one document of a type unique per owner (looking post, operator listing), or the newer version this tab wrote. */
+/** The identity's one document of a type unique per owner (operator listing), or the newer version this tab wrote. */
 export async function readOwn<T>(r: Registry, type: DocType, query: CairnQuery, ownerId: string, read: Reader<T>): Promise<T | null> {
   const res = await queryCairn(r, query);
   return readEach(withKnown(r, type, res.docs, (raw) => rawId(raw, '$ownerId') === ownerId), read, r.network)[0] ?? null;

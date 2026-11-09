@@ -515,6 +515,10 @@ input[inputmode='numeric'] {
 .pref-miss::before {
   mask-image: var(--icon-not-equal);
 }
+.pref-note {
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+}
 .combo-sum {
   font-size: var(--t-m);
   line-height: 1.7;
@@ -1014,4 +1018,211 @@ input[inputmode='numeric'] {
 }
 .activation-line {
   margin-top: var(--s-6);
+}
+
+/* ---- /groups: one question first, then where the answer fits ---------------------------------- */
+.ask-bar {
+  padding: var(--s-5);
+  margin-bottom: var(--s-6);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.ask-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3) var(--s-4);
+}
+.ask-label {
+  font-family: var(--font-display);
+  font-size: var(--t-xl);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.ask-input {
+  width: 11rem;
+}
+.ask-input input {
+  font-size: var(--t-l);
+  min-height: 3rem;
+}
+.ask-chips {
+  display: flex;
+  gap: var(--s-2);
+}
+.amount-chip {
+  min-height: 2.25rem;
+  padding: 0.25rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-s);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.amount-chip:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.amount-chip.on {
+  background: var(--accent-wash);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.ask-bar #ask-hint {
+  margin: var(--s-2) 0 0;
+}
+.ask-more {
+  margin-top: var(--s-4);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line);
+}
+.ask-more summary {
+  cursor: pointer;
+  color: var(--accent-ink);
+  font-weight: 500;
+}
+.ask-prefs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: var(--s-4);
+  margin: var(--s-4) 0 var(--s-2);
+}
+.fits > h2 {
+  margin-bottom: var(--s-4);
+}
+.fit-join {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-4);
+  align-items: center;
+}
+.fit-join-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--s-2);
+}
+.fit-join-side .cairn-row {
+  width: 12rem;
+}
+.fit-with {
+  color: var(--accent-ink);
+}
+.start-card {
+  margin-top: var(--s-5);
+  padding: var(--s-5);
+  border-radius: var(--radius-l);
+  border: 1px dashed var(--line-strong);
+  background: var(--surface);
+}
+.start-card.start-first {
+  border-style: solid;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent-wash) 45%, var(--surface));
+}
+.start-card.start-mine {
+  border-style: solid;
+  background: var(--mine-wash);
+}
+.start-head {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr);
+  gap: var(--s-4);
+  align-items: start;
+}
+.start-head h3 {
+  margin-top: 0;
+}
+.start-terms {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--s-3) var(--s-5);
+  margin: var(--s-4) 0;
+}
+.start-terms dt {
+  color: var(--ink-3);
+}
+.start-terms dd {
+  margin: 0;
+}
+.start-form > fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.start-form .field {
+  max-width: 22rem;
+}
+.all-groups {
+  margin-top: var(--s-7);
+}
+.all-groups > summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: var(--s-4);
+}
+.browse-section {
+  margin-bottom: var(--s-6);
+}
+.browse-section > h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.browse .empty-state {
+  margin-bottom: var(--s-6);
+}
+.closed-toggle {
+  margin-top: var(--s-5);
+}
+.close-started {
+  margin-bottom: var(--s-4);
+}
+.close-started p:last-child {
+  margin-bottom: 0;
+}
+@media (max-width: 640px) {
+  .ask-bar,
+  .start-card {
+    padding: var(--s-4);
+  }
+  .fit-join {
+    grid-template-columns: 1fr;
+  }
+  .fit-join-side {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .fit-join-side .cairn-row {
+    width: 100%;
+  }
+  .start-head {
+    grid-template-columns: 1fr;
+  }
+  .start-head .cairn-row {
+    max-width: 12rem;
+  }
+}
+.start-head .cairn-cap-row,
+.fit-join-side .cairn-cap-row {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.operator-start {
+  margin-top: var(--s-5);
+}
+.fit-join-actions {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
 }

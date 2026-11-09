@@ -1,38 +1,49 @@
-// Matching (DESIGN M4): which groups a member's amount fits, ranked by how well the group meets what they asked for, and which
-// other looking members would complete a group with them. Amount rules are Dash Core's (canAddShare, suggestCombos); preferences
-// (operator, reward, exit terms) rank and explain but never hide a group the amount fits.
-import { LOOKING_STATUS, type Group, type Looking, type RosterEntry } from '@cairn/contract';
+// Matching (DESIGN §4.1). There is one kind of listing, the group. A member says how much they can bring, and optionally the operator,
+// the most reward and the longest early period they accept; every group still taking seats that their amount fits is ranked for them.
+// Someone with no group to join starts one, alone: that group is how others find them, and organizers see such people as candidates.
+// Amount rules are Dash Core's (canAddShare, suggestCombos); preferences rank and explain but never hide a group the amount fits.
+import { GROUP_FLAG, GROUP_STATUS, type Group, type RosterEntry } from '@cairn/contract';
 import { MAX_SHARES, REGULAR_COLLATERAL, suggestCombos } from '@cairn/shares';
 import { fitsRoster } from './group.ts';
 import { dash, pct } from './money.ts';
-import { acceptedPeriod, periodWords } from './exit.ts';
+import { exitShort, periodWords } from './exit.ts';
+
+/** What a member is looking for: their amount, and the terms they would accept (null: no preference). */
+export interface Ask {
+  amount: number;
+  operatorId: string | null;
+  maxRewardBps: number | null;
+  maxPeriodBlocks: number | null;
+}
 
 export interface Preference {
   ok: boolean;
+  /** Neither met nor missed: a difference worth knowing about. */
+  note?: boolean;
   text: string;
 }
 
-/** How a group's terms meet a looking post's preferences, one line each. */
-export function preferences(g: Pick<Group, 'operatorId' | 'rewardBps' | 'earlyPeriodBlocks' | 'earlyPenalty'>, l: Looking, whose: 'your' | 'their' = 'your'): Preference[] {
+/** How a group's terms meet what a member asked for, one line per preference they gave. */
+export function preferences(g: Pick<Group, 'operatorId' | 'rewardBps' | 'earlyPeriodBlocks'>, ask: Ask): Preference[] {
   const out: Preference[] = [];
-  const they = whose === 'your' ? 'you' : 'they';
-  if (l.operatorId) out.push(g.operatorId === l.operatorId ? { ok: true, text: `${whose === 'your' ? 'Your' : 'Their'} chosen operator` } : { ok: false, text: g.operatorId ? `A different operator than ${they} asked for` : 'Operator not chosen yet' });
-  out.push(g.rewardBps <= l.maxRewardBps ? { ok: true, text: `Operator reward ${pct(g.rewardBps)}, within ${whose} ${pct(l.maxRewardBps)}` } : { ok: false, text: `Operator reward ${pct(g.rewardBps)}, above ${whose} ${pct(l.maxRewardBps)}` });
-  const { maxPenalty: maxPen } = l.earlyPref;
-  const maxP = acceptedPeriod(l.earlyPref.maxPeriodBlocks);
-  const periodOk = maxP === null || g.earlyPeriodBlocks <= maxP;
-  const penaltyOk = maxPen === null || g.earlyPenalty <= maxPen;
-  if (maxP !== null || maxPen !== null)
+  if (ask.operatorId) out.push(g.operatorId === ask.operatorId ? { ok: true, text: 'Your chosen operator' } : { ok: false, text: g.operatorId ? 'A different operator' : 'Operator not chosen yet' });
+  if (ask.maxRewardBps !== null)
+    out.push(g.rewardBps <= ask.maxRewardBps ? { ok: true, text: `Operator reward ${pct(g.rewardBps)}, within your ${pct(ask.maxRewardBps)}` } : { ok: false, text: `Operator reward ${pct(g.rewardBps)}, above your ${pct(ask.maxRewardBps)}` });
+  if (ask.maxPeriodBlocks !== null)
     out.push(
-      periodOk && penaltyOk
-        ? { ok: true, text: `Exit terms ${they} accept` }
-        : { ok: false, text: !periodOk ? `Early period ${periodWords(g.earlyPeriodBlocks)}, longer than ${they} accept` : `Early-exit penalty ${dash(g.earlyPenalty)}, more than ${they} accept` },
+      g.earlyPeriodBlocks <= ask.maxPeriodBlocks
+        ? { ok: true, text: g.earlyPeriodBlocks ? `Early period ${periodWords(g.earlyPeriodBlocks)}, within what you accept` : 'No early period' }
+        : { ok: false, text: `Early period ${periodWords(g.earlyPeriodBlocks)}, longer than you accept` },
     );
   return out;
 }
 
+/** A group anyone may ask to join: still taking seats, and not filled by invitation only. */
+export const takesRequests = (g: Group) => g.status === GROUP_STATUS.forming && !!((g.flags ?? 0) & GROUP_FLAG.openAmounts);
+
 export interface GroupFit {
   group: Group;
+  /** Duffs still open once this amount is in. */
   remainingAfter: number;
   completes: boolean;
   prefs: Preference[];
@@ -40,129 +51,91 @@ export interface GroupFit {
 }
 
 /**
- * Groups `l`'s amount fits (forming, the roster can take it under Core's rules), best first: fewest unmet preferences, then those it
- * completes, then those it brings closest to 1000, then newest.
+ * Groups the amount fits (taking requests, and the roster can take it under Core's rules), best first: fewest unmet preferences, then
+ * those it completes, then those it brings closest to 1000, then the newest. The member's own groups and those they are in are left out.
  */
-export function rankGroups(groups: readonly Group[], l: Looking, exclude: ReadonlySet<string> = new Set()): GroupFit[] {
+export function rankGroups(groups: readonly Group[], ask: Ask, me: string | null = null): GroupFit[] {
   const out: GroupFit[] = [];
   for (const g of groups) {
-    if (exclude.has(g.id) || g.roster.some((r) => r.id === l.ownerId)) continue;
-    const fit = fitsRoster(g.roster, l.amount, g.earlyPenalty);
+    if (!takesRequests(g) || (me && (g.ownerId === me || g.roster.some((r) => r.id === me)))) continue;
+    const fit = fitsRoster(g.roster, ask.amount, g.earlyPenalty);
     if (!fit.ok) continue;
-    const prefs = preferences(g, l);
+    const prefs = preferences(g, ask);
     const remainingAfter = Number(fit.remainingAfter);
     out.push({ group: g, remainingAfter, completes: remainingAfter === 0, prefs, misses: prefs.filter((p) => !p.ok).length });
   }
   return out.sort((a, b) => a.misses - b.misses || Number(b.completes) - Number(a.completes) || a.remainingAfter - b.remainingAfter || (b.group.updatedAt ?? 0) - (a.group.updatedAt ?? 0));
 }
 
-/** Two looking posts can share a group: neither insists on an operator the other excludes. */
-const operatorsAgree = (a: Looking, b: Looking) => !a.operatorId || !b.operatorId || a.operatorId === b.operatorId;
-
-export interface Combo {
-  /** The other people, in the order suggestCombos picked them. */
-  people: Looking[];
-  /** The operator everyone accepts (a specific one when anyone asked for it), or null for "any". */
-  operatorId: string | null;
-  /** The largest operator reward everyone accepts. */
-  maxRewardBps: number;
-  /** The longest early period and largest penalty everyone accepts (null: any). */
-  maxPeriodBlocks: number | null;
-  maxPenalty: number | null;
-}
-
-const minOrNull = (xs: Array<number | null>): number | null => {
-  const set = xs.filter((x): x is number => x !== null);
-  return set.length ? Math.min(...set) : null;
-};
-
-function combine(me: Looking, people: Looking[]): Combo | null {
-  const all = [me, ...people];
-  for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) if (!operatorsAgree(all[i]!, all[j]!)) return null;
-  return {
-    people,
-    operatorId: all.find((l) => l.operatorId)?.operatorId ?? null,
-    maxRewardBps: Math.min(...all.map((l) => l.maxRewardBps)),
-    maxPeriodBlocks: minOrNull(all.map((l) => acceptedPeriod(l.earlyPref.maxPeriodBlocks))),
-    maxPenalty: minOrNull(all.map((l) => l.earlyPref.maxPenalty)),
-  };
+/**
+ * The one person in a group they started and are still alone in: someone waiting to be found. An operator's own node is not a person
+ * waiting (they run it and would not move), and neither is a group that has stopped taking seats.
+ */
+export function startedAlone(g: Group): RosterEntry | null {
+  if (g.status !== GROUP_STATUS.forming || g.roster.length !== 1) return null;
+  const only = g.roster[0]!;
+  return only.id === g.ownerId && g.operatorId !== g.ownerId ? only : null;
 }
 
 /**
- * Other open looking posts that, with `me`, add up to exactly 1000 DASH under Core's rules (fewest people first). Posts whose
- * operator choice conflicts with anyone's are left out.
+ * Where a candidate's own group differs from the one inviting them. Only a different chosen operator is a conflict; reward and exit
+ * terms are things to agree on (often just the defaults of a group started in one click), so they are notes, never a mark against.
  */
-export function combosWith(me: Looking, others: readonly Looking[], maxResults = 5): Combo[] {
-  const pool = others.filter((o) => o.ownerId !== me.ownerId && o.status === LOOKING_STATUS.open && operatorsAgree(me, o));
-  const remaining = REGULAR_COLLATERAL - BigInt(me.amount);
-  const picks = suggestCombos(
-    remaining,
-    pool.map((o) => BigInt(o.amount)),
-    MAX_SHARES - 1,
-    { maxResults: maxResults * 4 },
-  );
-  const out: Combo[] = [];
-  for (const idx of picks) {
-    const c = combine(
-      me,
-      idx.map((i) => pool[i]!),
-    );
-    if (c) out.push(c);
-    if (out.length >= maxResults) break;
-  }
+export function differences(theirs: Group, ours: Pick<Group, 'operatorId' | 'rewardBps' | 'earlyPeriodBlocks' | 'earlyPenalty'>): Preference[] {
+  const out: Preference[] = [];
+  if (theirs.operatorId && theirs.operatorId !== ours.operatorId) out.push({ ok: false, text: 'Chose a different operator' });
+  if (theirs.rewardBps !== ours.rewardBps) out.push({ ok: true, note: true, text: `Their group: ${pct(theirs.rewardBps)} operator reward` });
+  if (theirs.earlyPeriodBlocks !== ours.earlyPeriodBlocks || theirs.earlyPenalty !== ours.earlyPenalty)
+    out.push({ ok: true, note: true, text: theirs.earlyPeriodBlocks ? `Their group: ${exitShort(theirs.earlyPeriodBlocks, theirs.earlyPenalty)}` : 'Their group: no early-exit terms' });
   return out;
 }
 
-export interface LookingFit {
-  looking: Looking;
-  prefs: Preference[];
-  misses: number;
+export interface Candidate {
+  /** The person, and the amount they put into the group they started. */
+  id: string;
+  amount: number;
+  /** The group they started, and are alone in. */
+  group: Group;
+  diffs: Preference[];
   completes: boolean;
 }
 
-/** Looking members (not already in, asking or invited) whose amount the group's roster can take, best first. */
-export function lookingThatFits(g: Group, posts: readonly Looking[], exclude: ReadonlySet<string>): LookingFit[] {
-  return posts
-    .filter((l) => l.status === LOOKING_STATUS.open && !exclude.has(l.ownerId) && l.ownerId !== g.ownerId && !g.roster.some((r) => r.id === l.ownerId))
-    .flatMap((l) => {
-      const fit = fitsRoster(g.roster, l.amount, g.earlyPenalty);
-      if (!fit.ok) return [];
-      const prefs = preferences(g, l, 'their');
-      return [{ looking: l, prefs, misses: prefs.filter((p) => !p.ok).length, completes: fit.remainingAfter === 0n }];
-    })
-    .sort((a, b) => a.misses - b.misses || Number(b.completes) - Number(a.completes) || b.looking.amount - a.looking.amount);
+/**
+ * People waiting alone in a group they started whose amount the group `g` can take: whom its organizer can invite. Fewest
+ * differences in terms first, then those who complete it, then the larger amounts.
+ */
+export function candidatesFor(g: Group, groups: readonly Group[], exclude: ReadonlySet<string> = new Set()): Candidate[] {
+  const out: Candidate[] = [];
+  for (const other of groups) {
+    if (other.id === g.id) continue;
+    const who = startedAlone(other);
+    if (!who || exclude.has(who.id) || who.id === g.ownerId || g.roster.some((r) => r.id === who.id)) continue;
+    const fit = fitsRoster(g.roster, who.amount, g.earlyPenalty);
+    if (!fit.ok) continue;
+    out.push({ id: who.id, amount: who.amount, group: other, diffs: differences(other, g), completes: fit.remainingAfter === 0n });
+  }
+  // one row per person, from their newest group
+  const seen = new Set<string>();
+  return out
+    .sort((a, b) => (b.group.updatedAt ?? 0) - (a.group.updatedAt ?? 0))
+    .filter((c) => !seen.has(c.id) && seen.add(c.id))
+    .sort((a, b) => a.diffs.filter((d) => !d.ok).length - b.diffs.filter((d) => !d.ok).length || Number(b.completes) - Number(a.completes) || b.amount - a.amount);
 }
 
-/** Sets of fitting looking members that would complete the group's roster exactly (fewest people first). */
-export function completions(g: Group, fits: readonly LookingFit[], maxResults = 3): Looking[][] {
+/** Sets of candidates that would complete the group's roster exactly (fewest people first). */
+export function completions(g: Group, candidates: readonly Candidate[], maxResults = 3): Candidate[][] {
   const roster: readonly RosterEntry[] = g.roster;
   const remaining = REGULAR_COLLATERAL - roster.reduce((a, r) => a + BigInt(r.amount), 0n);
   if (remaining <= 0n) return [];
-  const pool = fits.map((f) => f.looking);
   return suggestCombos(
     remaining,
-    pool.map((l) => BigInt(l.amount)),
+    candidates.map((c) => BigInt(c.amount)),
     MAX_SHARES - roster.length,
     { maxResults, earlyPenalty: BigInt(g.earlyPenalty), minPicks: roster.length ? 1 : 2 },
-  ).map((idx) => idx.map((i) => pool[i]!));
+  ).map((idx) => idx.map((i) => candidates[i]!));
 }
 
-export interface GroupFilters {
-  /** Duffs the viewer would bring: only groups that can take it. */
-  amount?: number | null;
-  /** 'any', 'none' (still to be chosen) or an operator id. */
-  operator?: string;
-  maxRewardBps?: number | null;
-  /** Longest early period accepted, in blocks (null: any). */
-  maxPeriodBlocks?: number | null;
-}
-
-export function filterGroups(groups: readonly Group[], f: GroupFilters): Group[] {
-  return groups.filter((g) => {
-    if (f.amount && !fitsRoster(g.roster, f.amount, g.earlyPenalty).ok) return false;
-    if (f.operator && f.operator !== 'any' && (f.operator === 'none' ? !!g.operatorId : g.operatorId !== f.operator)) return false;
-    if (f.maxRewardBps !== undefined && f.maxRewardBps !== null && g.rewardBps > f.maxRewardBps) return false;
-    if (f.maxPeriodBlocks !== undefined && f.maxPeriodBlocks !== null && g.earlyPeriodBlocks > f.maxPeriodBlocks) return false;
-    return true;
-  });
+/** "With you, 850 of 1000 DASH" style words for a fit. */
+export function fitWords(f: Pick<GroupFit, 'completes' | 'remainingAfter'>, amount: number): string {
+  return f.completes ? `Your ${dash(amount)} completes it.` : `With you, ${dash(f.remainingAfter)} still to find.`;
 }

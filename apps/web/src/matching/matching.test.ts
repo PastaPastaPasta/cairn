@@ -1,11 +1,11 @@
 import { GROUP_STATUS, INVITE_STATUS, OP_ACCEPT_STATUS, SEAT_FLAG, SEAT_STATUS, groupData, termSheetFromGroup, toGroup, type Invite } from '@cairn/contract';
 import { termsHash } from '@cairn/shares';
 import { describe, expect, it } from 'vitest';
-import { EXIT_PRESETS, acceptedPeriod, exitProblem, exitShort, exitWords, termWarnings } from './exit.ts';
-import { A, B, BLS, C, D, GID, OPR, ORG, SERVICE, VOTING, approval, group, id, looking, opAccept, seat } from './fixtures.ts';
+import { EXIT_PRESETS, exitProblem, exitShort, exitWords, termWarnings } from './exit.ts';
+import { A, B, BLS, C, D, GID, OPR, ORG, SERVICE, VOTING, approval, group, id, opAccept, seat } from './fixtures.ts';
 import { acceptSeat, change, groupView, invitableAgain, lockPlan, refillFields, removeShare, saveChoices, type GroupBundle } from './group.ts';
 import { asciiLabel, deriveLabels, labelProblem } from './labels.ts';
-import { combosWith, completions, filterGroups, lookingThatFits, rankGroups } from './match.ts';
+import { candidatesFor, completions, rankGroups, startedAlone, type Ask } from './match.ts';
 import { parseDashInput, parsePercentInput } from './money.ts';
 import { FORM_BY_PASSED, formByNoteFor } from './deadline.ts';
 import { ROLE_WORDS, nextSteps, rolesOf, seatFlags, stepHref } from './nextstep.ts';
@@ -23,14 +23,6 @@ describe('exit terms', () => {
       ['1 year', 210_240],
       ['2 years', 420_480],
     ]);
-  });
-  it('read a looking post saved with the old 91- and 182-day presets as Dash-Qt’s 3 and 6 months', () => {
-    expect(acceptedPeriod(52_416)).toBe(52_560);
-    expect(acceptedPeriod(104_832)).toBe(105_120);
-    expect(acceptedPeriod(1000)).toBe(1000);
-    expect(acceptedPeriod(null)).toBeNull();
-    const old = looking(A, D(300), { earlyPref: { maxPeriodBlocks: 52_416, maxPenalty: null } });
-    expect(rankGroups([group({ earlyPeriodBlocks: 52_560, earlyPenalty: D(5) })], old)[0]!.prefs.every((p) => p.ok)).toBe(true);
   });
   it('enforce the penalty rules as you type', () => {
     expect(exitProblem(0, 0)).toBeNull();
@@ -260,10 +252,10 @@ describe('next steps per role', () => {
     expect(invitableAgain(tooBig)[0]!.fit.ok).toBe(false);
   });
 
-  it('send the operator of a member-led group to accept, and an invitation-only visitor to post', () => {
+  it('send the operator of a member-led group to accept, and an invitation-only visitor to find or start another', () => {
     const v = groupView(bundle({ group: group({ flags: 0 }) }), 'testnet');
     expect(nextSteps(v, { id: OPR })[0]!.action).toBe('operator-answer');
-    expect(nextSteps(v, { id: id(77) })[0]!.action).toBe('post-looking');
+    expect(nextSteps(v, { id: id(77) })[0]!.action).toBe('find-another');
     const noOp = groupView(bundle({ group: group({ operatorId: null }) }), 'testnet');
     expect(nextSteps(noOp, { id: id(77), isOperator: true })[0]!.action).toBe('offer');
     expect(nextSteps(noOp, { id: ORG })[0]!.action).toBe('choose-operator');
@@ -273,7 +265,7 @@ describe('next steps per role', () => {
     const b = readyToLock();
     const full = groupView(b, 'testnet');
     expect(nextSteps(full, { id: null })[0]).toMatchObject({ role: 'visitor', title: 'Are you in this group?', text: 'Sign in to see your row and what to do next.', action: 'sign-in' });
-    expect(nextSteps(full, { id: id(77) })[0]).toMatchObject({ title: 'This group is full', text: 'This group is full. Browse open groups or post that you’re looking.', action: 'find-another' });
+    expect(nextSteps(full, { id: id(77) })[0]).toMatchObject({ title: 'This group is full', text: 'This group is full. Find another group your amount fits, or start one.', action: 'find-another' });
     const open = groupView(bundle({ group: group({ roster: [{ id: A, amount: D(500) }] }), seats: [seat(A, D(500))] }), 'testnet');
     expect(nextSteps(open, { id: null })[0]!.text).toBe('Sign in to see your row and what to do next. Not in it yet? It still needs 500 DASH; signing in also lets you ask for a seat.');
     expect(ROLE_WORDS.visitor).toBe('Next step');
@@ -380,41 +372,59 @@ describe('lifecycle: locked → ready → session started → linked → live | 
   });
 });
 
-describe('matching (M4)', () => {
+describe('matching (DESIGN §4.1)', () => {
   const g1 = group({ id: id(31), roster: [{ id: A, amount: D(700) }], rewardBps: 1500, updatedAt: 5 });
   const g2 = group({ id: id(32), roster: [{ id: A, amount: D(400) }], rewardBps: 800, updatedAt: 4 });
   const g3 = group({ id: id(33), roster: [{ id: A, amount: D(850) }], updatedAt: 3 });
   const g4 = group({ id: id(34), roster: [{ id: A, amount: D(500) }], rewardBps: 800, updatedAt: 2 });
+  const ask = (amount: number, over: Partial<Ask> = {}): Ask => ({ amount, operatorId: null, maxRewardBps: null, maxPeriodBlocks: null, ...over });
 
   it('ranks groups the amount fits: preferences met, then completing, then closest to full', () => {
-    const me = looking(B, D(300), { maxRewardBps: 1000 });
-    const ranked = rankGroups([g1, g2, g3, g4], me);
+    const ranked = rankGroups([g1, g2, g3, g4], ask(D(300), { maxRewardBps: 1000 }));
     expect(ranked.map((r) => r.group.id)).toEqual([g4.id, g2.id, g1.id]);
     expect(ranked[2]!.prefs.find((p) => !p.ok)!.text).toMatch(/above your 10%/);
     expect(ranked.find((r) => r.group.id === g1.id)!.completes).toBe(true);
   });
 
-  it('suggests looking members who complete a group with me, skipping operator conflicts', () => {
-    const me = looking(A, D(300), { operatorId: OPR, maxRewardBps: 1200 });
-    const others = [looking(B, D(700)), looking(C, D(400), { operatorId: id(66) }), looking(id(40), D(350)), looking(id(41), D(350), { maxRewardBps: 900 })];
-    const combos = combosWith(me, others);
-    expect(combos.map((c) => c.people.map((p) => p.ownerId))).toEqual([[B], [id(40), id(41)]]);
-    expect(combos[1]).toMatchObject({ operatorId: OPR, maxRewardBps: 900 });
+  it('gives no preference lines when the member gave none, and never hides a group for a preference', () => {
+    const ranked = rankGroups([g1, g2], ask(D(300), { operatorId: id(66), maxPeriodBlocks: 0 }));
+    expect(ranked).toHaveLength(2);
+    expect(rankGroups([g1], ask(D(300)))[0]!.prefs).toEqual([]);
+    expect(ranked[0]!.prefs.map((p) => p.text)).toEqual(['A different operator', 'No early period']);
   });
 
-  it('shows the organizer who would fit and what completes the group', () => {
-    const g = group({ roster: [{ id: A, amount: D(500) }], earlyPeriodBlocks: 52_416, earlyPenalty: D(120) });
-    const posts = [looking(B, D(300)), looking(C, D(100)), looking(id(42), D(200)), looking(id(43), D(500)), looking(id(44), D(150))];
-    const fits = lookingThatFits(g, posts, new Set([id(44)]));
-    expect(fits.map((f) => f.looking.ownerId)).toEqual([id(43), B, id(42)]);
-    expect(completions(g, fits).map((c) => c.map((l) => l.ownerId))).toEqual([[id(43)], [B, id(42)]]);
+  it('leaves out my own groups, groups I am in, invitation-only and groups no longer taking seats', () => {
+    const mine = group({ id: id(35), ownerId: B, roster: [{ id: B, amount: D(300) }] });
+    const inIt = group({ id: id(36), roster: [{ id: A, amount: D(300) }, { id: B, amount: D(200) }] });
+    const invited = group({ id: id(37), roster: [{ id: A, amount: D(300) }], flags: 0 });
+    const full = group({ id: id(38), roster: [{ id: A, amount: D(300) }], status: GROUP_STATUS.full });
+    expect(rankGroups([mine, inIt, invited, full, g2], ask(D(300)), B).map((r) => r.group.id)).toEqual([g2.id]);
   });
 
-  it('filters groups by amount, operator, reward and exit terms', () => {
-    expect(filterGroups([g1, g2, g3], { amount: D(300) }).map((g) => g.id)).toEqual([g1.id, g2.id]);
-    expect(filterGroups([g1, g2, g3], { maxRewardBps: 1000 }).map((g) => g.id)).toEqual([g2.id, g3.id]);
-    expect(filterGroups([g1, group({ operatorId: null })], { operator: 'none' })).toHaveLength(1);
-    expect(filterGroups([g1, group({ earlyPeriodBlocks: 104_832, earlyPenalty: D(5) })], { maxPeriodBlocks: 52_416 })).toEqual([g1]);
+  it('treats someone alone in a group they started as waiting, but not an operator alone in their own node', () => {
+    expect(startedAlone(group({ ownerId: A, operatorId: null, roster: [{ id: A, amount: D(300) }] }))).toEqual({ id: A, amount: D(300) });
+    expect(startedAlone(group({ ownerId: OPR, operatorId: OPR, roster: [{ id: OPR, amount: D(300) }] }))).toBeNull();
+    expect(startedAlone(group({ ownerId: A, roster: [{ id: A, amount: D(300) }, { id: B, amount: D(200) }] }))).toBeNull();
+    expect(startedAlone(group({ ownerId: ORG, roster: [{ id: A, amount: D(300) }] }))).toBeNull();
+    expect(startedAlone(group({ ownerId: A, roster: [{ id: A, amount: D(300) }], status: GROUP_STATUS.cancelled }))).toBeNull();
+  });
+
+  it('shows the organizer who is waiting and fits, with what differs, and what completes the group', () => {
+    const g = group({ roster: [{ id: ORG, amount: D(500) }], earlyPeriodBlocks: 52_560, earlyPenalty: D(120) });
+    const alone = (who: string, amount: number, n: number, over: Parameters<typeof group>[0] = {}) => group({ id: id(n), ownerId: who, operatorId: null, roster: [{ id: who, amount: D(amount) }], earlyPeriodBlocks: 52_560, earlyPenalty: D(120), ...over });
+    const waiting = [alone(B, 300, 50), alone(C, 100, 51), alone(id(42), 200, 52, { rewardBps: 800 }), alone(id(43), 500, 53), alone(id(44), 150, 54)];
+    const fits = candidatesFor(g, [g, ...waiting], new Set([id(44)]));
+    expect(fits.map((f) => f.id)).toEqual([id(43), B, id(42)]);
+    expect(fits.find((f) => f.id === id(42))!.diffs).toEqual([{ ok: true, note: true, text: 'Their group: 8% operator reward' }]);
+    expect(completions(g, fits).map((c) => c.map((x) => x.id))).toEqual([[id(43)], [B, id(42)]]);
+  });
+
+  it('lists a person once, from their newest group, and never the organizer or someone already in', () => {
+    const g = group({ ownerId: ORG, roster: [{ id: ORG, amount: D(300) }, { id: C, amount: D(200) }] });
+    const twice = [group({ id: id(60), ownerId: B, operatorId: null, roster: [{ id: B, amount: D(200) }], updatedAt: 1 }), group({ id: id(61), ownerId: B, operatorId: null, roster: [{ id: B, amount: D(300) }], updatedAt: 9 })];
+    const self = group({ id: id(62), ownerId: ORG, operatorId: null, roster: [{ id: ORG, amount: D(300) }] });
+    const already = group({ id: id(63), ownerId: C, operatorId: null, roster: [{ id: C, amount: D(200) }] });
+    expect(candidatesFor(g, [...twice, self, already]).map((f) => [f.id, f.group.id])).toEqual([[B, id(61)]]);
   });
 });
 

@@ -21,11 +21,28 @@ test('a signed-out visitor to a locked group is asked whether they are in it', a
   await expect(page.getByText('You are not a co-owner of this group')).toHaveCount(0);
 });
 
-test('/groups lists groups past "taking co-owners" without any filter set', async ({ page }) => {
+test('/groups lists groups past "taking co-owners" with no amount typed', async ({ page }) => {
   await stubActivation(page);
   await page.goto('/groups');
   await listSettled(page);
-  await expect(page.getByTestId('group-rows')).toBeVisible();
-  await expect(page.getByText('No group matches these filters.')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Clear filters' })).toHaveCount(0);
+  await expect(page.getByTestId('group-rows').first()).toBeVisible();
+});
+
+test('the Home amount opens /groups with that amount, and starting a group asks to sign in', async ({ page }) => {
+  await stubActivation(page);
+  await page.goto('/');
+  await page.getByTestId('hero-amount').fill('300');
+  await page.getByRole('button', { name: 'Find my group' }).click();
+  await expect(page).toHaveURL(/\/groups\?amount=300$/);
+  await expect(page.getByTestId('ask-amount')).toHaveValue('300');
+  await expect(page.locator('#fits-title')).toContainText('300 DASH', { timeout: 90_000 });
+  await expect(page.getByTestId('start-card').or(page.getByTestId('your-listing'))).toBeVisible();
+  await page.getByTestId('start-sign-in').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+});
+
+test('/looking now leads to /groups', async ({ page }) => {
+  await stubActivation(page);
+  await page.goto('/looking');
+  await expect(page).toHaveURL(/\/groups$/);
 });

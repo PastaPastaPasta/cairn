@@ -106,8 +106,8 @@ One identity can hold several roles. An operator can also be a member of their o
 ### Everyone (signed out)
 - E1. See what Cairn is in one screen: how shared masternodes work, what you need (100+ DASH, Dash
   Core desktop wallet), what you never give anyone (keys, coins).
-- E2. Browse open groups, operators and members looking for a group, on mainnet or testnet, with no
-  account.
+- E2. Browse groups and operators on mainnet or testnet with no account, and type an amount to see
+  which groups it fits.
 - E3. See live mainnet v24 activation status and what it unlocks.
 
 ### Member
@@ -116,15 +116,18 @@ One identity can hold several roles. An operator can also be a member of their o
 - M2. Make a profile with a display name (the DPNS username is shown if they have one), a short note
   and contact handles (Discord, Yappr, Telegram, Matrix, DashPay username, website). They choose
   which handles are public.
-- M3. Post that they are **looking**: amount, preferred operator (specific, or "any"), the most
-  operator reward they'd accept, the early-exit terms they're OK with, and whether they can
-  coordinate (have Dash-Qt).
-- M4. See **matches**: groups their amount fits (the remainder still works: 0 or ≥ 100 DASH, ≤ 8
-  shares), sorted by fit. Also see suggested combinations of other looking members that would
-  complete a group with them.
+- M3. Say **how much they can bring** (the first question on Home and on `/groups`), and optionally
+  the operator, the most operator reward and the longest early period they accept. Nothing is
+  written: it is a question, kept in the address bar.
+- M4. See **where it fits**: every group still taking seats that the amount fits under Core's rules
+  (the remainder still works: 0 or ≥ 100 DASH, ≤ 8 shares), ranked by unmet preferences, then
+  "completes it", then closest to 1000. Each is drawn with the member's stone in it ("With you,
+  200 DASH still to find") and has one button, **Ask to join**. Below the list, always: **Start a
+  group with your N DASH** (one click; terms can be set before lock). Starting a group alone *is*
+  how a member waits to be found: there is no separate "looking" listing. See §4.1.
 - M5. Request a seat in a group with an amount and a short message, and withdraw it before lock.
 - M6. Open a **member-led group**: pick an operator from the directory (or "operator to be chosen"),
-  propose terms, and invite looking members.
+  propose terms, and invite people waiting alone in a group they started.
 - M7. On a group page: progress to 1000, who's in (name, amount, contact handles), terms, operator,
   coordinator, voting-key holder, group-chat link, and **one clear next step for me**.
 - M8. **Approve the locked terms.** A Platform document records a hash of the canonical term sheet,
@@ -145,7 +148,31 @@ One identity can hold several roles. An operator can also be a member of their o
   maintenance how-tos: save your standby dissolution, change the reward address, replace the
   operator (needs everyone), leave.
 - M12. **Refill**: when someone leaves, the masternode dissolves. Remaining members can reopen a group
-  with the same terms that needs only the leaver's amount, and looking members are matched to it.
+  with the same terms that needs only the leaver's amount, and it is ranked for anyone whose amount fits.
+
+### 4.1 One list: why there is no "looking" board
+
+An earlier version had two lists: groups, and members "looking" for a group. It made no sense to use:
+two places to look, two things to post, and a looking post only did something if an organizer
+happened to read it. Now there is one kind of listing, the group, and one question, how much you can
+bring.
+
+- With an amount, `/groups` ranks the groups it fits, drawn with you in them. Ask to join opens the
+  group with your amount filled in.
+- If none fits, or you prefer, you start a group with just yourself in it. It is listed immediately,
+  so the next person whose amount fits sees it among their results. That is the match. If two
+  people each started a group alone and one asks to join the other's, the other sees it flagged on
+  their results, so they accept instead of both joining each other.
+- Organizers see people **waiting alone in a group they started** whose amount fits what is left
+  (with how their proposed terms differ), and sets of them that would complete the group. Invite
+  works as before.
+- Someone who joins another group while their own is still just them is offered, on My Cairn, to
+  close the one they started.
+- An operator alone in their own node is not "waiting" (they would not move); they are a group to
+  join.
+
+The `looking` document type is unused by the site and is dropped from the contract when mainnet is
+registered.
 
 ### Operator
 - O1. Operator profile: name, operator reward (default, and range they accept), regions, hosting
@@ -191,15 +218,15 @@ One identity can hold several roles. An operator can also be a member of their o
 
 ```
 /                       Home: what Cairn is · how it works in 4 steps · open groups · CTA
-/groups                 Open groups (filters: fits my amount, operator, reward %, exit terms, status)
+/groups                 Find your group: "I can bring N DASH" → groups it fits, or start one; no amount → every group by stage
 /groups/new             Open a group (operator- or member-led)
 /g/:id                  Group page: progress, roster, terms, next step, chat link
 /g/:id/form             Formation: setup sheet (coordinator), message checker, link ProTx
 /g/:id/live             Live dashboard + maintenance
-/looking                Members looking for a group (+ "post that I'm looking")
+/looking                (redirects to /groups)
 /operators              Operator directory
 /operators/:id          Operator profile + verified track record
-/me                     My stuff: my groups, my seats, my approvals, my listing, profile
+/me                     My stuff: my groups, my seats, my approvals, operator listing, profile
 /check                  Standalone message checker (works without an account or group)
 /learn                  Plain-language guide: shared MNs, roles, exit terms, risks, FAQ
 /settings               Network (Mainnet/Testnet), account, passkeys
@@ -327,7 +354,7 @@ against vectors from Dash Core's own tests and real testnet transactions:
    - `@cairn/shares` codec with test vectors;
    - the testnet contract;
    - CI and Pages deploy to `cairn.dashhq.org` (testnet default until mainnet contract).
-2. **Matching**: profiles, operators, looking, groups, seats, invites, roster, matching and
+2. **Matching**: profiles, operators, groups, seats, invites, roster, matching and
    suggestions, filters.
 3. **Agree**: lock, term sheet, approvals, operator key and IP intake, readiness.
 4. **Form**: coordinator setup sheet, message checker (all stages), ProTx link and on-chain

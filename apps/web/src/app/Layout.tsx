@@ -8,7 +8,6 @@ import { useApp } from './context.tsx';
 
 const NAV = [
   { to: '/groups', label: 'Groups' },
-  { to: '/looking', label: 'Looking' },
   { to: '/operators', label: 'Operators' },
   { to: '/learn', label: 'Learn' },
 ];

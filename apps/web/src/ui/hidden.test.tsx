@@ -1,21 +1,21 @@
 // @vitest-environment happy-dom
-// S4: hiding a profile is a list in this browser, per network; a hidden person's post leaves the list until shown again.
-import type { Looking } from '@cairn/contract';
+// S4: hiding a profile is a list in this browser, per network; a hidden person's group leaves the list until shown again.
+import type { Group } from '@cairn/contract';
 import { act } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountProvider } from '../app/account.tsx';
 import { AppProvider } from '../app/context.tsx';
-import { A, B, D, looking } from '../matching/fixtures.ts';
+import { A, B, D, group, id } from '../matching/fixtures.ts';
 import { click, render } from '../test/render.tsx';
 import { HiddenProfiles } from './hidden.tsx';
 
-const posts = vi.hoisted(() => ({ items: [] as Looking[] }));
+const posts = vi.hoisted(() => ({ items: [] as Group[] }));
 vi.mock('../data/lists.ts', async (orig) => ({
   ...(await orig<typeof import('../data/lists.ts')>()),
-  useStatusList: (spec: { type: string }) => ({ status: 'ready', data: { items: spec.type === 'looking' ? posts.items : [], more: false }, refreshing: false, reload: () => {}, showOlder: () => {} }),
+  useStatusList: (spec: { type: string }) => ({ status: 'ready', data: { items: spec.type === 'group' ? posts.items : [], more: false }, refreshing: false, reload: () => {}, showOlder: () => {} }),
 }));
-const { LookingPage } = await import('../pages/LookingPage.tsx');
+const { GroupsPage } = await import('../pages/GroupsPage.tsx');
 
 const app = (node: React.ReactNode) =>
   render(
@@ -25,26 +25,24 @@ const app = (node: React.ReactNode) =>
       </AppProvider>
     </MemoryRouter>,
   );
-const rows = (el: HTMLElement) => el.querySelectorAll('[data-testid="looking-rows"] > li').length;
+const rows = (el: HTMLElement) => el.querySelectorAll('[data-testid="group-rows"] > li').length;
 
 describe('hidden profiles', () => {
   beforeEach(() => {
     localStorage.setItem('cairn.profile.v1', 'testnet');
     vi.stubGlobal('fetch', () => new Promise(() => {}));
-    posts.items = [looking(A, D(300), { id: 'post-a' }), looking(B, D(200), { id: 'post-b' })];
+    posts.items = [group({ id: id(91), ownerId: A, roster: [{ id: A, amount: D(300) }] }), group({ id: id(92), ownerId: B, roster: [{ id: B, amount: D(200) }] })];
   });
   afterEach(() => {
     localStorage.clear();
     vi.unstubAllGlobals();
   });
 
-  it('drop a hidden person’s post from the looking list, and come back from Settings', async () => {
-    const page = await app(<LookingPage />);
-    expect(rows(page.el)).toBe(2);
-    await click(page.el.querySelector<HTMLButtonElement>('[data-testid="hide-profile"]')!);
+  it('drop a hidden person’s group from the list, and come back from Settings', async () => {
+    localStorage.setItem('cairn.hidden.v1.testnet', JSON.stringify([A]));
+    const page = await app(<GroupsPage />);
     expect(rows(page.el)).toBe(1);
     expect(page.el.querySelector('[data-testid="hidden-note"]')!.textContent).toContain('One profile you hid is not shown.');
-    expect(JSON.parse(localStorage.getItem('cairn.hidden.v1.testnet')!)).toEqual([A]);
     expect(localStorage.getItem('cairn.hidden.v1.mainnet')).toBeNull();
 
     const settings = await app(<HiddenProfiles />);

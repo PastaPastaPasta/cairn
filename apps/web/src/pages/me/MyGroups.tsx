@@ -2,20 +2,24 @@
 // Found through the indexes the contract has for this (groups by owner and by operator, seats, invites and answers by owner);
 // approvals come with each group (DESIGN §7: "my approvals" is a few queries per group, not an index).
 import {
-  GROUP_STATUS, INVITE_STATUS, groupsByStatus, groupsOfOperator, groupsOrganizedBy, invitesTo, opAcceptsOf, seatsOf, toGroup, toInvite, toOpAccept, toSeat,
+  GROUP_STATUS, INVITE_STATUS, LOOKING_STATUS, deleteOp, groupData, groupsByStatus, lookingOf, replaceOp, toLooking, groupsOfOperator, groupsOrganizedBy, invitesTo, opAcceptsOf, seatsOf, toGroup, toInvite, toOpAccept, toSeat,
 } from '@cairn/contract';
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useApp } from '../../app/context.tsx';
+import { useWrite } from '../../data/write.ts';
+import { startedAlone } from '../../matching/match.ts';
+import { useAction } from '../../ui/useAction.ts';
 import type { Registry } from '../../config/registry.ts';
-import { loadGroupBundle, rawId, readAll, readNewest, useLoad } from '../../data/cairn.ts';
-import { groupView, type GroupView } from '../../matching/group.ts';
+import { loadGroupBundle, rawId, readAll, readNewest, readOwn, useLoad } from '../../data/cairn.ts';
+import { change, groupView, type GroupView } from '../../matching/group.ts';
 import { FORM_BY_PASSED, formByNoteFor } from '../../matching/deadline.ts';
-import { DUFFS } from '../../matching/money.ts';
+import { DUFFS, dash, dashNum } from '../../matching/money.ts';
 import { ROLE_WORDS, nextSteps, stepHref, type Step } from '../../matching/nextstep.ts';
 import { stageOf } from '../../matching/stage.ts';
 import { useGroupRegistrations } from '../../formation/useRegistration.ts';
 import { CairnStack } from '../../ui/CairnStack.tsx';
-import { Loaded } from '../../ui/Loaded.tsx';
+import { Loaded, WriteStatus } from '../../ui/Loaded.tsx';
 import { stonesOf } from '../group/GroupPage.tsx';
 
 const MAX_GROUPS = 24;
@@ -56,8 +60,15 @@ export async function loadMyGroups(r: Registry, me: string, isOperator: boolean)
     .sort((a, b) => Number(a.view.closed) - Number(b.view.closed) || Math.min(...a.steps.map((s) => order[s.tone])) - Math.min(...b.steps.map((s) => order[s.tone])) || (b.view.group.updatedAt ?? 0) - (a.view.group.updatedAt ?? 0));
 }
 
-/** Full groups whose roster I am on: a reason to stop advertising a looking post. */
-export const seatedIn = (groups: readonly MyGroup[], me: string) => groups.filter((g) => !g.view.closed && (g.view.full || g.view.locked) && g.view.group.roster.some((r) => r.id === me)).length;
+/**
+ * A group I started and am still alone in, while I am on another open group's roster: the first is now only a listing that invites
+ * people to a seat I will not keep, so it is worth closing.
+ */
+export function startedButMovedOn(groups: readonly MyGroup[], me: string): Array<{ started: GroupView; joined: GroupView }> {
+  const joined = groups.find((g) => !g.view.closed && g.view.group.ownerId !== me && g.view.group.roster.some((r) => r.id === me));
+  if (!joined) return [];
+  return groups.filter((g) => g.view.group.ownerId === me && startedAlone(g.view.group)).map((g) => ({ started: g.view, joined: joined.view }));
+}
 
 export function MyGroups({ me, isOperator, onGroups }: { me: string; isOperator: boolean; onGroups?(groups: MyGroup[]): void }) {
   const load = useLoad(`my-groups:${me}:${isOperator}`, (r) => loadMyGroups(r, me, isOperator));
@@ -77,17 +88,22 @@ export function MyGroups({ me, isOperator, onGroups }: { me: string; isOperator:
             <b>You are not in a group yet.</b>
           </p>
           <p>
-            <Link to="/groups">Find a group</Link>, <Link to="/looking">post that you are looking</Link>, or <Link to="/groups/new">open one</Link>.
+            <Link to="/groups">Say how much you can bring</Link> to see the groups it fits, or start one that others can join.
           </p>
         </>
       }
     >
       {(groups) => (
+        <>
+          {startedButMovedOn(groups, me).map((m) => (
+            <CloseStarted key={m.started.group.id} started={m.started} joined={m.joined} onClosed={load.reload} />
+          ))}
         <ul className="my-groups" data-testid="my-groups">
           {groups.map((g) => (
             <MyGroupItem key={g.view.group.id} group={g} me={me} isOperator={isOperator} />
           ))}
         </ul>
+        </>
       )}
     </Loaded>
   );
@@ -211,5 +227,71 @@ export function GroupsNeedingOperator() {
         </ul>
       )}
     </Loaded>
+  );
+}
+
+/** "You are in X now: close Y, the group you started?" One write: the group's status becomes cancelled. */
+function CloseStarted({ started, joined, onClosed }: { started: GroupView; joined: GroupView; onClosed(): void }) {
+  const { registry } = useApp();
+  const write = useWrite();
+  const { busy, error, run } = useAction();
+  const g = started.group;
+  const close = () =>
+    run(async () => {
+      try {
+        await write(() => replaceOp(registry.contractId!, 'group', g.id, g.docRevision, groupData(change(g, { status: GROUP_STATUS.cancelled }), registry.network)));
+      } finally {
+        // re-read after a refusal too: a stale group (someone joined meanwhile) must show its latest state, not fail the same way again
+        onClosed();
+      }
+    });
+  return (
+    <div className="notice-box close-started" role="note" data-testid="close-started">
+      <p>
+        You are in <Link to={`/g/${joined.group.id}`}>{joined.group.title}</Link> now, and <Link to={`/g/${g.id}`}>{g.title}</Link>, the group you started, still invites people
+        to join you there. Close it so nobody asks for a seat you will not take?
+      </p>
+      <p className="form-actions">
+        <button type="button" className="btn btn-s" disabled={busy} onClick={() => void close()} data-testid="close-started-btn">
+          {busy ? 'Closing…' : `Close ${g.title}`}
+        </button>
+      </p>
+      <WriteStatus busy={busy} error={error} />
+    </div>
+  );
+}
+
+/**
+ * A "looking" post from before groups were the only listing: still public, and nothing else reads it now. Offered once for removal,
+ * so an old amount and note do not stay on Platform unnoticed.
+ */
+export function OldLookingPost({ me }: { me: string }) {
+  const { registry } = useApp();
+  const write = useWrite();
+  const { busy, error, run } = useAction();
+  const load = useLoad(`old-looking:${me}`, (r) => readOwn(r, 'looking', lookingOf(me), me, (d) => toLooking(d)));
+  const post = load.status === 'ready' ? load.data : null;
+  if (!post || post.status === LOOKING_STATUS.closed) return null;
+  const remove = () =>
+    run(async () => {
+      try {
+        await write(deleteOp(registry.contractId!, 'looking', post.id));
+      } finally {
+        load.reload();
+      }
+    });
+  return (
+    <div className="notice-box close-started" role="note" data-testid="old-looking">
+      <p>
+        You still have a public “looking for a group” post ({dash(post.amount)}). Cairn no longer lists those: to be found, start a group with your amount on{' '}
+        <Link to={`/groups?amount=${encodeURIComponent(dashNum(post.amount))}`}>Find your group</Link>. Remove the old post?
+      </p>
+      <p className="form-actions">
+        <button type="button" className="btn btn-s" disabled={busy} onClick={() => void remove()} data-testid="remove-looking">
+          {busy ? 'Removing…' : 'Remove it'}
+        </button>
+      </p>
+      <WriteStatus busy={busy} error={error} />
+    </div>
   );
 }

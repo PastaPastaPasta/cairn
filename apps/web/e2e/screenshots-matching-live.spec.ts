@@ -1,5 +1,5 @@
 // Signed-in screenshots at 2x (light and dark, desktop and phone width) of the demo group as its organizer and as a member, of /me,
-// /looking and the new-group form. Live: it signs in the demo identities from the secret store; it writes nothing.
+// /groups with an amount and the new-group form. Live: it signs in the demo identities from the secret store; it writes nothing.
 // CAIRN_LIVE=1 npx playwright test e2e/screenshots-matching-live.spec.ts
 import { test, type Page } from '@playwright/test';
 import { DEMO_GROUP } from './demo.ts';
@@ -39,6 +39,6 @@ test('@live signed-in screenshots of the matching pages', async ({ browser }) =>
   await shoot(a.page, `/g/${DEMO_GROUP}`, 'group-member', group);
   await shoot(a.page, '/me', 'me-member', (p) => p.getByTestId('my-groups').waitFor({ timeout: 120_000 }));
   await shoot(op.page, '/me', 'me-operator', (p) => p.getByTestId('my-operator').waitFor({ timeout: 120_000 }));
-  await shoot(a.page, '/looking', 'looking-signed-in', (p) => p.getByTestId('looking-rows').or(p.locator('.empty-state')).first().waitFor({ timeout: 120_000 }));
+  await shoot(a.page, '/groups?amount=300', 'groups-signed-in', (p) => p.locator('#fits-title').waitFor({ timeout: 120_000 }));
   await shoot(a.page, '/groups/new', 'groups-new-form', (p) => p.getByTestId('new-group-form').waitFor());
 });

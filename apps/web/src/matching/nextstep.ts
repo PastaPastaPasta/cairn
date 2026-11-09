@@ -10,7 +10,6 @@ export type Role = 'visitor' | 'requester' | 'invitee' | 'member' | 'organizer' 
 export type StepAction =
   | 'sign-in'
   | 'request-seat'
-  | 'post-looking'
   | 'find-another'
   | 'manage-request'
   | 'answer-invite'
@@ -108,8 +107,8 @@ function stepFor(role: Role, v: GroupView, viewer: Viewer, stage: Stage): Step |
       // a co-owner who opened the group-chat link before signing in is not told they are outside their own group
       if (!me)
         return step('todo', 'Are you in this group?', `Sign in to see your row and what to do next.${v.open ? ` Not in it yet? It still needs ${dash(v.remaining)}; signing in also lets you ask for a seat.` : ''}`, 'sign-in');
-      if (!v.open) return step('wait', v.locked ? 'Terms are locked' : 'This group is full', `This group is full${v.locked ? ' and its terms are locked' : ''}. Browse open groups or post that you’re looking.`, 'find-another');
-      if (!v.openAmounts) return step('todo', 'This group fills by invitation', 'The organizer invites people who are looking. Post that you are looking, with your amount and the terms you accept.', 'post-looking');
+      if (!v.open) return step('wait', v.locked ? 'Terms are locked' : 'This group is full', `This group is full${v.locked ? ' and its terms are locked' : ''}. Find another group your amount fits, or start one.`, 'find-another');
+      if (!v.openAmounts) return step('wait', 'This group fills by invitation', 'The organizer invites the people they want. Find another group your amount fits, or start your own: organizers can invite you from there.', 'find-another');
       return step('todo', 'Ask for a seat', `Say how much you would bring. ${dash(v.remaining)} is still open. The organizer adds you to the roster.`, 'request-seat');
     }
     case 'requester': {
@@ -205,7 +204,7 @@ function organizerStep(v: GroupView, step: Make): Step {
   const stale = v.shares.filter((s) => s.state === 'amount-changed' || s.state === 'withdrawn');
   if (stale.length) return step('todo', 'Update the roster', `${stale.length === 1 ? 'A member' : `${stale.length} members`} changed or withdrew a seat.`, 'fix-roster');
   if (!g.operatorId) return step('todo', 'Choose an operator', v.offers.length ? `${v.offers.length === 1 ? 'An operator has' : `${v.offers.length} operators have`} offered to run this node.` : 'Pick one from the directory, or wait for an offer.', 'choose-operator');
-  if (v.remaining > 0) return step('todo', 'Find co-owners', `${dash(v.remaining)} is still open. Invite people who are looking.`, 'invite');
+  if (v.remaining > 0) return step('todo', 'Find co-owners', `${dash(v.remaining)} is still open. Invite people waiting in a group they started, or share this page.`, 'invite');
   if (v.shares.some((s) => s.state === 'awaiting-seat')) return step('wait', 'Waiting for members to confirm', 'Some people on the roster have not confirmed their seat yet.', 'none');
   if (!v.operatorLed && v.operatorAnswer?.status !== OP_ACCEPT_STATUS.accepted) return step('wait', 'Waiting for the operator', 'The operator has not accepted this group yet.', 'none');
   return step('todo', 'Prepare and lock the terms', 'Choose the coordinator and the voting key holder, check the share labels, then lock. Members approve what you lock.', 'prepare-lock');

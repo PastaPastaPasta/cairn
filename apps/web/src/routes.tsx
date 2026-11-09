@@ -1,12 +1,12 @@
 // Every route of DESIGN.md section 5.
 import { Suspense, useEffect } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { useApp } from './app/context.tsx';
 import { preloadSdk } from './data/platform.ts';
 import { HomePage } from './pages/HomePage.tsx';
 import { LearnPage } from './pages/LearnPage.tsx';
 import MePage from './pages/MePage.tsx';
-import { GroupsPage, LookingPage, OperatorsPage } from './pages/ListPages.tsx';
+import { GroupsPage, OperatorsPage } from './pages/ListPages.tsx';
 import { CheckPage } from './formation/CheckPage.tsx';
 import { GroupFormPage } from './formation/FormPage.tsx';
 import { GroupLivePage } from './formation/LivePage.tsx';
@@ -34,7 +34,7 @@ export function AppRoutes() {
         <Route path="/g/:id" element={<GroupPage />} />
         <Route path="/g/:id/form" element={<GroupFormPage />} />
         <Route path="/g/:id/live" element={<GroupLivePage />} />
-        <Route path="/looking" element={<LookingPage />} />
+        <Route path="/looking" element={<Navigate to="/groups" replace />} />
         <Route path="/operators" element={<OperatorsPage />} />
         <Route path="/operators/:id" element={<OperatorPage />} />
         <Route path="/me" element={<MePage />} />

@@ -3,12 +3,12 @@ import { DEMO_GROUP, collectErrors, listSettled, stubActivation } from './helper
 
 const ROUTES: Array<[string, RegExp]> = [
   ['/', /Build a masternode together/],
-  ['/groups', /^Groups$/],
+  ['/groups', /^Find your group$/],
   ['/groups/new', /Open a group/],
   ['/g/4EfA9Jrvv3nnCFdSf7fad59851iiTRZ6Wcu6YVJ4iSeF', /Group 4EfA9J/],
   ['/g/4EfA9Jrvv3nnCFdSf7fad59851iiTRZ6Wcu6YVJ4iSeF/form', /Form the masternode/],
   ['/g/4EfA9Jrvv3nnCFdSf7fad59851iiTRZ6Wcu6YVJ4iSeF/live', /Live masternode/],
-  ['/looking', /Looking for a group/],
+  ['/looking', /^Find your group$/],
   ['/operators', /^Operators$/],
   ['/operators/4EfA9Jrvv3nnCFdSf7fad59851iiTRZ6Wcu6YVJ4iSeF', /Operator 4EfA9J/],
   ['/me', /My Cairn/],

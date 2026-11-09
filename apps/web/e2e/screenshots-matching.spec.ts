@@ -8,7 +8,7 @@ import { listSettled, stubActivation } from './helpers.ts';
 const PAGES = [
   { name: 'groups', path: '/groups', settle: listSettled },
   { name: 'groups-new', path: '/groups/new' },
-  { name: 'looking', path: '/looking', settle: listSettled },
+  { name: 'groups-amount', path: '/groups?amount=300', testId: 'start-card' },
   { name: 'operators', path: '/operators', settle: listSettled },
   { name: 'operator', path: `/operators/${DEMO_OPERATOR}`, testId: 'track-summary' },
   { name: 'group', path: `/g/${DEMO_GROUP}`, testId: 'group-status' },

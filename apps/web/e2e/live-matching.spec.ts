@@ -142,25 +142,45 @@ test('@live operator and two members agree terms on testnet up to "Ready to form
   writeFileSync(join(OUT, 'matching-live-result.json'), JSON.stringify({ groupId, termsHash: hash, operator: op.id, members: [a.id, b.id], at: new Date().toISOString() }, null, 2) + '\n');
 });
 
-test('@live a member posts that they are looking, edits it and sees their matches', async ({ browser }) => {
+test('@live a member starts a group from their amount, and another finds it and asks to join', async ({ browser }) => {
   const b = await signedIn(browser, 'cairn/testnet-matching-member-b', 'member B');
-  await go(b.page, '/looking');
-  const form = b.page.getByTestId('looking-form');
-  const mine = b.page.getByTestId('my-looking');
-  await expect(form.or(mine)).toBeVisible({ timeout: 120_000 });
-  if (await mine.isVisible()) await mine.getByRole('button', { name: 'Edit' }).click();
-  await b.page.getByTestId('looking-amount').fill('300');
-  await b.page.getByTestId('looking-reward').fill('15');
-  await b.page.getByLabel(/I can coordinate/).check();
-  await b.page.getByTestId('looking-save').click();
-  await expect(mine).toContainText('300 DASH', { timeout: WRITE });
-  await expect(mine).toContainText('Listed');
-  // M3 edit: a new amount replaces the same post
-  await mine.getByRole('button', { name: 'Edit' }).click();
-  await b.page.getByTestId('looking-amount').fill('350');
-  await b.page.getByTestId('looking-save').click();
-  await expect(mine).toContainText('350 DASH', { timeout: WRITE });
-  await expect(b.page.getByTestId('looking-rows')).toContainText('Ben Demo', { timeout: 120_000 });
-  await expect(b.page.getByTestId('matches')).toBeVisible();
-  console.log(`LOOKING POSTED by ${b.id}`);
+  const a = await signedIn(browser, 'cairn/testnet-matching-member-a', 'member A');
+
+  // B: no group fits 300 DASH, so B starts one; a group B already started and is alone in is reused
+  await go(b.page, '/groups?amount=300');
+  const start = b.page.getByTestId('start-card').or(b.page.getByTestId('your-listing'));
+  await expect(start).toBeVisible({ timeout: 120_000 });
+  let groupId: string;
+  if (await b.page.getByTestId('your-listing').isVisible()) {
+    groupId = (await b.page.getByTestId('your-listing').getByRole('link').first().getAttribute('href'))!.split('/')[2]!;
+  } else {
+    await b.page.getByTestId('start-title').fill(`Basalt live ${new Date().toISOString().slice(0, 16)}`);
+    await b.page.getByTestId('start-group').click();
+    await b.page.waitForURL(/\/g\/[1-9A-HJ-NP-Za-km-z]{43,44}$/, { timeout: WRITE });
+    groupId = new URL(b.page.url()).pathname.split('/')[2]!;
+  }
+  await openGroup(b.page, groupId);
+  await expect(b.page.getByTestId('group-status')).toContainText('700 DASH still open');
+
+  // A: 200 DASH fits B's group; "Ask to join" opens it with the amount filled in
+  await go(a.page, '/groups?amount=200');
+  const card = a.page.getByTestId('fit-card').filter({ has: a.page.locator(`a[href="/g/${groupId}"]`) });
+  await expect(card).toBeVisible({ timeout: 120_000 });
+  await expect(card).toContainText('With you, 500 DASH still to find.');
+  await card.getByTestId('ask-to-join').click();
+  await expect(a.page.getByTestId('seat-amount').or(a.page.getByTestId('step-requester'))).toBeVisible({ timeout: 120_000 });
+  if (await a.page.getByTestId('seat-amount').isVisible()) {
+    await expect(a.page.getByTestId('seat-amount')).toHaveValue('200');
+    await a.page.getByTestId('seat-save').click();
+  }
+  await expect(a.page.getByTestId('step-requester')).toContainText('Waiting for the organizer', { timeout: WRITE });
+
+  // B sees the request; the run then closes the group, so the next run starts fresh (CAIRN_LIVE_KEEP=1 leaves it as demo data)
+  await openGroup(b.page, groupId);
+  await expect(b.page.getByTestId('request').first()).toBeVisible({ timeout: 120_000 });
+  if (process.env.CAIRN_LIVE_KEEP) return console.log(`STARTED AND JOINED, KEPT: group ${groupId}`);
+  await b.page.getByRole('button', { name: 'Close the group' }).click();
+  await b.page.getByRole('button', { name: 'Yes, close it' }).click();
+  await expect(b.page.getByTestId('group-status')).toContainText(/Closed|Cancelled/i, { timeout: WRITE });
+  console.log(`STARTED AND JOINED: group ${groupId}`);
 });

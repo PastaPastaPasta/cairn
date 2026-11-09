@@ -2,7 +2,7 @@
 // are done right here; the organizer's point to the section that does them.
 import { OP_ACCEPT_STATUS, SEAT_STATUS } from '@cairn/contract';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useApp } from '../../app/context.tsx';
 import { fitsAsChange, fitsRoster, type GroupView } from '../../matching/group.ts';
 import { blsPointProblem, blsFormatProblem, serviceProblem, votingAddressProblem } from '../../matching/keys.ts';
@@ -26,7 +26,7 @@ interface Props {
 export function NextSteps({ view, steps, ops, me, done }: Props) {
   if (!steps.length) return null;
   return (
-    <section className="next-steps" aria-label="Your next step" data-testid="next-steps">
+    <section className="next-steps" id="join" aria-label="Your next step" data-testid="next-steps">
       {steps.map((s) => (
         <div key={s.role} className={`next-step next-${s.tone}`} data-role={s.role} data-testid={`step-${s.role}`}>
           <p className="next-role small">{ROLE_WORDS[s.role]}</p>
@@ -53,23 +53,8 @@ function StepAction({ step, view, ops, me, done }: { step: Step; view: GroupView
           Sign in
         </button>
       );
-    case 'post-looking':
-      return (
-        <Link className="btn btn-s" to="/looking">
-          Post that I’m looking
-        </Link>
-      );
     case 'find-another':
-      return (
-        <div className="form-actions">
-          <Link className="btn btn-s" to="/groups">
-            Browse open groups
-          </Link>
-          <Link className="btn btn-s btn-quiet" to="/looking">
-            Post that I’m looking
-          </Link>
-        </div>
-      );
+      return <FindAnother />;
     case 'request-seat':
       return <SeatForm view={view} ops={ops} me={me!} done={done} mode="request" />;
     case 'manage-request':
@@ -123,12 +108,24 @@ function StepAction({ step, view, ops, me, done }: { step: Step; view: GroupView
   }
 }
 
+/** Back to the groups page, keeping the amount the member came with. */
+function FindAnother() {
+  const [params] = useSearchParams();
+  const amount = params.get('amount');
+  return (
+    <Link className="btn btn-s" to={amount ? `/groups?amount=${encodeURIComponent(amount)}` : '/groups'}>
+      Find a group for my amount
+    </Link>
+  );
+}
+
 /** A seat request (visitor), a change or withdrawal (requester, member), or the member's confirmation of a roster entry. */
 export function SeatForm({ view, ops, me, done, mode }: { view: GroupView; ops: GroupOps; me: string; done(): void; mode: 'request' | 'manage' | 'confirm' }) {
   const g = view.group;
   const seat = ops.mySeat;
   const share = view.shares.find((s) => s.id === me);
-  const [amount, setAmount] = useState(seat ? dashNum(seat.amount) : '');
+  const [params] = useSearchParams();
+  const [amount, setAmount] = useState(seat ? dashNum(seat.amount) : (params.get('amount') ?? ''));
   const [message, setMessage] = useState(seat?.message ?? '');
   const [coordinate, setCoordinate] = useState(seatOffers(seat?.flags).coordinate);
   const [holdKey, setHoldKey] = useState(seatOffers(seat?.flags).holdKey);

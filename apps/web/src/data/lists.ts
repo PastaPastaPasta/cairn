@@ -1,7 +1,7 @@
-// The public lists (groups, looking posts, operators): newest first within each status, proved, merged across statuses.
+// The public lists (groups, operators): newest first within each status, proved, merged across statuses.
 import {
-  GROUP_STATUS, LOOKING_STATUS, OPERATOR_STATUS, groupsByStatus, lookingByStatus, operatorsByStatus, toGroup, toLooking, toOperator,
-  type CairnQuery, type DocMeta, type DocType, type Group, type Looking, type Operator,
+  GROUP_STATUS, OPERATOR_STATUS, groupsByStatus, operatorsByStatus, toGroup, toOperator,
+  type CairnQuery, type DocMeta, type DocType, type Group, type Operator,
 } from '@cairn/contract';
 import { useState } from 'react';
 import type { Registry } from '../config/registry.ts';
@@ -14,7 +14,6 @@ interface ListSpec<T> {
 }
 
 export const GROUPS: ListSpec<Group> = { type: 'group', query: (s, b) => groupsByStatus(s, b), read: (d, n) => toGroup(d, n) };
-export const LOOKING: ListSpec<Looking> = { type: 'looking', query: (s, b) => lookingByStatus(s, b), read: (d) => toLooking(d) };
 export const OPERATORS: ListSpec<Operator> = { type: 'operator', query: (s, b) => operatorsByStatus(s, b), read: (d) => toOperator(d) };
 
 /** Statuses a public list shows. */
@@ -25,7 +24,6 @@ export const LISTED_GROUP_STATUSES = [...OPEN_GROUP_STATUSES, GROUP_STATUS.formi
 export const RECENT_GROUP_STATUSES = [GROUP_STATUS.locked, GROUP_STATUS.formingOnchain, GROUP_STATUS.live];
 /** Behind /groups' "include closed" toggle. */
 export const CLOSED_GROUP_STATUSES = [GROUP_STATUS.dissolved, GROUP_STATUS.cancelled];
-export const OPEN_LOOKING = [LOOKING_STATUS.open];
 export const LISTED_OPERATORS = [OPERATOR_STATUS.open, OPERATOR_STATUS.full];
 
 /** `pages` pages of each status, newest first, without duplicates. `more`: some status has older documents. */

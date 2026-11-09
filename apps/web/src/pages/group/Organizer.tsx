@@ -1,18 +1,18 @@
-// The organizer's tools: invite people who fit (M4 on the group side), choose the operator (member-led), edit the terms, prepare
+// The organizer's tools: invite people waiting alone in a group they started whose amount fits (DESIGN §4.1), choose the operator (member-led), edit the terms, prepare
 // and lock (S3), and refill a dissolved group (M12). Every change goes through `change()`, which bumps the revision of locked terms.
 import { GROUP_FLAG, GROUP_STATUS, MN_TYPE, OPERATOR_STATUS, OP_ACCEPT_STATUS, createOp, groupData, httpsUrl, type Group } from '@cairn/contract';
 import { useMemo, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../app/context.tsx';
 import { rawId } from '../../data/cairn.ts';
-import { LISTED_OPERATORS, LOOKING, OPEN_LOOKING, OPERATORS, useStatusList } from '../../data/lists.ts';
+import { GROUPS, LISTED_OPERATORS, OPERATORS, useStatusList } from '../../data/lists.ts';
 import { usePeople, type Person } from '../../data/people.ts';
 import { useWrite } from '../../data/write.ts';
 import { exitProblem } from '../../matching/exit.ts';
 import { change, holderVotingAddress, invitableAgain, lockPlan, refillFields, saveChoices, type GroupView } from '../../matching/group.ts';
 import { serviceProblem, votingAddressProblem } from '../../matching/keys.ts';
 import { deriveLabels, labelProblem } from '../../matching/labels.ts';
-import { completions, lookingThatFits } from '../../matching/match.ts';
+import { candidatesFor, completions } from '../../matching/match.ts';
 import { bpsInput, dash, dashNum, parseDashInput, parsePercentInput, pct } from '../../matching/money.ts';
 import { operatorName } from '../../matching/words.ts';
 import { ExitTermsField, Field, PercentField } from '../../ui/fields.tsx';
@@ -32,19 +32,19 @@ interface Props {
 
 export function InviteSection({ view, people, ops, done }: Props) {
   const g = view.group;
-  const posts = useStatusList(LOOKING, OPEN_LOOKING);
+  const groups = useStatusList(GROUPS, [GROUP_STATUS.forming]);
   const { busy, error, run } = useAction();
   const hidden = useHidden();
   const exclude = useMemo(() => new Set([...view.requests.map((r) => r.seat.ownerId), ...view.openInvites.map((i) => i.toId), ...view.declined.map((s) => s.ownerId), ...hidden.ids]), [view, hidden.ids]);
-  const fits = posts.status === 'ready' ? lookingThatFits(g, posts.data.items, exclude) : [];
+  const fits = groups.status === 'ready' ? candidatesFor(g, groups.data.items, exclude) : [];
   const combos = completions(g, fits);
   const again = invitableAgain(view).filter((a) => !hidden.has(a.seat.ownerId));
-  const morePeople = usePeople([...fits.map((f) => f.looking.ownerId), ...again.map((a) => a.seat.ownerId)]);
+  const morePeople = usePeople([...fits.map((f) => f.id), ...again.map((a) => a.seat.ownerId)]);
   const name = (id: string) => morePeople.get(id) ?? people.get(id);
-  const invite = (xs: Array<{ ownerId: string; amount: number }>) =>
+  const invite = (xs: Array<{ id: string; amount: number }>) =>
     run(async () => {
       try {
-        for (const x of xs) await ops.invite(x.ownerId, x.amount, OPEN);
+        for (const x of xs) await ops.invite(x.id, x.amount, OPEN);
       } finally {
         // re-read even after a failure, so a retry replaces the invites already written instead of adding more
         done();
@@ -54,19 +54,19 @@ export function InviteSection({ view, people, ops, done }: Props) {
     <section className="section tool" id="invite" aria-labelledby="invite-title">
       <h2 id="invite-title">Find co-owners</h2>
       <p className="muted">
-        {dash(view.remaining)} still open. These people are looking and their amount fits; Dash Core’s rules are already checked. Invited people accept or decline from this page.
+        {dash(view.remaining)} still open. These people started a group of their own and are still alone in it, and their amount fits what is left (Dash Core’s rules are already checked). Invited people accept or decline from this page; you can also share its link.
       </p>
       {combos.length > 0 && (
         <div className="combos">
           <h3 className="h4">Would complete the group</h3>
           <ul className="combo-list">
             {combos.map((c) => (
-              <li key={c.map((l) => l.ownerId).join()} className="combo-card">
+              <li key={c.map((l) => l.id).join()} className="combo-card">
                 <p className="combo-sum">
                   {c.map((l, i) => (
-                    <span key={l.ownerId}>
+                    <span key={l.id}>
                       {i > 0 && ' + '}
-                      <PersonName id={l.ownerId} person={name(l.ownerId)} /> <b className="num">{dashNum(l.amount)}</b>
+                      <PersonName id={l.id} person={name(l.id)} /> <b className="num">{dashNum(l.amount)}</b>
                     </span>
                   ))}{' '}
                   = {dash(view.remaining)}
@@ -79,30 +79,34 @@ export function InviteSection({ view, people, ops, done }: Props) {
           </ul>
         </div>
       )}
-      {posts.status === 'loading' && <p className="small muted">Reading who is looking…</p>}
-      {posts.status === 'ready' && !fits.length && <p className="small">Nobody looking right now fits what is left. Share the group’s link, or check back later.</p>}
+      {groups.status === 'loading' && <p className="small muted">Reading who is waiting for a group…</p>}
+      {groups.status === 'ready' && !fits.length && <p className="small">Nobody waiting right now fits what is left. Share the group’s link, or check back later.</p>}
       {fits.length > 0 && (
         <ul className="fit-people">
           {fits.slice(0, 12).map((f) => (
-            <li key={f.looking.ownerId} className="fit-person" data-testid="fit-person">
+            <li key={f.id} className="fit-person" data-testid="fit-person">
               <div>
-                <PersonName id={f.looking.ownerId} person={name(f.looking.ownerId)} /> <b className="num">{dash(f.looking.amount)}</b>
+                <PersonName id={f.id} person={name(f.id)} /> <b className="num">{dash(f.amount)}</b>
                 {f.completes && <span className="role-tag">completes it</span>}
-                <ul className="prefs small">
-                  {f.prefs.map((p) => (
-                    <li key={p.text} className={p.ok ? 'pref-ok' : 'pref-miss'}>
-                      <span className="visually-hidden">{p.ok ? 'Meets their terms: ' : 'Differs from their terms: '}</span>
-                      {p.text}
-                    </li>
-                  ))}
-                  {f.looking.canCoordinate && <li className="pref-ok">Can coordinate</li>}
-                </ul>
+                <span className="small muted block">
+                  Waiting in <Link to={`/g/${f.group.id}`}>{f.group.title}</Link>
+                </span>
+                {f.diffs.length > 0 && (
+                  <ul className="prefs small">
+                    {f.diffs.map((p) => (
+                      <li key={p.text} className={p.note ? 'pref-note' : p.ok ? 'pref-ok' : 'pref-miss'}>
+                        <span className="visually-hidden">{p.note ? 'Differs: ' : p.ok ? 'Fine: ' : 'Conflicts: '}</span>
+                        {p.text}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               <div className="form-actions">
-                <button type="button" className="btn btn-s" disabled={busy} onClick={() => invite([f.looking])} data-testid="invite-person">
+                <button type="button" className="btn btn-s" disabled={busy} onClick={() => invite([f])} data-testid="invite-person">
                   Invite
                 </button>
-                <HideButton id={f.looking.ownerId} name={name(f.looking.ownerId)?.name} hidden={hidden} />
+                <HideButton id={f.id} name={name(f.id)?.name} hidden={hidden} />
               </div>
             </li>
           ))}
@@ -118,7 +122,7 @@ export function InviteSection({ view, people, ops, done }: Props) {
                   <PersonName id={seat.ownerId} person={name(seat.ownerId)} /> <span className="num">{dash(seat.amount)}</span>
                   {!fit.ok && <span className="small muted block">{fit.message}</span>}
                 </span>
-                <button type="button" className="btn btn-s" disabled={busy || !fit.ok} onClick={() => invite([{ ownerId: seat.ownerId, amount: seat.amount }])} data-testid="invite-again">
+                <button type="button" className="btn btn-s" disabled={busy || !fit.ok} onClick={() => invite([{ id: seat.ownerId, amount: seat.amount }])} data-testid="invite-again">
                   Invite again
                 </button>
               </li>

@@ -1,5 +1,5 @@
 // Test documents for the matching logic: models as the readers return them, with real-looking identifiers.
-import { GROUP_STATUS, LOOKING_STATUS, MN_TYPE, OP_ACCEPT_STATUS, SEAT_STATUS, type Approval, type Group, type Looking, type OpAccept, type Seat } from '@cairn/contract';
+import { GROUP_STATUS, MN_TYPE, OP_ACCEPT_STATUS, SEAT_STATUS, type Approval, type Group, type OpAccept, type Seat } from '@cairn/contract';
 import { keyIdToAddress } from '@cairn/shares';
 import { base58 } from '@scure/base';
 import { DUFFS } from './money.ts';
@@ -42,9 +42,6 @@ export function seat(ownerId: string, amount: number, over: Partial<Seat> = {}):
   return { id: id(100 + amount / DUFFS / 10), ownerId, docRevision: 1, groupId: GID, amount, status: SEAT_STATUS.requested, flags: 0, ...over } as Seat;
 }
 
-export function looking(ownerId: string, amount: number, over: Partial<Looking> = {}): Looking {
-  return { id: id(200), ownerId, docRevision: 1, amount, maxRewardBps: 2000, earlyPref: { maxPeriodBlocks: null, maxPenalty: null }, canCoordinate: false, status: LOOKING_STATUS.open, ...over } as Looking;
-}
 
 export function opAccept(over: Partial<OpAccept> = {}): OpAccept {
   return { id: id(50), ownerId: OPR, docRevision: 1, groupId: GID, status: OP_ACCEPT_STATUS.accepted, rewardBps: 1000, operatorPubKey: BLS, service: SERVICE, ...over } as OpAccept;

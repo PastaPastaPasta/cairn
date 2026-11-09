@@ -1,7 +1,7 @@
 // /me: the signed-in identity's own things, each with its next step: groups (as organizer, co-owner, requester, invitee or
-// operator), the looking post and its matches, the operator listing, and the profile. Every write goes through the vendored
+// operator), the operator listing, and the profile. Every write goes through the vendored
 // document writer and is read back with a proof.
-import { CONTACT_KINDS, DocError, LOOKING_STATUS, ROLE, createOp, nameProblem, profileData, replaceOp, toProfile, type ContactKind, type Contacts, type DocData, type Looking, type Profile } from '@cairn/contract';
+import { CONTACT_KINDS, DocError, ROLE, createOp, nameProblem, profileData, replaceOp, toProfile, type ContactKind, type Contacts, type DocData, type Profile } from '@cairn/contract';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAccount } from '../app/account.tsx';
@@ -10,9 +10,7 @@ import { formatCredits } from '../auth/runtime.ts';
 import { forgetPerson } from '../data/people.ts';
 import { readProfile, seedProfile, useProfile } from '../data/profile.ts';
 import { openSignIn } from '../ui/Account.tsx';
-import { LookingEditor } from '../ui/LookingEditor.tsx';
-import { Matches } from '../ui/Matches.tsx';
-import { GroupsNeedingOperator, MyGroups, seatedIn, type MyGroup } from './me/MyGroups.tsx';
+import { GroupsNeedingOperator, MyGroups, OldLookingPost } from './me/MyGroups.tsx';
 import { OperatorEditor, useMyOperator } from './me/OperatorEditor.tsx';
 import '../styles/matching.css';
 import { NotOpenHere, PageHead } from '../ui/states.tsx';
@@ -47,7 +45,7 @@ export default function MePage() {
   if (!session)
     return (
       <div className="page">
-        <PageHead title="My Cairn" lede="Your groups, seats, invitations, approvals, your looking post and operator listing, and your profile live here once you sign in." />
+        <PageHead title="My Cairn" lede="Your groups, seats, invitations, approvals, your operator listing and your profile live here once you sign in." />
         <div className="soon">
           <p>
             <b>Sign in to see your groups and make your profile.</b> Browsing needs no account. A profile lets groups and operators know who you are and how to reach you.
@@ -65,7 +63,6 @@ export default function MePage() {
 
 const SECTIONS = [
   { id: 'groups', label: 'Groups' },
-  { id: 'looking', label: 'Looking' },
   { id: 'operator', label: 'Operator' },
   { id: 'profile', label: 'Profile' },
 ];
@@ -73,10 +70,6 @@ const SECTIONS = [
 function MeDashboard({ identityId }: { identityId: string }) {
   const listing = useMyOperator(identityId);
   const isOperator = listing.status === 'ready' && !!listing.data;
-  const [looking, setLooking] = useState<Looking | null>(null);
-  const onLooking = useCallback((l: Looking | null) => setLooking(l), []);
-  const [seated, setSeated] = useState(0);
-  const onGroups = useCallback((gs: MyGroup[]) => setSeated(seatedIn(gs, identityId)), [identityId]);
   return (
     <div className="page me">
       <PageHead title="My Cairn" lede="What needs you next, in every group you are part of, and how others see you.">
@@ -90,24 +83,8 @@ function MeDashboard({ identityId }: { identityId: string }) {
       </PageHead>
       <section className="me-section" id="groups" aria-labelledby="me-groups">
         <h2 id="me-groups">Your groups and next steps</h2>
-        <MyGroups me={identityId} isOperator={isOperator} onGroups={onGroups} />
-      </section>
-      <section className="me-section" id="looking" aria-labelledby="me-looking">
-        <h2 id="me-looking">Looking for a group</h2>
-        {looking?.status === LOOKING_STATUS.open && seated > 0 && (
-          <p className="notice-box" role="note" data-testid="looking-seated">
-            You’re already in {seated === 1 ? 'a full group' : `${seated} full groups`}, and your post still invites organizers to add you. If you don’t want another seat, close it.
-          </p>
-        )}
-        <div className="side-card">
-          <LookingEditor identityId={identityId} onChange={onLooking} />
-        </div>
-        {looking?.status === LOOKING_STATUS.open && (
-          <>
-            <h3 className="me-sub">Your matches</h3>
-            <Matches me={looking} />
-          </>
-        )}
+        <OldLookingPost me={identityId} />
+        <MyGroups me={identityId} isOperator={isOperator} />
       </section>
       <section className="me-section" id="operator" aria-labelledby="me-operator">
         <h2 id="me-operator">Operator listing</h2>
@@ -183,7 +160,7 @@ function ProfileEditor({ identityId }: { identityId: string }) {
 
   return (
     <div>
-      <p className="muted">How groups, operators and people looking for a group see you. Everything here is public on Dash Platform.</p>
+      <p className="muted">How groups and operators see you. Everything here is public on Dash Platform.</p>
       <div className="me-layout">
         <form className="form form-card profile-form" onSubmit={save} aria-busy={busy} data-testid="profile-form">
           <fieldset disabled={busy || loading}>

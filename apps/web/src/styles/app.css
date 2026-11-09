@@ -755,6 +755,32 @@ input[type='radio'] {
   gap: var(--s-3);
   margin: var(--s-5) 0 var(--s-4);
 }
+.hero-ask {
+  margin: var(--s-5) 0 var(--s-4);
+}
+.hero-ask-label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--t-l);
+  font-weight: 650;
+  margin-bottom: var(--s-2);
+}
+.hero-ask-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  align-items: stretch;
+}
+.hero-ask-input {
+  width: 11rem;
+}
+.hero-ask-input input {
+  min-height: 3.1rem;
+  font-size: var(--t-l);
+}
+.hero-ask p {
+  margin: var(--s-2) 0 0;
+}
 .hero-promise {
   font-size: var(--t-s);
   color: var(--ink-2);
