@@ -31,7 +31,7 @@ export function GroupTabs({ id, linked }: { id: string; linked?: boolean }) {
       </NavLink>
       {linked === false && !onLive ? (
         <span className="tab-later" aria-disabled="true" title="The live page opens once a registration is linked" data-testid="tab-live-later">
-          Live · after forming
+          Live <span className="tab-note">· after forming</span>
         </span>
       ) : (
         <NavLink to={`/g/${id}/live`} className={cls}>

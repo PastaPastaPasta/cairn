@@ -209,7 +209,7 @@ export function OperatorPage() {
                 </p>
               )}
               <PageHead title={operatorName(op)} lede={op.hosting}>
-                <p className="small muted">
+                <p className="meta-row small muted">
                   {person?.name !== op.name && (
                     <>
                       <PersonName id={id} person={person} you={session?.identityId === id} /> ·{' '}
@@ -237,7 +237,7 @@ export function OperatorPage() {
                     <dt>Room for</dt>
                     <dd>{op.capacity === undefined ? <span className="muted">Not given</span> : `${op.capacity} more ${op.capacity === 1 ? 'masternode' : 'masternodes'}`}</dd>
                     <dt>Contact</dt>
-                    <dd>{person?.profile ? <ContactList contacts={person.profile.contacts} /> : <span className="small muted">No public contact</span>}</dd>
+                    <dd>{person?.profile ? <ContactList contacts={person.profile.contacts} emptyClass="muted" /> : <span className="muted">No public contact</span>}</dd>
                   </dl>
                   <section className="section" aria-labelledby="op-groups">
                     <h2 id="op-groups">Groups with this operator</h2>

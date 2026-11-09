@@ -48,7 +48,7 @@ export function NewGroupPage() {
     return (
       <div className="page">
         <PageHead title="Open a group" lede="Start a masternode with others: as its operator, with your terms, or as a member who picks an operator from the directory." />
-        <div className="soon">
+        <div className="soon soon-solo">
           <p>
             <b>Sign in to open a group.</b> The group is a record on Dash Platform owned by your account; you accept seats and lock the terms from it.
           </p>

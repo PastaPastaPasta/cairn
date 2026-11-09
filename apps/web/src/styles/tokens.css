@@ -24,6 +24,8 @@
   --s-7: 3rem;
   --s-8: 4rem;
   --s-9: 6rem;
+  /* inside every card, panel and boxed form */
+  --card-pad: var(--s-5);
 
   --radius-s: 6px;
   --radius-m: 10px;
@@ -88,6 +90,12 @@
 
   --float-shadow: 0 14px 40px rgb(30 34 38 / 0.16), 0 2px 6px rgb(30 34 38 / 0.08);
   color-scheme: light;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --card-pad: var(--s-4);
+  }
 }
 
 /* Wet slate. */

@@ -209,8 +209,10 @@ function FormBody({ bundle, refresh }: { bundle: GroupBundle; refresh(): void })
                 {coordinator ? `${coordinator.label} coordinates` : 'The coordinator runs the wizard'}; you check each message here and approve it in your own Dash-Qt.
               </p>
             ) : !session ? (
-              <p data-testid="form-signed-out">
-                <b>Are you in this group?</b> Sign in to see your row and what to do next.{' '}
+              <p className="form-signin" data-testid="form-signed-out">
+                <span>
+                  <b>Are you in this group?</b> Sign in to see your row and what to do next.
+                </span>{' '}
                 <button type="button" className="btn btn-s btn-primary" onClick={openSignIn}>
                   Sign in
                 </button>

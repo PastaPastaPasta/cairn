@@ -73,10 +73,10 @@
   grid-template-columns: auto minmax(0, 1fr);
   gap: var(--s-4);
   align-items: start;
-  padding: var(--s-5);
+  padding: var(--card-pad);
   border-radius: var(--radius-l);
   border: 1px solid var(--line);
-  border-left-width: 6px;
+  border-left-width: 4px;
   background: var(--surface);
   margin-bottom: var(--s-5);
 }
@@ -190,10 +190,10 @@
   color: var(--fail);
 }
 .finding-detail {
-  border: 0;
   padding: 0;
 }
 .finding-detail summary {
+  min-height: 1.75rem;
   font-size: var(--t-xs);
   font-weight: 500;
   color: var(--ink-3);
@@ -239,6 +239,12 @@
 .technical {
   margin: var(--s-3) 0;
 }
+.technical:last-child {
+  margin-bottom: 0;
+}
+.reg-card > .technical:last-child {
+  padding-bottom: 0;
+}
 .technical > summary {
   color: var(--ink-2);
 }
@@ -270,7 +276,7 @@
 
 /* ---- checker ------------------------------------------------------------------------------------------------------------------- */
 .checker {
-  padding: var(--s-5);
+  padding: var(--card-pad);
   border-radius: var(--radius-l);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -447,12 +453,6 @@
   }
 }
 @media (max-width: 620px) {
-  .group-tabs a {
-    padding: var(--s-2) var(--s-3);
-  }
-  .checker {
-    padding: var(--s-4);
-  }
   .checker-me {
     grid-template-columns: 1fr;
   }
@@ -460,7 +460,6 @@
     grid-template-columns: 1fr;
   }
   .verdict {
-    padding: var(--s-4);
     gap: var(--s-3);
   }
   .verdict-icon {
@@ -494,10 +493,29 @@
   border-bottom-color: var(--ochre);
 }
 .group-tabs .tab-later {
+  position: relative;
+  flex: none;
+  white-space: nowrap;
   padding: var(--s-2) var(--s-4);
+  border-bottom: 3px solid transparent;
   color: var(--ink-3);
   font-weight: 600;
   cursor: default;
+}
+@media (max-width: 620px) {
+  .group-tabs a,
+  .group-tabs .tab-later {
+    padding: var(--s-2) var(--s-3);
+  }
+  /* the reason stays for screen readers */
+  .tab-note {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }
 .not-ready ul {
   margin-bottom: var(--s-4);
@@ -556,6 +574,15 @@
 .form-role p {
   margin: 0;
   max-width: 46ch;
+}
+.form-role > .form-signin {
+  max-width: none;
+}
+.form-signin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
 }
 .role-switch {
   display: flex;
@@ -708,7 +735,7 @@
   position: relative;
   z-index: 1;
   margin: 0 0 var(--s-5) calc(var(--mark) + var(--s-3));
-  padding: var(--s-5);
+  padding: var(--card-pad);
   border-radius: var(--radius-l);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -716,9 +743,6 @@
 .is-current .trail-body,
 .is-in-qt .trail-body {
   border-color: color-mix(in srgb, var(--ochre) 45%, var(--line));
-}
-.trail-body > :last-child {
-  margin-bottom: 0;
 }
 .trail-facts,
 .trail-list {
@@ -848,8 +872,7 @@
     margin-top: 0.3rem;
   }
   .trail-body {
-    margin-left: 0;
-    padding: var(--s-4);
+    margin-left: calc(var(--mark) + var(--s-2));
   }
   .setup-page {
     padding-left: 2.6rem;
@@ -861,10 +884,13 @@
 }
 .never {
   max-width: 46rem;
-  padding: var(--s-5);
+  padding: var(--card-pad);
   border-radius: var(--radius-l);
   background: var(--surface);
   border: 1px solid var(--line);
+}
+.never .crosses li {
+  max-width: none;
 }
 .never h2 {
   font-size: var(--t-xl);
@@ -894,16 +920,16 @@
 
 /* ---- registration -------------------------------------------------------------------------------------------------------------- */
 .reg-card {
-  padding: var(--s-5);
+  padding: var(--card-pad);
   border-radius: var(--radius-l);
   background: var(--surface);
   border: 1px solid var(--line);
-  border-left: 6px solid var(--slate);
+  border-left: 4px solid var(--slate);
   margin-bottom: var(--s-4);
 }
 .reg-headline {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--s-3);
   font-family: var(--font-display);
   font-size: clamp(1.5rem, 1.2rem + 1.2vw, var(--t-2xl));
@@ -918,6 +944,7 @@
   border-radius: 48% 52% 45% 55% / 55% 50% 50% 45%;
   background: var(--slate);
   flex: none;
+  margin-top: 0.2em;
 }
 .reg-ok {
   border-left-color: var(--pass-fill);
@@ -945,10 +972,6 @@
 .reg-stop .reg-dot {
   background: var(--fail-fill);
 }
-.reg-card .technical {
-  border-bottom: 0;
-  padding-bottom: 0;
-}
 .reg-detail {
   color: var(--ink-2);
 }
@@ -966,7 +989,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--s-4);
-  align-items: start;
+  align-items: stretch;
   margin-bottom: var(--s-5);
 }
 .live-hero .reg-card {
@@ -978,13 +1001,16 @@
   grid-template-columns: 1fr;
 }
 .live-mn {
-  padding: var(--s-5);
+  padding: var(--card-pad);
   border-radius: var(--radius-l);
   background: var(--surface);
   border: 1px solid var(--line);
 }
 .live-mn p {
   margin-bottom: var(--s-2);
+}
+.live-mn > p:last-child {
+  margin-bottom: 0;
 }
 .live-mn-label {
   text-transform: uppercase;
@@ -993,7 +1019,7 @@
 }
 .live-mn-state {
   font-family: var(--font-display);
-  font-size: var(--t-2xl);
+  font-size: clamp(1.5rem, 1.2rem + 1.2vw, var(--t-2xl));
   font-weight: 700;
   line-height: 1.1;
 }
@@ -1033,6 +1059,12 @@
   font-weight: 650;
   margin-bottom: var(--s-1) !important;
 }
+.live-fact-value .break {
+  font-size: var(--t-s);
+  font-weight: 400;
+  word-break: break-all;
+  line-height: 1.5;
+}
 .live-fact .copy-btn {
   margin-top: var(--s-1);
 }
@@ -1061,10 +1093,12 @@
   flex-wrap: wrap;
   gap: var(--s-3);
   align-items: center;
+  max-width: 45rem;
   margin-bottom: var(--s-7);
 }
 .live-links p {
-  flex-basis: 100%;
+  flex: 0 0 100%;
+  max-width: none;
   margin: 0;
 }
 .howto {
@@ -1095,7 +1129,7 @@
 
 /* ---- track record -------------------------------------------------------------------------------------------------------------- */
 .track-record {
-  padding: var(--s-5);
+  padding: var(--card-pad);
   border-radius: var(--radius-l);
   background: var(--surface);
   border: 1px solid var(--line);

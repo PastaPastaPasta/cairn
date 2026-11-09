@@ -15,6 +15,7 @@ const VENDORED_OVERRIDES = new Set([
   'btn',
   'btn-l',
   'btn-primary',
+  'btn-quiet',
   'btn-s',
   'form',
   'form-actions',
@@ -83,19 +84,41 @@ function outline(css: string): { rules: CssRule[]; errors: string[] } {
   return { rules, errors };
 }
 
-/** The classes a rule's selectors start with (`.facts dt, .x > .y` → facts, x). */
-const rootClasses = (selector: string) =>
-  selector.split(',').flatMap((sel) => /^\s*\.([a-zA-Z][\w-]*)(?=[\s.:>+~[]|$)/.exec(sel)?.[1] ?? []);
+/** The selectors of a list, split at its top-level commas only (`:is(.a, .b) p, .c` → `:is(.a, .b) p`, `.c`). */
+function selectorList(selector: string): string[] {
+  const out = [''];
+  let depth = 0;
+  for (const ch of selector) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    if (ch === ',' && depth === 0) out.push('');
+    else out[out.length - 1] += ch;
+  }
+  return out;
+}
+
+/** The classes a rule's selectors start with (`.facts dt, .x > .y` → facts, x; `:is(.a, .b) p` → a, b). A selector that starts with
+ *  `:where(…)` is a zero-specificity default that any sheet overrides, so it claims no class. */
+const rootClasses = (selector: string): string[] =>
+  selectorList(selector).flatMap((sel) => {
+    const s = sel.trim();
+    if (s.startsWith(':where(')) return [];
+    const is = /^:is\(([^()]*)\)/.exec(s);
+    if (is) return rootClasses(is[1]!);
+    return /^\.([a-zA-Z][\w-]*)(?=[\s.:>+~[]|$)/.exec(s)?.[1] ?? [];
+  });
 
 describe('stylesheets', () => {
   it('reads rules, their at-rules and structural errors', () => {
-    const ok = outline('/* { */ .a dt, .b > .c { content: "}"; } @media (max-width: 1px) { .d:hover { y: 2 } } @keyframes k { to { z: 3 } }');
+    const ok = outline('/* { */ .a dt, .b > .c { content: "}"; } @media (max-width: 1px) { .d:hover { y: 2 } } @keyframes k { to { z: 3 } } :where(.e, .f) > p, .g { w: 4 } :is(.h, .i) p { v: 5 }');
     expect(ok.errors).toEqual([]);
     expect(ok.rules.map((r) => [r.selector, r.context])).toEqual([
       ['.a dt, .b > .c', []],
       ['.d:hover', ['@media (max-width: 1px)']],
+      [':where(.e, .f) > p, .g', []],
+      [':is(.h, .i) p', []],
     ]);
-    expect(ok.rules.flatMap((r) => rootClasses(r.selector))).toEqual(['a', 'b', 'd']);
+    expect(ok.rules.flatMap((r) => rootClasses(r.selector))).toEqual(['a', 'b', 'd', 'g', 'h', 'i']);
     expect(outline('.a {\n  color: red;\n.b { x: 1 }').errors).toEqual([
       'line 3: ".b" is nested inside ".a" (line 1); is a } missing?',
       'line 1: ".a" is never closed',

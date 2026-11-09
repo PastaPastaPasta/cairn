@@ -115,7 +115,7 @@
   font-size: var(--t-xl);
 }
 .side-card {
-  padding: var(--s-5);
+  padding: var(--card-pad);
   border-radius: var(--radius-l);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -370,27 +370,38 @@ input[inputmode='numeric'] {
 
 /* ---- list filters ---------------------------------------------------------------------------- */
 .filters {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
   gap: var(--s-3) var(--s-4);
-  align-items: start;
-  padding: var(--s-4);
+  padding: var(--card-pad);
   border: 1px solid var(--line);
   border-radius: var(--radius-l);
   background: var(--surface);
   margin-bottom: var(--s-4);
 }
+.filters > .field {
+  flex: 1 1 12rem;
+  max-width: 16rem;
+}
 .filters .unit-input {
   max-width: none;
 }
 .filter-check {
-  align-self: center;
-  margin-top: 1.6rem;
+  min-height: 2.75rem;
+  align-items: center;
+  margin: 0;
+  white-space: nowrap;
+}
+.filter-check input {
+  margin-top: 0;
 }
 .row-side {
-  display: grid;
-  justify-items: end;
-  gap: var(--s-1);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
 }
 .row-tags {
   margin: var(--s-2) 0 0;
@@ -399,7 +410,6 @@ input[inputmode='numeric'] {
   margin: var(--s-2) 0 0;
   color: var(--ink-2);
 }
-.row-looking,
 .row-operator {
   grid-template-columns: minmax(0, 1fr) auto;
 }
@@ -429,8 +439,14 @@ input[inputmode='numeric'] {
   color: var(--ink-3);
 }
 @media (max-width: 640px) {
+  .row-operator {
+    grid-template-columns: 1fr;
+  }
   .row-side {
-    justify-items: start;
+    justify-content: flex-start;
+  }
+  .filters > .field {
+    max-width: none;
   }
 }
 
@@ -527,8 +543,7 @@ input[inputmode='numeric'] {
 .combo-sum b {
   margin-left: 0.15rem;
 }
-.fit-person,
-.request-row {
+.fit-person {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -536,73 +551,120 @@ input[inputmode='numeric'] {
   padding: var(--s-3) 0;
   border-bottom: 1px solid var(--line);
 }
-.fit-person:last-child,
-.request-row:last-child {
+.fit-person:last-child {
   border-bottom: 0;
+}
+.requests,
+.fit-people {
+  gap: 0;
 }
 .request-row p {
   margin: var(--s-1) 0;
 }
 @media (max-width: 520px) {
-  .fit-person,
-  .request-row {
+  .fit-person {
     flex-direction: column;
   }
 }
 
 /* ---- the group page -------------------------------------------------------------------------- */
-.group-meta {
+.group-meta,
+.meta-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--s-2) var(--s-3);
   margin: 0;
 }
-.group-meta .state {
+.group-meta .state,
+.meta-row .state {
   font-size: var(--t-s);
   padding: 0.2rem 0.75rem;
 }
+/* the next step and everything under it in one column, the cairn beside both and staying in view */
 .group-top {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(14rem, 1fr);
-  gap: var(--s-6);
+  grid-template-columns: minmax(0, 1fr) minmax(14rem, 17rem);
+  grid-template-areas:
+    'next cairn'
+    'main cairn';
+  gap: var(--s-7);
   align-items: start;
 }
+.group-top:not(:has(> .next-steps)) {
+  grid-template-areas: 'main cairn';
+}
+.group-top > .next-steps {
+  grid-area: next;
+}
+.group-top > .group-main {
+  grid-area: main;
+}
 .group-cairn {
-  justify-self: center;
-  width: min(100%, 300px);
+  grid-area: cairn;
+  position: sticky;
+  top: 5.5rem;
+  max-height: calc(100vh - 6.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* room for the "mine" outline and stone edges, which the scroll box would clip */
+  margin: calc(-1 * var(--s-1));
+  padding: var(--s-1);
+  justify-self: stretch;
+}
+.group-cairn .cairn-svg {
+  max-width: 200px;
+}
+/* a narrow column: each stone's state goes under its name */
+.group-cairn .cairn-key {
+  grid-template-columns: 0.9rem minmax(0, 1fr) auto;
+  row-gap: 0;
+}
+.group-cairn .cairn-key-state {
+  grid-column: 2 / -1;
 }
 .group-main {
   max-width: 52rem;
 }
+.group-main > :first-child {
+  margin-top: 0;
+}
 @media (max-width: 820px) {
   .group-top {
-    grid-template-columns: 1fr;
-    gap: var(--s-5);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'next'
+      'cairn'
+      'main';
+    row-gap: var(--s-6);
   }
-  /* beside its words, so the roster and terms stay near the top on a phone */
+  .group-top:not(:has(> .next-steps)) {
+    grid-template-areas:
+      'cairn'
+      'main';
+  }
   .group-cairn {
-    justify-self: stretch;
-    width: 100%;
+    position: static;
+    max-height: none;
+    overflow: visible;
   }
+  /* compact on a phone: the drawing beside its caption and legend */
   .group-cairn .cairn-stack {
     display: grid;
-    grid-template-columns: 6.5rem minmax(0, 1fr);
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    grid-template-rows: 1fr auto;
     gap: var(--s-2) var(--s-4);
     align-items: end;
   }
   .group-cairn .cairn-svg {
-    grid-row: span 2;
+    grid-row: 1 / span 2;
+    max-width: none;
   }
   .group-cairn .cairn-cap {
     margin-top: 0;
   }
-  .group-cairn .cairn-key {
-    grid-template-columns: 0.9rem minmax(0, 1fr) auto;
-    row-gap: 0;
-  }
-  .group-cairn .cairn-key-state {
-    grid-column: 2 / -1;
+  .group-cairn .stone-open-label {
+    display: none;
   }
 }
 .next-steps {
@@ -610,14 +672,17 @@ input[inputmode='numeric'] {
   gap: var(--s-4);
 }
 .next-step {
-  padding: var(--s-5);
+  padding: var(--card-pad);
   border-radius: var(--radius-l);
   border: 1px solid var(--line);
-  border-left: 5px solid var(--line-strong);
+  border-left: 4px solid var(--line-strong);
   background: var(--surface);
 }
 .next-step p {
   margin-bottom: var(--s-3);
+}
+.next-step > p:last-child {
+  margin-bottom: 0;
 }
 .next-todo {
   border-left-color: var(--ochre);
@@ -701,6 +766,9 @@ input[inputmode='numeric'] {
     grid-column: 1 / -1;
     justify-content: flex-start;
   }
+  .roster-row > :empty {
+    display: none;
+  }
 }
 .contacts-inline {
   list-style: none;
@@ -745,7 +813,7 @@ input[inputmode='numeric'] {
   }
 }
 .tool {
-  padding: var(--s-5);
+  padding: var(--card-pad);
   border: 1px solid var(--line);
   border-radius: var(--radius-l);
   background: var(--surface);
@@ -766,7 +834,7 @@ input[inputmode='numeric'] {
   color: var(--ink-2);
 }
 .term-sheet {
-  padding: var(--s-5);
+  padding: var(--card-pad);
   border: 2px solid var(--line-strong);
   border-radius: var(--radius-l);
   background: var(--surface);
@@ -836,6 +904,29 @@ input[inputmode='numeric'] {
     border: 0;
     padding: 0.1rem var(--s-2);
   }
+  .sheet-table td:nth-child(2) {
+    order: -2;
+    font-weight: 600;
+  }
+  .sheet-table td:nth-child(3) {
+    order: -1;
+    text-align: right;
+  }
+  .sheet-table td:nth-child(1) {
+    font-size: var(--t-xs);
+    color: var(--ink-3);
+  }
+  .sheet-table td:nth-child(4) {
+    text-align: right;
+  }
+  /* the cells are reordered, so the "mine" marker goes on the row */
+  .sheet-table tr.mine {
+    background: var(--mine-wash);
+    box-shadow: inset 3px 0 0 var(--ochre);
+  }
+  .sheet-table tr.mine td:first-child {
+    box-shadow: none;
+  }
 }
 .tech {
   margin: var(--s-3) 0;
@@ -877,6 +968,7 @@ input[inputmode='numeric'] {
   gap: var(--s-3);
 }
 .ready-banner p {
+  flex: 1 1 20rem;
   margin: 0;
   color: var(--ink);
 }
@@ -1015,6 +1107,7 @@ input[inputmode='numeric'] {
 }
 .good-to-know {
   max-width: 52rem;
+  margin: 0 0 var(--s-7);
 }
 .activation-line {
   margin-top: var(--s-6);
@@ -1022,7 +1115,7 @@ input[inputmode='numeric'] {
 
 /* ---- /groups: one question first, then where the answer fits ---------------------------------- */
 .ask-bar {
-  padding: var(--s-5);
+  padding: var(--card-pad);
   margin-bottom: var(--s-6);
   border-radius: var(--radius-l);
   background: var(--surface);
@@ -1052,8 +1145,8 @@ input[inputmode='numeric'] {
   gap: var(--s-2);
 }
 .amount-chip {
-  min-height: 2.25rem;
-  padding: 0.25rem 0.8rem;
+  min-height: 2.75rem;
+  padding: 0 var(--s-4);
   border-radius: 999px;
   border: 1px solid var(--line-strong);
   background: var(--paper);
@@ -1114,7 +1207,7 @@ input[inputmode='numeric'] {
 }
 .start-card {
   margin-top: var(--s-5);
-  padding: var(--s-5);
+  padding: var(--card-pad);
   border-radius: var(--radius-l);
   border: 1px dashed var(--line-strong);
   background: var(--surface);
@@ -1185,11 +1278,16 @@ input[inputmode='numeric'] {
 .close-started p:last-child {
   margin-bottom: 0;
 }
-@media (max-width: 640px) {
-  .ask-bar,
-  .start-card {
-    padding: var(--s-4);
+@media (min-width: 641px) {
+  .start-card > :not(.start-head) {
+    margin-left: calc(10rem + var(--s-4));
   }
+  .start-terms {
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    max-width: 46rem;
+  }
+}
+@media (max-width: 640px) {
   .fit-join {
     grid-template-columns: 1fr;
   }

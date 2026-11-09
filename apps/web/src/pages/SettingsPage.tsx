@@ -77,11 +77,11 @@ export function SettingsPage() {
             </button>
           </div>
         ) : (
-          <p>
+          <div className="form-actions">
             <button type="button" className="btn" onClick={openSignIn} disabled={!registry.contractId}>
               Sign in or create an account
             </button>
-          </p>
+          </div>
         )}
       </section>
       <HiddenProfiles />

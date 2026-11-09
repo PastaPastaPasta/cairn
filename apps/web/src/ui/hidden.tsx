@@ -108,7 +108,7 @@ export function HiddenProfiles() {
   return (
     <section className="settings-block" id="hidden" aria-labelledby="hidden-title" data-testid="hidden-profiles">
       <h2 id="hidden-title">Hidden profiles</h2>
-      <p className="muted">
+      <p className="small muted">
         Hide someone from their profile, a list or a seat request, and Cairn stops showing their posts and listings and stops suggesting them, in this browser only.
         Nobody is told. To report someone, tell their group in its chat: Cairn has no central moderation.
       </p>

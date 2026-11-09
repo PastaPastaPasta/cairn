@@ -177,24 +177,24 @@ function GroupBody({ bundle, reload, refreshing, updated }: { bundle: GroupBundl
         <div className="group-cairn">
           <CairnStack stones={stonesOf(view, me, nameOf)} closed={view.closed} />
         </div>
-      </div>
-      <div className="group-main">
-        <Roster view={view} people={people} me={me} ops={ops} done={reload} frozen={formed} />
-        {view.locked ? <TermSheetSection view={view} people={people} me={me} ops={ops} done={reload} formed={formed} /> : <Terms view={view} people={people} me={me} />}
-        {organizer && !view.closed && (
-          <>
-            {view.remaining > 0 && !view.locked && <InviteSection view={view} people={people} ops={ops} done={reload} />}
-            {!view.operatorLed && !view.locked && <OperatorSection view={view} people={people} ops={ops} done={reload} />}
-            {(view.full || view.locked) && !forming && <LockSection view={view} people={people} ops={ops} done={reload} />}
-            <EditTerms view={view} ops={ops} done={reload} frozen={formed} />
-          </>
-        )}
-        {me && stage === 'dissolved' && g.roster.some((r) => r.id === me) && <RefillPanel view={view} people={people} me={me} />}
-        {view.locked && !view.ready && !forming && inGroup && (
-          <p className="small muted form-link" data-testid="form-blocker">
-            Not ready to form yet. {view.waitingFor[0] ?? ''} <Link to={`/g/${g.id}/form`}>How forming works →</Link>
-          </p>
-        )}
+        <div className="group-main">
+          <Roster view={view} people={people} me={me} ops={ops} done={reload} frozen={formed} />
+          {view.locked ? <TermSheetSection view={view} people={people} me={me} ops={ops} done={reload} formed={formed} /> : <Terms view={view} people={people} me={me} />}
+          {organizer && !view.closed && (
+            <>
+              {view.remaining > 0 && !view.locked && <InviteSection view={view} people={people} ops={ops} done={reload} />}
+              {!view.operatorLed && !view.locked && <OperatorSection view={view} people={people} ops={ops} done={reload} />}
+              {(view.full || view.locked) && !forming && <LockSection view={view} people={people} ops={ops} done={reload} />}
+              <EditTerms view={view} ops={ops} done={reload} frozen={formed} />
+            </>
+          )}
+          {me && stage === 'dissolved' && g.roster.some((r) => r.id === me) && <RefillPanel view={view} people={people} me={me} />}
+          {view.locked && !view.ready && !forming && inGroup && (
+            <p className="small muted form-link" data-testid="form-blocker">
+              Not ready to form yet. {view.waitingFor[0] ?? ''} <Link to={`/g/${g.id}/form`}>How forming works →</Link>
+            </p>
+          )}
+        </div>
       </div>
     </>
   );

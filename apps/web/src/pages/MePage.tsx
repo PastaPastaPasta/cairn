@@ -46,7 +46,7 @@ export default function MePage() {
     return (
       <div className="page">
         <PageHead title="My Cairn" lede="Your groups, seats, invitations, approvals, your operator listing and your profile live here once you sign in." />
-        <div className="soon">
+        <div className="soon soon-solo">
           <p>
             <b>Sign in to see your groups and make your profile.</b> Browsing needs no account. A profile lets groups and operators know who you are and how to reach you.
           </p>

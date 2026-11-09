@@ -24,9 +24,9 @@ const LINKS: Partial<Record<keyof Contacts, (h: string) => string | null>> = {
 };
 const LABEL: Record<keyof Contacts, string> = { discord: 'Discord', yappr: 'Yappr', telegram: 'Telegram', matrix: 'Matrix', dashpay: 'DashPay', website: 'Website' };
 
-export function ContactList({ contacts }: { contacts: Contacts }) {
+export function ContactList({ contacts, emptyClass = 'small muted' }: { contacts: Contacts; emptyClass?: string }) {
   const entries = (Object.keys(LABEL) as Array<keyof Contacts>).filter((k) => contacts[k]);
-  if (!entries.length) return <span className="small muted">No public contact</span>;
+  if (!entries.length) return <span className={emptyClass}>No public contact</span>;
   return (
     <ul className="contacts-inline">
       {entries.map((k) => {

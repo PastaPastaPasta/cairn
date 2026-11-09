@@ -130,13 +130,13 @@ function Requests({ view, people, organizer, ops, done, me }: { view: GroupView;
     done();
   });
   const list = (rows: typeof view.requests) => (
-    <ul className="requests">
+    <ul className="roster requests">
       {rows.map((r) => {
         const offers = seatOffers(r.seat.flags);
         return (
-          <li key={r.seat.id} className="request-row" data-testid="request">
-            <div>
-              <PersonName id={r.seat.ownerId} person={people.get(r.seat.ownerId)} you={r.seat.ownerId === me} /> <span className="num">{dash(r.seat.amount)}</span>
+          <li key={r.seat.id} className="roster-row request-row" data-testid="request">
+            <div className="roster-who">
+              <PersonName id={r.seat.ownerId} person={people.get(r.seat.ownerId)} you={r.seat.ownerId === me} />
               {r.invite?.status === OPEN && <span className="role-tag">invited</span>}
               {r.seat.message && <p className="quote small">{r.seat.message}</p>}
               <p className="small muted">
@@ -145,19 +145,23 @@ function Requests({ view, people, organizer, ops, done, me }: { view: GroupView;
               </p>
               {people.get(r.seat.ownerId)?.profile && <ContactList contacts={people.get(r.seat.ownerId)!.profile!.contacts} />}
             </div>
-            {r.seat.ownerId !== me && !hiddenList.has(r.seat.ownerId) && <HideButton id={r.seat.ownerId} name={people.get(r.seat.ownerId)?.name} hidden={hiddenList} />}
-            {organizer && !view.closed && (
-              <div className="form-actions">
-                <button type="button" className="btn btn-s btn-primary" disabled={busy || !r.fit.ok} onClick={() => act(() => ops.group(acceptSeat(g, r.seat)))} data-testid="request-accept">
-                  Add to roster
-                </button>
-                {!r.declined && (
-                  <button type="button" className="btn btn-s" disabled={busy} onClick={() => act(() => ops.invite(r.seat.ownerId, r.seat.amount, WITHDRAWN, 'Request declined'))} data-testid="request-decline">
-                    Decline
+            <div className="roster-amount num">{dash(r.seat.amount)}</div>
+            <div />
+            <div className="roster-actions">
+              {r.seat.ownerId !== me && !hiddenList.has(r.seat.ownerId) && <HideButton id={r.seat.ownerId} name={people.get(r.seat.ownerId)?.name} hidden={hiddenList} />}
+              {organizer && !view.closed && (
+                <>
+                  <button type="button" className="btn btn-s btn-primary" disabled={busy || !r.fit.ok} onClick={() => act(() => ops.group(acceptSeat(g, r.seat)))} data-testid="request-accept">
+                    Add to roster
                   </button>
-                )}
-              </div>
-            )}
+                  {!r.declined && (
+                    <button type="button" className="btn btn-s" disabled={busy} onClick={() => act(() => ops.invite(r.seat.ownerId, r.seat.amount, WITHDRAWN, 'Request declined'))} data-testid="request-decline">
+                      Decline
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </li>
         );
       })}

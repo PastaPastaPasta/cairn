@@ -121,7 +121,7 @@ function LiveRegistration({ j, view, agreement }: { j: RegistrationJudgement; vi
           <div className="live-mn" data-testid="mn-state" data-state={j.mnState}>
             <p className="live-mn-label small muted">Rewards</p>
             <p className={`live-mn-state mn-${mnTone}`}>{MN_HEADLINE[j.mnState]}</p>
-            <p className="small">{j.mnText}</p>
+            <p>{j.mnText}</p>
           </div>
         )}
         <RegistrationCard j={j}>
@@ -160,7 +160,7 @@ function LiveRegistration({ j, view, agreement }: { j: RegistrationJudgement; vi
           {coOwner || runsIt ? (
             <Maintenance j={j} early={earlyView(f.height, terms.earlyPeriodBlocks, f.tip)} hasPenalty={terms.earlyPenalty > 0n} service={terms.service} network={terms.network} coOwner={coOwner} />
           ) : (
-            <p className="small muted" data-testid="maintenance-note">
+            <p className="small muted form-section" data-testid="maintenance-note">
               How-tos for looking after this masternode (saving a standby exit, changing a reward address, leaving) are shown to its co-owners and operator when they sign in.
             </p>
           )}
